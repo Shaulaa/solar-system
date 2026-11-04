@@ -74,6 +74,10 @@ export function createStars(count = 9000) {
 
   return {
     points,
+    // Ukuran titik bintang ikut pixel ratio, jadi harus di-update kalau pixel ratio diturunin
+    setPixelRatio(ratio) {
+      material.uniforms.uPixelRatio.value = ratio;
+    },
     update(elapsed) {
       material.uniforms.uTime.value = elapsed;
     }

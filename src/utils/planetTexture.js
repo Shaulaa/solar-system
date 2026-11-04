@@ -88,25 +88,26 @@ const shaders = {
   }
 };
 
-export function createPlanetTexture(look, seed = 1) {
+// width / height bisa dikecilin buat benda kecil (bulan), biar generate-nya gak makan waktu startup
+export function createPlanetTexture(look, seed = 1, { width = W, height = H } = {}) {
   const canvas = document.createElement('canvas');
-  canvas.width = W;
-  canvas.height = H;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext('2d');
-  const img = ctx.createImageData(W, H);
+  const img = ctx.createImageData(width, height);
   const colors = look.colors.map(hexToRgb);
   const shade = shaders[look.type] ?? shaders.rocky;
 
-  for (let py = 0; py < H; py++) {
-    const lat = (py / (H - 1)) * Math.PI;
+  for (let py = 0; py < height; py++) {
+    const lat = (py / (height - 1)) * Math.PI;
     const sinLat = Math.sin(lat);
     const y = Math.cos(lat);
-    for (let px = 0; px < W; px++) {
-      const lon = (px / W) * Math.PI * 2;
+    for (let px = 0; px < width; px++) {
+      const lon = (px / width) * Math.PI * 2;
       const x = sinLat * Math.cos(lon);
       const z = sinLat * Math.sin(lon);
       const [r, g, b] = shade(x, y, z, colors, seed);
-      const i = (py * W + px) * 4;
+      const i = (py * width + px) * 4;
       img.data[i] = r;
       img.data[i + 1] = g;
       img.data[i + 2] = b;

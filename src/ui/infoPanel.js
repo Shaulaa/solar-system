@@ -7,7 +7,10 @@ import gsap from 'gsap';
 const MOBILE_QUERY = '(max-width: 767px)';
 // Kira kira seberapa jauh framing kamera digeser ke atas waktu bottom sheet kebuka,
 // biar planet yang difokus pas di area yang gak ketutup sheet (sheet tingginya maks 55vh)
-const SHEET_VIEW_SHIFT = 0.22;
+const SHEET_VIEW_SHIFT = 0.2;
+// Bottom sheet ditutup kalau ditarik turun sejauh ini (px) atau dilepas dengan kecepatan segini (px/ms)
+const SWIPE_CLOSE_DISTANCE = 90;
+const SWIPE_CLOSE_VELOCITY = 0.6;
 const KM_PER_AU_MILLION = 149.6;
 const DAYS_PER_YEAR = 365.25;
 
@@ -36,7 +39,8 @@ function formatDistance(au) {
 function getStats(body) {
   const { data, kind } = body;
   const info = data.info ?? {};
-  const isPlanet = kind === 'planet';
+  // Planet katai ngorbit Matahari juga, jadi datanya ditampilkan sama kayak planet
+  const isPlanet = kind === 'planet' || kind === 'dwarf';
 
   return [
     ['Diameter', info.diameter],
@@ -58,7 +62,7 @@ function getSubtitle(body) {
   return body.data.subtitle ?? `Planet ke ${body.index + 1} dari Matahari`;
 }
 
-export function createInfoPanel({ onBack, onPrev, onNext }) {
+export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose }) {
   const panel = document.getElementById('info-panel');
   const title = document.getElementById('info-title');
   const subtitle = document.getElementById('info-subtitle');
@@ -71,6 +75,41 @@ export function createInfoPanel({ onBack, onPrev, onNext }) {
   const isMobile = () => window.matchMedia(MOBILE_QUERY).matches;
   // Arah masuk keluar panel beda antara desktop (geser dari kanan) dan mobile (naik dari bawah)
   const hiddenPose = () => (isMobile() ? { x: 0, yPercent: 100 } : { x: 48, yPercent: 0 });
+
+  // Swipe turun buat nutup bottom sheet (cuma di layout HP).
+  // Area tarik cuma pegangan dan judul, bukan seluruh panel, biar isi panel yang panjang
+  // tetap bisa di-scroll normal pakai jari
+  let drag = null;
+
+  panel.addEventListener('pointerdown', (event) => {
+    if (!open || !isMobile() || !event.target.closest('.sheet-handle, .info-header')) return;
+    drag = { id: event.pointerId, startY: event.clientY, lastY: event.clientY, lastTime: event.timeStamp, velocity: 0 };
+    panel.setPointerCapture(event.pointerId);
+    gsap.killTweensOf(panel, 'y');
+  });
+
+  panel.addEventListener('pointermove', (event) => {
+    if (!drag || event.pointerId !== drag.id) return;
+    const dt = Math.max(1, event.timeStamp - drag.lastTime);
+    drag.velocity = (event.clientY - drag.lastY) / dt;
+    drag.lastY = event.clientY;
+    drag.lastTime = event.timeStamp;
+    // Ke atas ditahan (cuma bisa ditarik turun), dikasih efek karet sedikit
+    const offset = event.clientY - drag.startY;
+    gsap.set(panel, { y: offset > 0 ? offset : offset * 0.15 });
+  });
+
+  function endDrag(event) {
+    if (!drag || event.pointerId !== drag.id) return;
+    const offset = event.clientY - drag.startY;
+    const { velocity } = drag;
+    drag = null;
+    if (offset > SWIPE_CLOSE_DISTANCE || velocity > SWIPE_CLOSE_VELOCITY) onSwipeClose?.();
+    else gsap.to(panel, { y: 0, duration: 0.35, ease: 'power3.out' });
+  }
+
+  panel.addEventListener('pointerup', endDrag);
+  panel.addEventListener('pointercancel', endDrag);
 
   panel.addEventListener('click', (event) => {
     const action = event.target.closest('[data-action]')?.dataset.action;
@@ -130,15 +169,15 @@ export function createInfoPanel({ onBack, onPrev, onNext }) {
       panel.hidden = false;
       gsap.fromTo(
         panel,
-        { opacity: 0, ...hiddenPose() },
-        { opacity: 1, x: 0, yPercent: 0, duration: 0.7, ease: 'power3.out' }
+        { opacity: 0, y: 0, ...hiddenPose() },
+        { opacity: 1, x: 0, y: 0, yPercent: 0, duration: 0.7, ease: 'power3.out' }
       );
       staggerIn();
       return;
     }
 
     // Panel sudah kebuka (pindah planet): cukup isinya yang ganti, panelnya diam
-    gsap.to(panel, { opacity: 1, x: 0, yPercent: 0, duration: 0.3 });
+    gsap.to(panel, { opacity: 1, x: 0, y: 0, yPercent: 0, duration: 0.3 });
     gsap.to(animatedItems(), {
       opacity: 0,
       y: -6,
@@ -170,9 +209,15 @@ export function createInfoPanel({ onBack, onPrev, onNext }) {
   return {
     show,
     hide,
-    // Berapa framing kamera perlu digeser biar gak ketutup panel. Desktop 0 karena panel di samping
+    // Seberapa jauh framing kamera perlu digeser biar benda yang difokus gak ketutup panel.
+    // HP: naik ke atas bottom sheet. Desktop: geser ke kiri setengah lebar panel (plus jarak tepinya),
+    // jadi benda ada di tengah area yang masih kelihatan. Kerasa banget di laptop layar sempit
     get viewShift() {
-      return open && isMobile() ? SHEET_VIEW_SHIFT : 0;
+      if (!open) return { x: 0, y: 0 };
+      if (isMobile()) return { x: 0, y: SHEET_VIEW_SHIFT };
+      // offsetLeft (bukan getBoundingClientRect) karena gak kena transform animasi slide masuk
+      const covered = window.innerWidth - panel.offsetLeft;
+      return { x: covered / 2 / window.innerWidth, y: 0 };
     },
     get isOpen() {
       return open;

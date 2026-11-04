@@ -4,6 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tata Surya Interaktif</title>
+    <meta
+      name="description"
+      content="Jelajahi tata surya 3D langsung di browser. Klik planet, ikuti tur otomatis, dan bandingkan skala asli jarak antar planet."
+    />
+    <meta name="theme-color" content="#010104" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Open Graph. Ganti og:url dan og:image jadi alamat lengkap setelah di-deploy (lihat README) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Tata Surya Interaktif" />
+    <meta
+      property="og:description"
+      content="Jelajahi tata surya 3D langsung di browser. Klik planet, ikuti tur otomatis, dan bandingkan skala asli jarak antar planet."
+    />
+    <meta property="og:image" content="/og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="id_ID" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -59,10 +78,89 @@
       <button class="tb-btn" type="button" data-action="scale" aria-pressed="false" aria-label="Skala nyata" data-tooltip="Skala nyata (S)">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15.5 15.5 3 21 8.5 8.5 21z" /><path d="m7 12 2 2M10 9l2 2M13 6l2 2" /></svg>
       </button>
-      <button class="tb-btn" type="button" data-action="tour" disabled aria-label="Tur otomatis, belum tersedia" data-tooltip="Tur otomatis (segera hadir)">
+      <button class="tb-btn" type="button" data-action="tour" aria-pressed="false" aria-label="Tur otomatis" data-tooltip="Tur otomatis (T)">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2 5-5 2 2-5z" /></svg>
       </button>
+
+      <span class="tb-sep" aria-hidden="true"></span>
+
+      <button class="tb-btn" type="button" data-action="search" aria-label="Cari planet atau bulan" data-tooltip="Cari (/ atau Ctrl+K)">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 5 5" /></svg>
+      </button>
+      <button class="tb-btn" type="button" data-action="about" aria-label="Tentang project ini" data-tooltip="Tentang (?)">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6" /><circle class="icon-fill" cx="12" cy="7.6" r="1.1" /></svg>
+      </button>
     </div>
+
+    <!-- Narasi tur otomatis -->
+    <div class="narration" id="narration" hidden>
+      <p class="narration-step" id="narration-step"></p>
+      <p class="narration-text" id="narration-text" aria-live="polite"></p>
+      <button class="narration-stop" type="button" data-action="stop-tour">Hentikan tur</button>
+    </div>
+
+    <!-- Pencarian (/ atau Ctrl+K). Pola combobox ARIA: fokus tetap di input,
+         hasil yang aktif ditunjuk lewat aria-activedescendant -->
+    <div class="search" id="search" hidden>
+      <div class="search-box" role="dialog" aria-modal="true" aria-label="Cari benda langit">
+        <svg class="icon search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 5 5" /></svg>
+        <input
+          id="search-input"
+          type="text"
+          role="combobox"
+          aria-expanded="true"
+          aria-controls="search-results"
+          aria-autocomplete="list"
+          placeholder="Cari planet atau bulan"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <ul class="search-results" id="search-results" role="listbox" aria-label="Hasil pencarian"></ul>
+        <p class="search-hint" aria-hidden="true">
+          <kbd>&uarr;</kbd><kbd>&darr;</kbd> pilih <span class="search-dot"></span> <kbd>Enter</kbd> terbang <span class="search-dot"></span> <kbd>Esc</kbd> tutup
+        </p>
+      </div>
+    </div>
+
+    <!-- Tentang. Pakai <dialog> bawaan browser: fokus otomatis terkunci di dalam dan Esc langsung nutup -->
+    <dialog class="about" id="about" aria-labelledby="about-title">
+      <button class="about-close" type="button" data-action="close-about" aria-label="Tutup">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+      </button>
+      <p class="about-kicker">Tentang</p>
+      <h2 class="about-title" id="about-title">Tata Surya Interaktif</h2>
+      <p class="about-lead">
+        Tata surya 3D yang bisa dijelajahi langsung di browser. Ukuran dan jarak di mode Enak Dilihat
+        sengaja dikompres biar semua planet kelihatan, mode Skala Nyata nunjukin perbandingan aslinya.
+      </p>
+
+      <h3 class="about-heading">Kredit</h3>
+      <ul class="about-list">
+        <li>
+          Tekstur oleh
+          <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noopener noreferrer">Solar System Scope</a>,
+          lisensi <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>
+        </li>
+        <li>
+          Data planet dari
+          <a href="https://nssdc.gsfc.nasa.gov/planetary/factsheet/" target="_blank" rel="noopener noreferrer">NASA Planetary Fact Sheet</a>
+        </li>
+      </ul>
+
+      <h3 class="about-heading">Dibuat dengan</h3>
+      <ul class="about-tags">
+        <li>Three.js</li>
+        <li>GSAP</li>
+        <li>Vite</li>
+        <li>JavaScript tanpa framework</li>
+        <li>GLSL</li>
+      </ul>
+
+      <a class="about-link" href="https://github.com/Shaulaa/solar-system" target="_blank" rel="noopener noreferrer">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19c-4 1.3-4-2-6-2.5m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21" /></svg>
+        Lihat kode di GitHub
+      </a>
+    </dialog>
 
     <p class="scale-note" id="scale-note" hidden>
       Ini perbandingan asli. Planet sekecil ini dibanding jarak antar orbitnya
@@ -70,6 +168,8 @@
 
     <!-- Panel info benda langit. Isinya diisi ui/infoPanel.js dari data/planets.js -->
     <aside class="info-panel" id="info-panel" aria-labelledby="info-title" hidden>
+      <!-- Pegangan bottom sheet (cuma kelihatan di HP), bisa ditarik ke bawah buat nutup panel -->
+      <div class="sheet-handle" aria-hidden="true"></div>
       <button class="info-back" type="button" data-action="back" aria-label="Kembali ke tampilan tata surya">
         <span aria-hidden="true">&larr;</span> Kembali
       </button>

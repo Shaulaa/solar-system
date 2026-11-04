@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { planets as planetData } from '../data/planets.js';
+import { planets as planetData, dwarfPlanets } from '../data/planets.js';
 import { createPlanetTexture } from '../utils/planetTexture.js';
 import { loadTexture, assignTexture } from '../utils/loader.js';
 import { scaleDistance, scaleRadius, blendScale } from '../utils/scale.js';
@@ -15,18 +15,19 @@ const ROTATION_SCALE = 0.04;
 // Bola bertekstur generik, dipakai planet biasa dan bulan.
 // Sebelum tekstur siap, material pakai warna dasar dari look biar gak kelihatan putih polos.
 // Kalau file tekstur gak ada, fallback ke tekstur prosedural
-export function createTexturedSphere(data, radius, seed) {
+export function createTexturedSphere(data, radius, seed, { textureSize, segments = 64 } = {}) {
   const material = new THREE.MeshStandardMaterial({
     color: data.look.colors[1] ?? data.look.colors[0],
     roughness: data.look.type === 'gas' || data.look.type === 'ice' ? 0.75 : 0.95,
     metalness: 0
   });
 
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 64, 64), material);
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, segments, segments), material);
   mesh.name = data.id;
   mesh.userData.selectable = data.id;
 
-  loadTexture(data.texture, { fallback: () => createPlanetTexture(data.look, seed) }).then((texture) => {
+  const fallback = () => createPlanetTexture(data.look, seed, textureSize);
+  loadTexture(data.texture, { fallback }).then((texture) => {
     // Warna dasar dibalikin ke putih, kalau nggak teksturnya ikut ke-tint
     material.color.set(0xffffff);
     assignTexture(material, 'map', texture);
@@ -48,7 +49,8 @@ function createBody(data, radius, seed) {
 }
 
 // Hierarki tiap planet
-// orbitPivot (muter = revolusi) > anchor (geser sejauh jarak orbit) > tiltGroup (miring) > mesh (rotasi)
+// orbitPlane (miring sesuai inklinasi orbit, cuma Pluto) > orbitPivot (muter = revolusi)
+//   > anchor (geser sejauh jarak orbit) > tiltGroup (miring sumbu) > mesh (rotasi)
 // Bulan nanti ditempel ke anchor (lihat moons.js), cincin ke tiltGroup
 //
 // Geometry dibikin sekali di ukuran mode pretty. Pindah mode skala cukup ngubah
@@ -60,8 +62,16 @@ function createPlanet(data, index) {
   const distance = orbit.pretty;
   const seed = index + 1;
 
+  // Bidang orbit. Planet utama dianggap sebidang (PRD), cuma planet katai yang dikasih inklinasi
+  const orbitPlane = new THREE.Object3D();
+  orbitPlane.name = `${data.id}-orbit-plane`;
+  orbitPlane.rotation.z = (data.inclination ?? 0) * DEG;
+  // Benda tersembunyi (easter egg Pluto) baru kelihatan setelah reveal()
+  orbitPlane.visible = !data.hidden;
+
   const orbitPivot = new THREE.Object3D();
   orbitPivot.name = `${data.id}-orbit`;
+  orbitPlane.add(orbitPivot);
 
   const anchor = new THREE.Object3D();
   anchor.position.x = distance;
@@ -86,10 +96,17 @@ function createPlanet(data, index) {
     radius,
     distance,
     baseRadius: size.pretty,
+    orbitPlane,
     orbitPivot,
     anchor,
     tiltGroup,
     mesh: body.mesh,
+    get visible() {
+      return orbitPlane.visible;
+    },
+    reveal() {
+      orbitPlane.visible = true;
+    },
     applyScale(k) {
       planet.radius = blendScale(size.pretty, size.real, k);
       planet.distance = blendScale(orbit.pretty, orbit.real, k);
@@ -110,15 +127,18 @@ export function createPlanets() {
   const group = new THREE.Group();
   group.name = 'planets';
 
-  const list = planetData.map((data, i) => {
+  // Planet katai ikut list yang sama (biar mode skala, orbit, label, dan klik otomatis jalan),
+  // bedanya ditandai lewat data.kind
+  const list = [...planetData, ...dwarfPlanets].map((data, i) => {
     const planet = createPlanet(data, i);
-    group.add(planet.orbitPivot);
+    group.add(planet.orbitPlane);
     return planet;
   });
 
   return {
     group,
     list,
+    get: (id) => list.find((p) => p.data.id === id) ?? null,
     applyScale(k) {
       for (const p of list) p.applyScale(k);
     },

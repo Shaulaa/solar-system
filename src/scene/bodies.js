@@ -6,8 +6,9 @@ import { sun as sunData } from '../data/planets.js';
 //
 // Bentuk tiap item
 //   id, name, data   data mentah dari planets.js
-//   kind             'star' | 'planet' | 'moon'
+//   kind             'star' | 'planet' | 'dwarf' | 'moon'
 //   index            urutan planet dari Matahari (0 = Merkurius), null untuk yang lain
+//   visible          false kalau bendanya masih tersembunyi (easter egg Pluto)
 //   parentId         id planet induk (khusus bulan)
 //   radius           radius SEKARANG dalam unit scene (getter, ikut berubah waktu ganti mode skala)
 //   mesh             mesh yang dirender, posisi dunianya = posisi benda
@@ -18,6 +19,9 @@ function makeBody({ source, ...fields }) {
     mesh: source.mesh,
     get radius() {
       return source.radius;
+    },
+    get visible() {
+      return source.visible ?? true;
     },
     getPosition(target) {
       return source.mesh.getWorldPosition(target);
@@ -42,8 +46,8 @@ export function createBodyRegistry({ sun, planets, moons }) {
         id: p.data.id,
         name: p.data.name,
         data: p.data,
-        kind: 'planet',
-        index: i,
+        kind: p.data.kind ?? 'planet',
+        index: p.data.kind ? null : i,
         parentId: null
       })
     ),
@@ -62,13 +66,15 @@ export function createBodyRegistry({ sun, planets, moons }) {
 
   const byId = new Map(list.map((b) => [b.id, b]));
 
-  // Urutan navigasi sebelumnya / berikutnya: Matahari lalu Merkurius sampai Neptunus.
-  // Bulan gak masuk urutan, kalau lagi fokus ke bulan navigasinya pakai posisi planet induknya
-  const sequence = list.filter((b) => b.kind !== 'moon');
+  // Urutan navigasi sebelumnya / berikutnya (juga urutan tur): Matahari lalu Merkurius sampai Neptunus.
+  // Bulan gak masuk urutan, kalau lagi fokus ke bulan navigasinya pakai posisi planet induknya.
+  // Planet katai (Pluto) juga di luar urutan, dianggap ada setelah Neptunus
+  const sequence = list.filter((b) => b.kind === 'star' || b.kind === 'planet');
 
   function neighbor(id, step) {
     const body = byId.get(id);
     if (!body) return null;
+    if (body.kind === 'dwarf') return step > 0 ? sequence[0] : sequence[sequence.length - 1];
     const anchorId = body.kind === 'moon' ? body.parentId : id;
     const i = sequence.findIndex((b) => b.id === anchorId);
     const next = (i + step + sequence.length) % sequence.length;
@@ -77,6 +83,7 @@ export function createBodyRegistry({ sun, planets, moons }) {
 
   return {
     list,
+    sequence,
     get: (id) => byId.get(id) ?? null,
     neighbor
   };

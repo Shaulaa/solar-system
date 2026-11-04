@@ -22,13 +22,17 @@ export function createToolbar({
   onSpeedChange,
   onToggleOrbits,
   onToggleLabels,
-  onToggleScale
+  onToggleScale,
+  onToggleTour,
+  onSearch,
+  onAbout
 }) {
   const element = document.getElementById('toolbar');
   const playButton = element.querySelector('[data-action="play"]');
   const orbitsButton = element.querySelector('[data-action="orbits"]');
   const labelsButton = element.querySelector('[data-action="labels"]');
   const scaleButton = element.querySelector('[data-action="scale"]');
+  const tourButton = element.querySelector('[data-action="tour"]');
   const speedInput = document.getElementById('speed');
   const speedLabel = document.getElementById('speed-label');
   const dateElement = document.getElementById('sim-date');
@@ -45,6 +49,9 @@ export function createToolbar({
     else if (action === 'orbits') onToggleOrbits?.();
     else if (action === 'labels') onToggleLabels?.();
     else if (action === 'scale') onToggleScale?.();
+    else if (action === 'tour') onToggleTour?.();
+    else if (action === 'search') onSearch?.();
+    else if (action === 'about') onAbout?.();
   });
 
   speedInput.addEventListener('input', () => onSpeedChange?.(Number(speedInput.value)));
@@ -80,6 +87,12 @@ export function createToolbar({
 
     setScaleMode(mode) {
       setPressed(scaleButton, mode === 'real');
+    },
+
+    setTourActive(active) {
+      setPressed(tourButton, active);
+      tourButton.setAttribute('aria-label', active ? 'Hentikan tur otomatis' : 'Tur otomatis');
+      tourButton.dataset.tooltip = active ? 'Hentikan tur (T)' : 'Tur otomatis (T)';
     },
 
     // Dipanggil tiap frame. Teks cuma diganti kalau harinya berubah

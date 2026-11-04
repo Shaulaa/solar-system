@@ -6,6 +6,8 @@
 // Angka seperti distance, orbitPeriod, rotationPeriod, dan tilt diformat otomatis
 // (AU ke juta km, hari ke tahun / jam), jadi gak perlu ditulis ulang sebagai teks.
 // subtitle cuma diisi kalau gak bisa diturunkan (planet otomatis "Planet ke N dari Matahari")
+// narration teks pendek yang muncul di bawah layar waktu tur otomatis (controls/tour.js)
+// aliases nama lain buat pencarian (misal ejaan Inggris), id juga otomatis ikut dicari
 
 export const planets = [
   {
@@ -17,6 +19,7 @@ export const planets = [
     rotationPeriod: 58.6,
     tilt: 0.03,
     texture: '2k_mercury.jpg',
+    narration: 'Merkurius ngebut mengelilingi Matahari, satu tahunnya cuma 88 hari.',
     look: { type: 'rocky', colors: ['#5a5550', '#8c8680', '#b5ada4'] },
     info: {
       diameter: '4.879 km',
@@ -34,6 +37,7 @@ export const planets = [
     rotationPeriod: -243,
     tilt: 177.4,
     texture: '2k_venus_atmosphere.jpg',
+    narration: 'Venus diselimuti awan tebal yang memerangkap panas, permukaannya jadi yang terpanas di tata surya.',
     look: { type: 'cloudy', colors: ['#a8783a', '#d9b26f', '#f0d9a0'] },
     info: {
       diameter: '12.104 km',
@@ -56,6 +60,7 @@ export const planets = [
       night: '2k_earth_nightmap.jpg',
       clouds: '2k_earth_clouds.jpg'
     },
+    narration: 'Rumah kita. Satu satunya tempat yang sejauh ini diketahui punya kehidupan.',
     look: { type: 'earth', colors: ['#0b2a5c', '#1d5fa8', '#3f7a3a', '#c9b47a', '#f2f4f7'] },
     info: {
       diameter: '12.742 km',
@@ -99,13 +104,53 @@ export const planets = [
     rotationPeriod: 1.03,
     tilt: 25.2,
     texture: '2k_mars.jpg',
+    narration: 'Planet merah dengan gunung tertinggi dan ngarai terdalam di tata surya.',
     look: { type: 'rocky', colors: ['#5c2410', '#a8461f', '#d97a48'] },
     info: {
       diameter: '6.779 km',
       suhu: '-65°C rata rata',
       bulan: 2,
       fakta: 'Punya gunung tertinggi di tata surya, Olympus Mons, tingginya hampir 3 kali Everest.'
-    }
+    },
+    // Bulan yang orbitnya cuma beberapa jam (Fobos 7,6 jam) diperlambat secara visual di moons.js,
+    // kalau nggak di kecepatan tinggi bakal kelihatan kedip kedip. Angka di sini tetap angka asli
+    moons: [
+      {
+        id: 'phobos',
+        name: 'Fobos',
+        aliases: ['phobos'],
+        subtitle: 'Bulan terbesar Mars',
+        radius: 0.00177,
+        orbitRadius: 1.8,
+        distanceKm: 9376,
+        orbitPeriod: 0.319,
+        rotationPeriod: 0.319,
+        look: { type: 'rocky', colors: ['#3d3530', '#6b5e54', '#9a8a7c'] },
+        info: {
+          diameter: '22,5 km',
+          jarak: '9.376 km dari Mars',
+          suhu: '-112°C sampai -4°C',
+          fakta: 'Fobos makin lama makin dekat ke Mars. Puluhan juta tahun lagi bakal hancur dan jadi cincin.'
+        }
+      },
+      {
+        id: 'deimos',
+        name: 'Deimos',
+        subtitle: 'Bulan kecil Mars',
+        radius: 0.000973,
+        orbitRadius: 2.8,
+        distanceKm: 23463,
+        orbitPeriod: 1.263,
+        rotationPeriod: 1.263,
+        look: { type: 'rocky', colors: ['#4a4038', '#7d7064', '#b0a394'] },
+        info: {
+          diameter: '12,4 km',
+          jarak: '23.463 km dari Mars',
+          suhu: '-40°C rata rata',
+          fakta: 'Gravitasinya lemah banget, lompatan kecil di sana bisa bikin kamu melayang ke luar angkasa.'
+        }
+      }
+    ]
   },
   {
     id: 'jupiter',
@@ -116,13 +161,87 @@ export const planets = [
     rotationPeriod: 0.41,
     tilt: 3.1,
     texture: '2k_jupiter.jpg',
+    narration: 'Raksasa gas terbesar. Badai Bintik Merahnya sudah berputar ratusan tahun.',
     look: { type: 'gas', colors: ['#6e4a2e', '#c99a6b', '#efdcc0', '#a8603a', '#e8cfa8'] },
     info: {
       diameter: '139.820 km',
       suhu: '-110°C di atas awan',
       bulan: 95,
       fakta: 'Badai Bintik Merah Raksasa di Jupiter lebih gede dari Bumi dan udah ada ratusan tahun.'
-    }
+    },
+    // 4 bulan Galilean, ditemukan Galileo Galilei tahun 1610
+    moons: [
+      {
+        id: 'io',
+        name: 'Io',
+        subtitle: 'Bulan Galilean Jupiter',
+        radius: 0.286,
+        orbitRadius: 1.6,
+        distanceKm: 421700,
+        orbitPeriod: 1.769,
+        rotationPeriod: 1.769,
+        look: { type: 'rocky', colors: ['#8a6a1f', '#d8b640', '#f3e9a2'] },
+        info: {
+          diameter: '3.643 km',
+          jarak: '421.700 km dari Jupiter',
+          suhu: '-143°C rata rata',
+          fakta: 'Benda paling aktif secara vulkanik di tata surya, punya lebih dari 400 gunung berapi aktif.'
+        }
+      },
+      {
+        id: 'europa',
+        name: 'Europa',
+        subtitle: 'Bulan Galilean Jupiter',
+        radius: 0.245,
+        orbitRadius: 2.0,
+        distanceKm: 671034,
+        orbitPeriod: 3.551,
+        rotationPeriod: 3.551,
+        look: { type: 'rocky', colors: ['#8a7a66', '#cfc4b0', '#f1ebe0'] },
+        info: {
+          diameter: '3.122 km',
+          jarak: '671.034 km dari Jupiter',
+          suhu: '-160°C rata rata',
+          fakta: 'Di bawah kerak esnya diduga ada lautan air asin, isinya lebih banyak dari semua lautan di Bumi.'
+        }
+      },
+      {
+        id: 'ganymede',
+        name: 'Ganimede',
+        aliases: ['ganymede'],
+        subtitle: 'Bulan Galilean Jupiter',
+        radius: 0.4134,
+        orbitRadius: 2.5,
+        distanceKm: 1070412,
+        orbitPeriod: 7.155,
+        rotationPeriod: 7.155,
+        look: { type: 'rocky', colors: ['#4f4740', '#8b8073', '#c2b8aa'] },
+        info: {
+          diameter: '5.268 km',
+          jarak: '1.070.412 km dari Jupiter',
+          suhu: '-163°C rata rata',
+          fakta: 'Bulan terbesar di tata surya, bahkan lebih besar dari planet Merkurius.'
+        }
+      },
+      {
+        id: 'callisto',
+        name: 'Kalisto',
+        aliases: ['callisto'],
+        subtitle: 'Bulan Galilean Jupiter',
+        radius: 0.3783,
+        orbitRadius: 3.1,
+        distanceKm: 1882709,
+        orbitPeriod: 16.69,
+        rotationPeriod: 16.69,
+        look: { type: 'rocky', colors: ['#2e2a26', '#5c544b', '#8d8478'] },
+        info: {
+          diameter: '4.821 km',
+          jarak: '1.882.709 km dari Jupiter',
+          suhu: '-139°C rata rata',
+          fakta: 'Permukaannya paling penuh kawah di tata surya dan hampir gak berubah selama miliaran tahun.'
+        }
+      }
+    ]
   },
   {
     id: 'saturn',
@@ -135,6 +254,7 @@ export const planets = [
     texture: '2k_saturn.jpg',
     // inner dan outer dalam kelipatan radius planet, dipakai scene/saturnRing.js
     ring: { texture: '2k_saturn_ring_alpha.png', inner: 1.24, outer: 2.27 },
+    narration: 'Cincinnya tersusun dari miliaran bongkahan es dan batu yang ikut mengorbit planet.',
     look: { type: 'gas', colors: ['#8a7048', '#d9c08a', '#f2e3bd', '#b89a64', '#e6d3a3'] },
     info: {
       diameter: '116.460 km',
@@ -152,6 +272,7 @@ export const planets = [
     rotationPeriod: -0.72,
     tilt: 97.8,
     texture: '2k_uranus.jpg',
+    narration: 'Uranus menggelinding di orbitnya karena sumbunya miring hampir 98 derajat.',
     look: { type: 'ice', colors: ['#7fc4cc', '#a6dde3', '#c8eef0'] },
     info: {
       diameter: '50.724 km',
@@ -169,6 +290,7 @@ export const planets = [
     rotationPeriod: 0.67,
     tilt: 28.3,
     texture: '2k_neptune.jpg',
+    narration: 'Planet terjauh, tempat angin paling kencang di tata surya bertiup.',
     look: { type: 'ice', colors: ['#1d3a8a', '#3a62c9', '#6a8fe6'] },
     info: {
       diameter: '49.244 km',
@@ -183,6 +305,8 @@ export const sun = {
   id: 'sun',
   name: 'Matahari',
   subtitle: 'Bintang di pusat tata surya',
+  narration:
+    'Semua perjalanan dimulai dari sini. Matahari menyimpan hampir seluruh massa tata surya dan menerangi semua planet.',
   // Rotasi di ekuator, kutubnya lebih lambat (sekitar 35 hari) karena Matahari bukan benda padat
   rotationPeriod: 25.4,
   tilt: 7.25,
@@ -194,6 +318,32 @@ export const sun = {
     fakta: 'Matahari nyimpen 99,8 persen dari seluruh massa tata surya.'
   }
 };
+
+// Planet katai. Pluto disembunyikan (hidden) dan baru muncul kalau user ngetik "pluto"
+// di kotak pencarian. inclination = kemiringan bidang orbit terhadap bidang planet lain (derajat)
+export const dwarfPlanets = [
+  {
+    id: 'pluto',
+    name: 'Pluto',
+    kind: 'dwarf',
+    hidden: true,
+    subtitle: 'Planet katai di Sabuk Kuiper',
+    radius: 0.1868,
+    distance: 39.48,
+    inclination: 17.16,
+    orbitPeriod: 90560,
+    rotationPeriod: -6.39,
+    tilt: 122.5,
+    look: { type: 'rocky', colors: ['#5e4c3e', '#b89d82', '#efe1cf'] },
+    info: {
+      diameter: '2.377 km',
+      suhu: '-229°C rata rata',
+      bulan: 5,
+      fakta:
+        'Sejak 2006 statusnya diturunkan jadi planet katai, tapi Pluto tetap punya 5 bulan dan gunung es setinggi 3.500 meter.'
+    }
+  }
+];
 
 // Sabuk asteroid utama di antara Mars dan Jupiter
 // orbitPeriod kira kira periode orbit di 2,7 AU (hukum Kepler), dipakai buat muterin belt sebagai satu grup

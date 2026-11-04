@@ -12,6 +12,15 @@ import { createTexturedSphere } from './planets.js';
 
 // Seed fallback prosedural dipisah dari seed planet (1..8) biar polanya beda
 const SEED_OFFSET = 100;
+// Bulan kecil, tekstur prosedural seukuran ini sudah cukup dan generate-nya 4x lebih cepat
+const TEXTURE_SIZE = { width: 256, height: 128 };
+
+// Periode orbit visual. Fobos aslinya muter Mars tiap 7,6 jam, di 10 hari per detik itu 31 putaran
+// per detik dan malah kelihatan diam / kedip (efek stroboskop). Periode di bawah ~3 hari dihaluskan:
+// sqrt(p^2 + 3^2) tetap urut (yang aslinya lebih cepat tetap lebih cepat) dan
+// Bulan Bumi (27,3 hari) cuma bergeser 0,6 persen. Panel info tetap nampilin angka asli
+const MIN_VISUAL_PERIOD = 3;
+const visualPeriod = (days) => Math.sqrt(days * days + MIN_VISUAL_PERIOD * MIN_VISUAL_PERIOD);
 
 function createMoon(moonData, planet, index) {
   const size = { pretty: scaleRadius(moonData.radius), real: scaleRadius(moonData.radius, 'real') };
@@ -27,7 +36,10 @@ function createMoon(moonData, planet, index) {
   pivot.name = `${moonData.id}-orbit`;
   planet.anchor.add(pivot);
 
-  const mesh = createTexturedSphere(moonData, radius, SEED_OFFSET + index);
+  const mesh = createTexturedSphere(moonData, radius, SEED_OFFSET + index, {
+    textureSize: TEXTURE_SIZE,
+    segments: 48
+  });
   mesh.position.x = orbitRadius;
   // Bagian tengah tekstur (u = 0.5, sisi dekat Bulan) aslinya menghadap +X.
   // Diputar 180 derajat biar sisi itu yang menghadap planet induk
@@ -35,6 +47,7 @@ function createMoon(moonData, planet, index) {
   pivot.add(mesh);
 
   const startAngle = (index * 1.7) % (Math.PI * 2);
+  const period = visualPeriod(moonData.orbitPeriod);
 
   const moon = {
     data: moonData,
@@ -49,7 +62,7 @@ function createMoon(moonData, planet, index) {
       mesh.scale.setScalar(moon.radius / size.pretty);
     },
     update(simDays) {
-      pivot.rotation.y = startAngle + (simDays / moonData.orbitPeriod) * Math.PI * 2;
+      pivot.rotation.y = startAngle + (simDays / period) * Math.PI * 2;
     }
   };
 

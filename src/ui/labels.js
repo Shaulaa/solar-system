@@ -12,9 +12,18 @@ import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer
 
 // Batas jarak kamera ke benda. Bulan cuma muncul kalau kamera sudah cukup dekat,
 // kalau nggak labelnya numpuk sama label planet induknya di tampilan overview
-const MAX_DISTANCE = { star: Infinity, planet: Infinity, moon: 40 };
+const MAX_DISTANCE = { star: Infinity, planet: Infinity, dwarf: Infinity, moon: 40 };
 // Jarak label di atas permukaan, kelipatan radius
 const LABEL_LIFT = 1.25;
+
+// Anti tumpuk. Di mode Skala Nyata (dan kalau zoom jauh) label planet dalam bisa numpuk jadi satu.
+// Label yang tabrakan di layar disembunyikan, yang menang yang prioritasnya lebih tinggi.
+// Lebar label diperkirakan dari jumlah huruf (font 11px uppercase + letter spacing 0.22em),
+// biar gak perlu baca ukuran DOM tiap frame (itu maksa browser hitung ulang layout)
+const LABEL_CHAR_WIDTH = 9.5;
+const LABEL_PADDING = 10;
+const LABEL_HEIGHT = 18;
+const KIND_PRIORITY = { star: 3, planet: 2, dwarf: 2, moon: 1 };
 
 export function createLabels({ bodies }) {
   const renderer = new CSS2DRenderer();
@@ -38,8 +47,33 @@ export function createLabels({ bodies }) {
     object.center.set(0.5, 1);
     group.add(object);
 
-    return { body, element, object, state: '' };
+    return {
+      body,
+      element,
+      object,
+      state: '',
+      width: body.name.length * LABEL_CHAR_WIDTH + LABEL_PADDING,
+      screen: new THREE.Vector3()
+    };
   });
+
+  let viewWidth = window.innerWidth;
+  let viewHeight = window.innerHeight;
+
+  // Makin tinggi makin didahulukan: yang di-hover, lalu jenis benda, lalu ukuran asli bendanya
+  function priority(item) {
+    const { body } = item;
+    if (body.id === hoveredId) return Infinity;
+    // Data Matahari gak punya radius (relatif Bumi), tapi jenisnya sudah paling tinggi
+    return KIND_PRIORITY[body.kind] * 1000 + (body.data.radius ?? 0);
+  }
+
+  function overlaps(a, b) {
+    return (
+      Math.abs(a.screen.x - b.screen.x) < (a.width + b.width) / 2 &&
+      Math.abs(a.screen.y - b.screen.y) < LABEL_HEIGHT
+    );
+  }
 
   let enabled = true;
   let hoveredId = null;
@@ -65,10 +99,13 @@ export function createLabels({ bodies }) {
       focusedId = id;
     },
     setSize(width, height) {
+      viewWidth = width;
+      viewHeight = height;
       renderer.setSize(width, height);
     },
     update(camera) {
       const focus = focusedId ? bodies.get(focusedId) : null;
+      const candidates = [];
 
       for (const item of items) {
         const { body, object } = item;
@@ -77,11 +114,37 @@ export function createLabels({ bodies }) {
         object.position.copy(position);
         object.position.y += body.radius * LABEL_LIFT;
 
-        const visible =
-          enabled && distance <= MAX_DISTANCE[body.kind] && isRelated(body, focus);
+        item.visible =
+          enabled &&
+          body.visible &&
+          distance <= MAX_DISTANCE[body.kind] &&
+          isRelated(body, focus);
 
+        if (item.visible) {
+          // Posisi di layar (piksel), z > 1 berarti di belakang kamera
+          item.screen.copy(object.position).project(camera);
+          if (item.screen.z > 1) {
+            item.visible = false;
+          } else {
+            item.screen.x = ((item.screen.x + 1) / 2) * viewWidth;
+            item.screen.y = ((1 - item.screen.y) / 2) * viewHeight;
+            candidates.push(item);
+          }
+        }
+      }
+
+      // Greedy: yang prioritas tinggi duluan dapat tempat, yang nabrak disembunyikan
+      candidates.sort((a, b) => priority(b) - priority(a));
+      const placed = [];
+      for (const item of candidates) {
+        if (placed.some((other) => overlaps(item, other))) item.visible = false;
+        else placed.push(item);
+      }
+
+      for (const item of items) {
+        const { body } = item;
         // Class cuma diganti kalau state-nya berubah, biar gak nyentuh DOM tiap frame
-        const state = !visible ? 'is-hidden' : body.id === hoveredId ? 'is-hover' : '';
+        const state = !item.visible ? 'is-hidden' : body.id === hoveredId ? 'is-hover' : '';
         if (state !== item.state) {
           item.element.className = state ? `label ${state}` : 'label';
           item.state = state;

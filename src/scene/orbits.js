@@ -26,15 +26,22 @@ export function createOrbits(planetList) {
     const line = new THREE.LineLoop(geometry, material);
     line.name = `${planet.data.id}-orbit-line`;
     line.scale.setScalar(planet.distance);
+    // Ikut miring sama bidang orbit planetnya (Pluto 17 derajat)
+    line.rotation.copy(planet.orbitPlane.rotation);
+    line.visible = planet.visible;
     group.add(line);
     return { line, planet };
   });
 
   return {
     group,
-    // Ikutin jarak orbit planet sekarang (berubah waktu transisi mode skala)
+    // Ikutin jarak orbit dan visibilitas planet sekarang
+    // (jarak berubah waktu transisi mode skala, visibilitas berubah waktu Pluto ketemu)
     update() {
-      for (const { line, planet } of lines) line.scale.setScalar(planet.distance);
+      for (const { line, planet } of lines) {
+        line.scale.setScalar(planet.distance);
+        line.visible = planet.visible;
+      }
     }
   };
 }

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="planet" cx="38%" cy="34%" r="70%">
+      <stop offset="0" stop-color="#ffd9a8" />
+      <stop offset="0.55" stop-color="#ffb36b" />
+      <stop offset="1" stop-color="#9a5a22" />
+    </radialGradient>
+  </defs>
+  <circle cx="32" cy="32" r="31" fill="#010104" />
+  <!-- Bagian belakang cincin, digambar sebelum planet biar ketutup -->
+  <path d="M8 38c4-6 22-15 38-17 9-1 12 1 10 5" fill="none" stroke="#8fb4ff" stroke-width="3" stroke-linecap="round" opacity="0.55" />
+  <circle cx="32" cy="32" r="14" fill="url(#planet)" />
+  <!-- Bagian depan cincin -->
+  <path d="M56 26c-3 6-21 15-37 17-9 1-12-1-11-5" fill="none" stroke="#8fb4ff" stroke-width="3" stroke-linecap="round" />
+</svg>

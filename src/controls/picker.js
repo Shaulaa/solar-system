@@ -92,6 +92,12 @@ export function createPicker({
 
   function placeHitAreas() {
     for (const [hitArea, body] of hitAreaBody) {
+      // Benda yang masih tersembunyi gak boleh bisa diklik (mesh invisible tetap kena raycast)
+      if (!body.visible) {
+        hitArea.position.set(0, -1e9, 0);
+        hitArea.updateMatrixWorld();
+        continue;
+      }
       body.getPosition(hitArea.position);
       const minRadius = worldPerPixel(hitArea.position.distanceTo(camera.position)) *
         HIT_AREA_MIN_SCREEN_RADIUS;
@@ -103,7 +109,10 @@ export function createPicker({
   function pick() {
     raycaster.setFromCamera(pointer, camera);
     placeHitAreas();
-    const direct = raycaster.intersectObjects(meshTargets, false)[0];
+    // Raycaster tetap kena mesh yang ada di dalam grup tersembunyi, jadi dicek manual
+    const direct = raycaster
+      .intersectObjects(meshTargets, false)
+      .find((hit) => bodies.get(hit.object.userData.selectable)?.visible);
     if (direct) return direct.object.userData.selectable;
 
     // Kalau beberapa hit area kecil numpuk (misal Bumi dan Bulan di overview),

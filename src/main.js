@@ -23,12 +23,15 @@ import {
 } from './scene/scaleMode.js';
 import { createPicker } from './controls/picker.js';
 import { createCameraRig } from './controls/cameraRig.js';
+import { createTour } from './controls/tour.js';
 import { createLabels } from './ui/labels.js';
 import { createInfoPanel } from './ui/infoPanel.js';
 import { createToolbar, SPEED_PRESETS } from './ui/toolbar.js';
 import { createLoadingScreen } from './ui/loader.js';
+import { createSearch } from './ui/search.js';
 import { loadingManager } from './utils/loader.js';
 import { isMobile } from './utils/device.js';
+import { createPerformanceMonitor } from './utils/performance.js';
 
 // Loading screen dipasang paling awal, sebelum modul scene mulai memuat tekstur
 const loadingScreen = createLoadingScreen({ manager: loadingManager });
@@ -60,6 +63,9 @@ controls.dampingFactor = 0.06;
 controls.minDistance = CAMERA_SETTINGS.pretty.minDistance;
 controls.maxDistance = CAMERA_SETTINGS.pretty.maxDistance;
 controls.enablePan = true;
+// Di layar sentuh: satu jari muter, dua jari cubit buat zoom (sekaligus geser).
+// Ini memang default OrbitControls, ditulis eksplisit biar jelas sengaja
+controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
 
 // Ambient tipis biar sisi gelap planet gak item pekat banget
 scene.add(new THREE.AmbientLight(0x404a66, 0.25));
@@ -86,7 +92,8 @@ scene.add(orbits.group);
 const milkyWay = createMilkyWay();
 scene.add(milkyWay.mesh);
 
-const stars = createStars();
+// Di HP bintangnya dikurangin biar GPU-nya gak berat
+const stars = createStars(isMobile ? 4000 : 9000);
 scene.add(stars.points);
 
 // Semua tekstur sudah mulai dimuat di atas. Kalau ternyata gak ada sama sekali, loading langsung selesai
@@ -116,7 +123,8 @@ labels.setSize(window.innerWidth, window.innerHeight);
 const infoPanel = createInfoPanel({
   onBack: goOverview,
   onPrev: () => stepFocus(-1),
-  onNext: () => stepFocus(1)
+  onNext: () => stepFocus(1),
+  onSwipeClose: goOverview
 });
 
 const picker = createPicker({
@@ -133,9 +141,11 @@ picker.setEnabled(false);
 // Interaksi dikunci selama loading / intro, dan selama transisi skala (dunianya lagi berubah ukuran)
 const canInteract = () => phase === 'ready' && !scaleMode.transitioning;
 
-function focusBody(id) {
+// fromTour: dipanggil dari tur otomatis. Selain itu berarti user yang milih, jadi tur dihentikan
+function focusBody(id, { fromTour = false } = {}) {
   const body = bodies.get(id);
-  if (!body || !canInteract()) return;
+  if (!body || !body.visible || !canInteract()) return;
+  if (!fromTour) tour.stop();
   rig.focus(body);
   labels.setFocus(id);
   infoPanel.show(body, { prev: bodies.neighbor(id, -1), next: bodies.neighbor(id, 1) });
@@ -145,10 +155,11 @@ function focusBody(id) {
 function clearFocus() {
   labels.setFocus(null);
   infoPanel.hide();
-  rig.setViewShift(0);
+  rig.setViewShift({ x: 0, y: 0 });
 }
 
 function goOverview() {
+  tour.stop();
   // Klik area kosong waktu sudah di overview gak ngapa ngapain
   if (!rig.focusedId || !canInteract()) return;
   rig.overview();
@@ -176,7 +187,10 @@ const toolbar = createToolbar({
   onSpeedChange: setSpeed,
   onToggleOrbits: () => setOrbitsVisible(!view.orbits),
   onToggleLabels: () => setLabelsVisible(!view.labels),
-  onToggleScale: toggleScaleMode
+  onToggleScale: toggleScaleMode,
+  onToggleTour: toggleTour,
+  onSearch: openSearch,
+  onAbout: openAbout
 });
 
 function setPaused(paused) {
@@ -234,6 +248,7 @@ function setScaleNote(show) {
 
 function toggleScaleMode() {
   if (phase !== 'ready') return;
+  tour.stop();
   const next = scaleMode.mode === 'pretty' ? 'real' : 'pretty';
   const target = CAMERA_SETTINGS[next];
 
@@ -264,6 +279,108 @@ function toggleScaleMode() {
 
   toolbar.setScaleMode(next);
   setScaleNote(next === 'real');
+}
+
+// Tur otomatis
+const narration = document.getElementById('narration');
+const narrationStep = document.getElementById('narration-step');
+const narrationText = document.getElementById('narration-text');
+
+function showNarration(body, index, total) {
+  const update = () => {
+    narrationStep.textContent = `Tur otomatis \u00b7 ${index + 1} dari ${total}`;
+    narrationText.textContent = body.data.narration ?? '';
+  };
+  if (narration.hidden) {
+    update();
+    narration.hidden = false;
+    gsap.fromTo(narration, { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.6, overwrite: true });
+  } else {
+    // Ganti teks pakai crossfade singkat biar gak kedip
+    gsap.to(narration, {
+      autoAlpha: 0,
+      duration: 0.25,
+      overwrite: true,
+      onComplete: () => {
+        update();
+        gsap.to(narration, { autoAlpha: 1, duration: 0.45 });
+      }
+    });
+  }
+}
+
+function hideNarration() {
+  gsap.to(narration, {
+    autoAlpha: 0,
+    duration: 0.3,
+    overwrite: true,
+    onComplete: () => {
+      narration.hidden = true;
+    }
+  });
+}
+
+const tour = createTour({
+  stops: bodies.sequence,
+  onVisit: (body, index, total) => {
+    focusBody(body.id, { fromTour: true });
+    showNarration(body, index, total);
+  },
+  onFinish: () => {
+    hideNarration();
+    goOverview();
+  },
+  onStop: hideNarration,
+  onChange: (active) => {
+    toolbar.setTourActive(active);
+    document.body.classList.toggle('is-touring', active);
+  }
+});
+
+function toggleTour() {
+  if (!canInteract()) return;
+  tour.toggle();
+}
+
+narration.querySelector('[data-action="stop-tour"]').addEventListener('click', () => tour.stop());
+
+// Tur berhenti kalau user ngambil alih kamera: drag, klik, atau scroll di canvas
+canvas.addEventListener('pointerdown', () => tour.stop());
+canvas.addEventListener('wheel', () => tour.stop(), { passive: true });
+
+// Pencarian. Ngetik "pluto" munculin Pluto yang tadinya tersembunyi (easter egg)
+const SECRETS = {
+  pluto: () => planets.get('pluto')?.reveal()
+};
+
+const search = createSearch({
+  bodies,
+  onSelect: (id) => focusBody(id),
+  onSecret: (query) => SECRETS[query]?.()
+});
+
+function openSearch() {
+  if (phase !== 'ready') return;
+  search.open();
+}
+
+// Halaman Tentang (dialog bawaan browser)
+const about = document.getElementById('about');
+about.querySelector('[data-action="close-about"]').addEventListener('click', () => about.close());
+// Klik di backdrop (di luar kotak dialog) = tutup
+about.addEventListener('click', (event) => {
+  const rect = about.getBoundingClientRect();
+  const inside =
+    event.clientX >= rect.left &&
+    event.clientX <= rect.right &&
+    event.clientY >= rect.top &&
+    event.clientY <= rect.bottom;
+  if (!inside) about.close();
+});
+
+function openAbout() {
+  if (phase !== 'ready' || about.open) return;
+  about.showModal();
 }
 
 // HUD (judul, toolbar, kredit) disembunyikan lewat class is-intro di body sejak HTML dimuat.
@@ -316,9 +433,18 @@ window.addEventListener('keydown', (e) => {
     rig.skipIntro();
     return;
   }
-  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  // Dialog Tentang punya keyboard sendiri (Esc nutup, Tab muter di dalam)
+  if (about.open) return;
 
   const key = e.key.toLowerCase();
+
+  // Ctrl+K / Cmd+K buka pencarian. preventDefault biar browser gak fokus ke address bar
+  if ((e.ctrlKey || e.metaKey) && key === 'k') {
+    e.preventDefault();
+    openSearch();
+    return;
+  }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
 
   if (e.code === 'Space') {
     if (isButtonLike(e.target) || isTypingField(e.target)) return;
@@ -328,6 +454,7 @@ window.addEventListener('keydown', (e) => {
     goOverview();
   } else if (key === 'arrowleft' || key === 'arrowright') {
     if (isSlider(e.target) || isTypingField(e.target)) return;
+    tour.stop();
     stepFocus(key === 'arrowleft' ? -1 : 1);
   } else if (isTypingField(e.target)) {
     // Huruf dan angka di bawah ini gak boleh nyolong ketikan di kolom isian
@@ -339,6 +466,13 @@ window.addEventListener('keydown', (e) => {
     setLabelsVisible(!view.labels);
   } else if (key === 's') {
     toggleScaleMode();
+  } else if (key === 't') {
+    toggleTour();
+  } else if (key === '/') {
+    e.preventDefault();
+    openSearch();
+  } else if (key === '?') {
+    openAbout();
   }
 });
 
@@ -356,10 +490,43 @@ window.addEventListener('resize', () => {
   rig.setViewShift(infoPanel.viewShift);
 });
 
+// Performa
+// Kalau fps rata rata di bawah 40 selama 3 detik: turunin pixel ratio ke 1,
+// dan di HP kalau masih berat, matiin bloom
+function setPixelRatio(ratio) {
+  renderer.setPixelRatio(ratio);
+  composer.setPixelRatio(ratio);
+  stars.setPixelRatio(ratio);
+}
+
+const performanceMonitor = createPerformanceMonitor({
+  maxLevel: 2,
+  onDrop: () => {
+    if (renderer.getPixelRatio() > 1) setPixelRatio(1);
+    else if (isMobile) bloom.enabled = false;
+  }
+});
+
 // Loop utama
 const clock = new THREE.Clock();
+let frameId = null;
 
-function tick() {
+// Tab gak kelihatan = render berhenti total (hemat baterai), tur ikut di-pause
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    cancelAnimationFrame(frameId);
+    frameId = null;
+    tour.pause();
+  } else if (frameId === null) {
+    // Buang delta selama tab disembunyikan, biar planet gak loncat
+    clock.getDelta();
+    performanceMonitor.reset();
+    tour.resume();
+    frameId = requestAnimationFrame(tick);
+  }
+});
+
+function tick(now) {
   const delta = Math.min(clock.getDelta(), 0.1);
   const elapsed = clock.elapsedTime;
 
@@ -392,7 +559,11 @@ function tick() {
 
   composer.render();
   labels.render(scene, camera);
-  requestAnimationFrame(tick);
+
+  // Fps cuma dipantau waktu user beneran pakai (bukan pas loading / intro / transisi skala)
+  if (phase === 'ready' && !scaleMode.transitioning) performanceMonitor.sample(now);
+
+  frameId = requestAnimationFrame(tick);
 }
 
 setPaused(false);
@@ -400,7 +571,8 @@ setSpeed(view.speedIndex);
 setOrbitsVisible(true);
 setLabelsVisible(true);
 toolbar.setScaleMode(scaleMode.mode);
-tick();
+toolbar.setTourActive(false);
+frameId = requestAnimationFrame(tick);
 
 // Biar gampang debug dari console browser
 window.solar = {
@@ -413,6 +585,9 @@ window.solar = {
   bodies,
   rig,
   scaleMode,
+  tour,
+  search,
+  performanceMonitor,
   time,
   get phase() {
     return phase;

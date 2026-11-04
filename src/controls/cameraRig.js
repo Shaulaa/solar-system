@@ -75,8 +75,9 @@ export function createCameraRig({ camera, controls }) {
   let introCallbacks = null;
   let introRevealed = false;
 
-  // Geser framing ke atas (fraksi tinggi layar), dipakai waktu bottom sheet nutup bagian bawah
-  const view = { shift: 0 };
+  // Geser framing (fraksi lebar / tinggi layar) biar benda yang difokus gak ketutup panel info.
+  // x: ke kiri waktu panel nempel di kanan (desktop), y: ke atas waktu bottom sheet (HP)
+  const view = { x: 0, y: 0 };
   let appliedView = '';
 
   // Selesaikan sisa inertia damping OrbitControls sekarang juga.
@@ -221,17 +222,18 @@ export function createCameraRig({ camera, controls }) {
   function applyViewShift() {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    const key = `${view.shift}|${width}|${height}`;
+    const key = `${view.x}|${view.y}|${width}|${height}`;
     if (key === appliedView) return;
     appliedView = key;
 
-    if (view.shift === 0) camera.clearViewOffset();
-    else camera.setViewOffset(width, height, 0, view.shift * height, width, height);
+    if (view.x === 0 && view.y === 0) camera.clearViewOffset();
+    else camera.setViewOffset(width, height, view.x * width, view.y * height, width, height);
   }
 
-  function setViewShift(fraction) {
+  function setViewShift({ x = 0, y = 0 } = {}) {
     gsap.to(view, {
-      shift: fraction,
+      x,
+      y,
       duration: VIEW_SHIFT_DURATION,
       ease: FLY_EASE,
       overwrite: true
@@ -247,6 +249,10 @@ export function createCameraRig({ camera, controls }) {
       // Tujuan dihitung ulang tiap frame dari posisi benda SEKARANG,
       // jadi kamera tetap nyampe walaupun planetnya sudah pindah selama 1,8 detik itu
       body.getPosition(bodyPosition);
+      // Arah kamera (relatif ke arah Matahari) juga dihitung ulang tiap frame. Di kecepatan tinggi
+      // planet bisa muter beberapa kali selama terbang, kalau offset-nya dikunci dari awal
+      // kamera bakal nyampe di sisi malam. Matahari dikecualikan karena arahnya diambil dari kamera
+      if (body.kind !== 'star') computeOffset(offset, bodyPosition);
       destination.copy(bodyPosition).add(offset);
       camera.position.lerpVectors(startPosition, destination, progress.t);
       controls.target.lerpVectors(startTarget, bodyPosition, progress.t);
