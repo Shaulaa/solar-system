@@ -1,5 +1,4 @@
 import { sun as sunData } from '../data/planets.js';
-import { SUN_RADIUS } from '../utils/scale.js';
 
 // Daftar semua benda langit yang bisa dipilih: Matahari, 8 planet, dan bulan bulan.
 // Picker, label, kamera, dan panel info semuanya baca dari sini,
@@ -10,54 +9,53 @@ import { SUN_RADIUS } from '../utils/scale.js';
 //   kind             'star' | 'planet' | 'moon'
 //   index            urutan planet dari Matahari (0 = Merkurius), null untuk yang lain
 //   parentId         id planet induk (khusus bulan)
-//   radius           radius yang sudah di-scale (unit scene)
+//   radius           radius SEKARANG dalam unit scene (getter, ikut berubah waktu ganti mode skala)
 //   mesh             mesh yang dirender, posisi dunianya = posisi benda
-//   labelAnchor      Object3D tempat label nempel. Bukan tiltGroup, biar label tetap tegak
 //   getPosition(v)   tulis posisi dunia benda ke v
-export function createBodyRegistry({ sun, planets, moons }) {
-  const make = (item) => ({
-    ...item,
+function makeBody({ source, ...fields }) {
+  return {
+    ...fields,
+    mesh: source.mesh,
+    get radius() {
+      return source.radius;
+    },
     getPosition(target) {
-      return item.mesh.getWorldPosition(target);
+      return source.mesh.getWorldPosition(target);
     }
-  });
+  };
+}
 
+export function createBodyRegistry({ sun, planets, moons }) {
   const list = [
-    make({
+    makeBody({
+      source: sun,
       id: sunData.id,
       name: sunData.name,
       data: sunData,
       kind: 'star',
       index: null,
-      parentId: null,
-      radius: SUN_RADIUS,
-      mesh: sun.mesh,
-      labelAnchor: sun.group
+      parentId: null
     }),
     ...planets.list.map((p, i) =>
-      make({
+      makeBody({
+        source: p,
         id: p.data.id,
         name: p.data.name,
         data: p.data,
         kind: 'planet',
         index: i,
-        parentId: null,
-        radius: p.radius,
-        mesh: p.mesh,
-        labelAnchor: p.anchor
+        parentId: null
       })
     ),
     ...moons.list.map((m) =>
-      make({
+      makeBody({
+        source: m,
         id: m.data.id,
         name: m.data.name,
         data: m.data,
         kind: 'moon',
         index: null,
-        parentId: m.parent.data.id,
-        radius: m.radius,
-        mesh: m.mesh,
-        labelAnchor: m.mesh
+        parentId: m.parent.data.id
       })
     )
   ];

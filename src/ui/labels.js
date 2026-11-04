@@ -19,7 +19,14 @@ const LABEL_LIFT = 1.25;
 export function createLabels({ bodies }) {
   const renderer = new CSS2DRenderer();
   renderer.domElement.className = 'labels-layer';
+  renderer.domElement.setAttribute('aria-hidden', 'true');
   document.body.appendChild(renderer.domElement);
+
+  // Label gak ditempel ke hierarki benda (yang bisa ke-scale waktu ganti mode skala),
+  // tapi ditaruh di grup sendiri dan posisinya di-set di world space tiap frame.
+  // Jadi jarak label di atas permukaan selalu benar di skala mana pun
+  const group = new THREE.Group();
+  group.name = 'labels';
 
   const items = bodies.list.map((body) => {
     const element = document.createElement('div');
@@ -29,8 +36,7 @@ export function createLabels({ bodies }) {
     const object = new CSS2DObject(element);
     // Titik jangkar di tengah bawah elemen, jadi labelnya duduk pas di atas benda
     object.center.set(0.5, 1);
-    object.position.y = body.radius * LABEL_LIFT;
-    body.labelAnchor.add(object);
+    group.add(object);
 
     return { body, element, object, state: '' };
   });
@@ -48,6 +54,7 @@ export function createLabels({ bodies }) {
   }
 
   return {
+    group,
     setEnabled(value) {
       enabled = value;
     },
@@ -64,8 +71,12 @@ export function createLabels({ bodies }) {
       const focus = focusedId ? bodies.get(focusedId) : null;
 
       for (const item of items) {
-        const { body } = item;
-        const distance = body.getPosition(position).distanceTo(camera.position);
+        const { body, object } = item;
+        body.getPosition(position);
+        const distance = position.distanceTo(camera.position);
+        object.position.copy(position);
+        object.position.y += body.radius * LABEL_LIFT;
+
         const visible =
           enabled && distance <= MAX_DISTANCE[body.kind] && isRelated(body, focus);
 

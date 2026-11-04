@@ -4,18 +4,34 @@ import gsap from 'gsap';
 // Kamera terbang ke benda langit dan ngikutin benda itu selama difokus
 //
 // State
+//   intro      animasi pembuka, kamera mundur dari dekat Matahari sambil berputar 30 derajat
 //   overview   kamera bebas, target di (0,0,0)
 //   flying     lagi terbang ke benda. Tujuannya ngikutin benda yang terus bergerak
 //   focus      sudah sampai. Kamera dan target digeser sebesar pergerakan benda tiap frame
-//   returning  lagi balik ke posisi overview
+//   returning  lagi balik ke posisi overview (juga dipakai waktu ganti mode skala)
 //
 // update() WAJIB dipanggil setelah planet dan bulan di-update dan sebelum controls.update()
 // (PRD bagian 8). Kalau kebalik, kamera ketinggalan satu frame dari planet dan kelihatan getar
 
-// Posisi kamera overview default. Dipakai juga sama intro di main.js dan arah latar Bima Sakti
+// Posisi kamera overview default (mode Enak Dilihat). Dipakai juga buat arah latar Bima Sakti
+// dan sebagai dasar posisi overview mode Skala Nyata (scene/scaleMode.js)
 export const OVERVIEW_POSITION = new THREE.Vector3(0, 85, 185);
 const OVERVIEW_TARGET = new THREE.Vector3(0, 0, 0);
 const OVERVIEW_MIN_DISTANCE = 15;
+
+// Intro: mulai dekat Matahari, lalu mundur ke overview sambil berputar segini
+const INTRO_DURATION = 4.5;
+const INTRO_START_DISTANCE = 26;
+const INTRO_START_POLAR = (77 * Math.PI) / 180; // hampir sejajar bidang orbit
+const INTRO_ORBIT = (30 * Math.PI) / 180;
+const INTRO_REVEAL_AT = 0.8; // judul dan HUD mulai muncul di 80 persen perjalanan
+
+// Near plane dinamis. Di mode Skala Nyata Bumi radiusnya cuma 0,017 unit, jadi kamera fokus
+// jaraknya sekitar 0,1 unit dari planet. Near plane tetap 0,1 bakal motong planetnya.
+// Near dibikin sebanding jarak kamera ke target, dibatasi supaya presisi depth tetap aman
+const NEAR_RATIO = 0.01;
+const NEAR_MIN = 0.0005;
+const NEAR_MAX = 0.1;
 
 const FLY_DURATION = 1.8;
 const FLY_EASE = 'power3.inOut';
@@ -33,6 +49,8 @@ const VIEW_SHIFT_DURATION = 0.7;
 
 const UP = new THREE.Vector3(0, 1, 0);
 
+const blendDistance = (from, to, t) => from * Math.pow(to / from, t);
+
 export function createCameraRig({ camera, controls }) {
   let mode = 'overview';
   let body = null;
@@ -45,6 +63,17 @@ export function createCameraRig({ camera, controls }) {
   const bodyPosition = new THREE.Vector3();
   const lastBodyPosition = new THREE.Vector3();
   const destination = new THREE.Vector3();
+
+  // Overview bisa berubah (mode skala), jadi disimpan di sini dan bisa diganti dari luar
+  const overviewPosition = OVERVIEW_POSITION.clone();
+  let overviewMinDistance = OVERVIEW_MIN_DISTANCE;
+
+  // Intro
+  const introStart = new THREE.Spherical();
+  const introEnd = new THREE.Spherical();
+  const introSpherical = new THREE.Spherical();
+  let introCallbacks = null;
+  let introRevealed = false;
 
   // Geser framing ke atas (fraksi tinggi layar), dipakai waktu bottom sheet nutup bagian bawah
   const view = { shift: 0 };
@@ -76,10 +105,8 @@ export function createCameraRig({ camera, controls }) {
     return target.normalize().multiplyScalar(body.radius * FOCUS_DISTANCE * fit);
   }
 
-  function startTween(nextMode) {
+  function startTween(nextMode, duration = FLY_DURATION) {
     tween?.kill();
-    // Intro di main.js juga nge-tween camera.position, matiin biar gak rebutan
-    gsap.killTweensOf(camera.position);
     settleControls();
 
     startPosition.copy(camera.position);
@@ -91,12 +118,13 @@ export function createCameraRig({ camera, controls }) {
 
     tween = gsap.to(progress, {
       t: 1,
-      duration: FLY_DURATION,
+      duration,
       ease: FLY_EASE
     });
   }
 
   function focus(nextBody) {
+    if (mode === 'intro') return;
     if (nextBody === body && (mode === 'focus' || mode === 'flying')) return;
     body = nextBody;
     body.getPosition(bodyPosition);
@@ -106,10 +134,86 @@ export function createCameraRig({ camera, controls }) {
     startTween('flying');
   }
 
-  function overview() {
-    if (mode === 'overview' || mode === 'returning') return;
+  // force: tetap terbang walaupun sudah di overview (dipakai waktu ganti mode skala,
+  // karena posisi overview-nya ikut berubah)
+  function overview({ duration = FLY_DURATION, force = false } = {}) {
+    if (mode === 'intro') return;
+    if (!force && (mode === 'overview' || mode === 'returning')) return;
     body = null;
-    startTween('returning');
+    startTween('returning', duration);
+  }
+
+  // Posisi overview tujuan. Boleh dipanggil tiap frame selama transisi skala,
+  // mode returning bakal ngejar posisi terbaru (sama kayak flying ngejar planet)
+  function setOverview({ position, minDistance }) {
+    if (position) overviewPosition.copy(position);
+    if (minDistance != null) overviewMinDistance = minDistance;
+  }
+
+  // Intro sinematik. onReveal dipanggil waktu kamera hampir sampai (buat fade in judul / HUD),
+  // onDone waktu selesai. Selama intro kamera gak bisa digerakkan user
+  function playIntro({ onReveal, onDone } = {}) {
+    introEnd.setFromVector3(overviewPosition);
+    introStart.set(INTRO_START_DISTANCE, INTRO_START_POLAR, introEnd.theta - INTRO_ORBIT);
+    introCallbacks = { onReveal, onDone };
+    introRevealed = false;
+
+    tween?.kill();
+    progress.t = 0;
+    mode = 'intro';
+    body = null;
+    controls.enabled = false;
+    controls.target.copy(OVERVIEW_TARGET);
+    camera.position.setFromSpherical(introStart);
+
+    tween = gsap.to(progress, { t: 1, duration: INTRO_DURATION, ease: FLY_EASE });
+  }
+
+  // Taruh kamera di titik awal intro tanpa jalan (dipakai selama loading screen)
+  function prepareIntro() {
+    introEnd.setFromVector3(overviewPosition);
+    introStart.set(INTRO_START_DISTANCE, INTRO_START_POLAR, introEnd.theta - INTRO_ORBIT);
+    controls.enabled = false;
+    controls.target.copy(OVERVIEW_TARGET);
+    camera.position.setFromSpherical(introStart);
+  }
+
+  // Loncat ke akhir intro (klik atau tombol apa saja)
+  function skipIntro() {
+    if (mode === 'intro') tween?.progress(1);
+  }
+
+  function updateIntro() {
+    const t = progress.t;
+    // Jarak diinterpolasi geometris biar mundurnya kerasa rata dari dekat sampai jauh
+    introSpherical.radius = blendDistance(introStart.radius, introEnd.radius, t);
+    introSpherical.phi = THREE.MathUtils.lerp(introStart.phi, introEnd.phi, t);
+    introSpherical.theta = THREE.MathUtils.lerp(introStart.theta, introEnd.theta, t);
+    camera.position.setFromSpherical(introSpherical);
+    controls.target.copy(OVERVIEW_TARGET);
+
+    if (!introRevealed && t >= INTRO_REVEAL_AT) {
+      introRevealed = true;
+      introCallbacks?.onReveal?.();
+    }
+    if (t >= 1) {
+      mode = 'overview';
+      controls.minDistance = overviewMinDistance;
+      controls.enabled = true;
+      const done = introCallbacks?.onDone;
+      introCallbacks = null;
+      done?.();
+    }
+  }
+
+  function updateNearPlane() {
+    const distance = camera.position.distanceTo(controls.target);
+    const near = THREE.MathUtils.clamp(distance * NEAR_RATIO, NEAR_MIN, NEAR_MAX);
+    // Cuma update kalau bedanya berarti, updateProjectionMatrix gak perlu tiap frame
+    if (Math.abs(near - camera.near) / camera.near > 0.02) {
+      camera.near = near;
+      camera.updateProjectionMatrix();
+    }
   }
 
   // setViewOffset geser "jendela" proyeksi tanpa mindahin kamera, jadi orbit, raycast,
@@ -137,7 +241,9 @@ export function createCameraRig({ camera, controls }) {
   function update() {
     applyViewShift();
 
-    if (mode === 'flying') {
+    if (mode === 'intro') {
+      updateIntro();
+    } else if (mode === 'flying') {
       // Tujuan dihitung ulang tiap frame dari posisi benda SEKARANG,
       // jadi kamera tetap nyampe walaupun planetnya sudah pindah selama 1,8 detik itu
       body.getPosition(bodyPosition);
@@ -162,21 +268,27 @@ export function createCameraRig({ camera, controls }) {
       controls.target.add(destination);
       lastBodyPosition.copy(bodyPosition);
     } else if (mode === 'returning') {
-      camera.position.lerpVectors(startPosition, OVERVIEW_POSITION, progress.t);
+      camera.position.lerpVectors(startPosition, overviewPosition, progress.t);
       controls.target.lerpVectors(startTarget, OVERVIEW_TARGET, progress.t);
 
       if (progress.t >= 1) {
         mode = 'overview';
         // Baru dibalikin setelah sampai. Kalau di awal, kamera yang masih dekat planet langsung loncat
-        controls.minDistance = OVERVIEW_MIN_DISTANCE;
+        controls.minDistance = overviewMinDistance;
         controls.enabled = true;
       }
     }
+
+    updateNearPlane();
   }
 
   return {
     focus,
     overview,
+    setOverview,
+    prepareIntro,
+    playIntro,
+    skipIntro,
     update,
     setViewShift,
     get mode() {

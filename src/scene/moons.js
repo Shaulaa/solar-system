@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { scaleRadius } from '../utils/scale.js';
+import { scaleRadius, scaleKm, blendScale } from '../utils/scale.js';
 import { createTexturedSphere } from './planets.js';
 
 // Bulan bulan planet, dibaca dari field moons di data/planets.js
@@ -14,8 +14,14 @@ import { createTexturedSphere } from './planets.js';
 const SEED_OFFSET = 100;
 
 function createMoon(moonData, planet, index) {
-  const radius = scaleRadius(moonData.radius);
-  const orbitRadius = planet.radius * moonData.orbitRadius;
+  const size = { pretty: scaleRadius(moonData.radius), real: scaleRadius(moonData.radius, 'real') };
+  // Mode pretty pakai kelipatan radius planet induk, mode real pakai jarak asli dalam km
+  const orbit = {
+    pretty: planet.baseRadius * moonData.orbitRadius,
+    real: scaleKm(moonData.distanceKm)
+  };
+  const radius = size.pretty;
+  const orbitRadius = orbit.pretty;
 
   const pivot = new THREE.Object3D();
   pivot.name = `${moonData.id}-orbit`;
@@ -30,16 +36,24 @@ function createMoon(moonData, planet, index) {
 
   const startAngle = (index * 1.7) % (Math.PI * 2);
 
-  return {
+  const moon = {
     data: moonData,
     parent: planet,
+    // Radius sekarang (unit scene), berubah waktu transisi mode skala
     radius,
     pivot,
     mesh,
+    applyScale(k) {
+      moon.radius = blendScale(size.pretty, size.real, k);
+      mesh.position.x = blendScale(orbit.pretty, orbit.real, k);
+      mesh.scale.setScalar(moon.radius / size.pretty);
+    },
     update(simDays) {
       pivot.rotation.y = startAngle + (simDays / moonData.orbitPeriod) * Math.PI * 2;
     }
   };
+
+  return moon;
 }
 
 export function createMoons(planetList) {
@@ -53,6 +67,9 @@ export function createMoons(planetList) {
 
   return {
     list,
+    applyScale(k) {
+      for (const m of list) m.applyScale(k);
+    },
     update(simDays) {
       for (const m of list) m.update(simDays);
     }

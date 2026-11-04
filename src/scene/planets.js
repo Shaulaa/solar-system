@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { planets as planetData } from '../data/planets.js';
 import { createPlanetTexture } from '../utils/planetTexture.js';
 import { loadTexture, assignTexture } from '../utils/loader.js';
-import { scaleDistance, scaleRadius } from '../utils/scale.js';
+import { scaleDistance, scaleRadius, blendScale } from '../utils/scale.js';
 import { createEarth } from './earth.js';
 import { createSaturnRing } from './saturnRing.js';
 
@@ -50,9 +50,14 @@ function createBody(data, radius, seed) {
 // Hierarki tiap planet
 // orbitPivot (muter = revolusi) > anchor (geser sejauh jarak orbit) > tiltGroup (miring) > mesh (rotasi)
 // Bulan nanti ditempel ke anchor (lihat moons.js), cincin ke tiltGroup
+//
+// Geometry dibikin sekali di ukuran mode pretty. Pindah mode skala cukup ngubah
+// scale tiltGroup (radius) dan posisi anchor (jarak), jadi gak ada geometry baru yang dibuat
 function createPlanet(data, index) {
-  const radius = scaleRadius(data.radius);
-  const distance = scaleDistance(data.distance);
+  const size = { pretty: scaleRadius(data.radius), real: scaleRadius(data.radius, 'real') };
+  const orbit = { pretty: scaleDistance(data.distance), real: scaleDistance(data.distance, 'real') };
+  const radius = size.pretty;
+  const distance = orbit.pretty;
   const seed = index + 1;
 
   const orbitPivot = new THREE.Object3D();
@@ -75,20 +80,30 @@ function createPlanet(data, index) {
   // Posisi awal acak biar planet gak baris lurus semua
   const startAngle = (index * 2.39996) % (Math.PI * 2);
 
-  return {
+  const planet = {
     data,
+    // Radius dan jarak orbit sekarang (unit scene), berubah waktu transisi mode skala
     radius,
     distance,
+    baseRadius: size.pretty,
     orbitPivot,
     anchor,
     tiltGroup,
     mesh: body.mesh,
+    applyScale(k) {
+      planet.radius = blendScale(size.pretty, size.real, k);
+      planet.distance = blendScale(orbit.pretty, orbit.real, k);
+      anchor.position.x = planet.distance;
+      tiltGroup.scale.setScalar(planet.radius / size.pretty);
+    },
     update(simDays) {
       orbitPivot.rotation.y = startAngle + (simDays / data.orbitPeriod) * Math.PI * 2;
       body.update((simDays / data.rotationPeriod) * Math.PI * 2 * ROTATION_SCALE);
-      ring?.update();
+      ring?.update(planet.radius);
     }
   };
+
+  return planet;
 }
 
 export function createPlanets() {
@@ -104,6 +119,9 @@ export function createPlanets() {
   return {
     group,
     list,
+    applyScale(k) {
+      for (const p of list) p.applyScale(k);
+    },
     update(simDays) {
       for (const p of list) p.update(simDays);
     }

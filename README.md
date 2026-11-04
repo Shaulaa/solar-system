@@ -33,9 +33,19 @@ Tekstur lain yang belum dipakai (planet katai, normal map dan specular map Bumi 
 1. Klik planet, Matahari, atau Bulan buat terbang ke sana dan lihat info lengkapnya
 2. Drag mouse buat muter kamera (juga waktu lagi fokus ke planet, kamera tetap ngikutin planetnya)
 3. Scroll buat zoom, klik kanan + drag buat geser
-4. Panah kiri / kanan buat pindah ke planet sebelumnya / berikutnya
-5. Esc, tombol Kembali, atau klik area kosong buat balik ke tampilan tata surya
-6. Spasi buat pause atau lanjut
+4. Esc, tombol Kembali, atau klik area kosong buat balik ke tampilan tata surya
+5. Klik atau tekan tombol apa saja buat skip intro
+
+Toolbar di bawah layar, semua tombolnya punya shortcut
+
+| Shortcut | Fungsi |
+|---|---|
+| Spasi | Pause / lanjut |
+| 1 sampai 4 | Kecepatan waktu: 1 hari, 10 hari, 1 bulan, 1 tahun per detik |
+| O | Garis orbit |
+| L | Label nama |
+| S | Mode skala: Enak Dilihat atau Skala Nyata |
+| Panah kiri / kanan | Planet sebelumnya / berikutnya (waktu lagi fokus) |
 
 Di HP: tap = klik, satu jari = muter, cubit = zoom. Panel info muncul dari bawah.
 
@@ -48,12 +58,15 @@ src/
 ├── data/planets.js      data dan info tiap planet (sumber tunggal isi panel info)
 ├── controls/
 │   ├── picker.js        klik / hover lewat raycasting, bedain klik dan drag
-│   └── cameraRig.js     kamera terbang ke benda dan ngikutin benda yang difokus
+│   └── cameraRig.js     intro, kamera terbang ke benda, ngikutin benda yang difokus
 ├── ui/
+│   ├── loader.js        loading screen (nyambung ke LoadingManager)
+│   ├── toolbar.js       play / pause, kecepatan, tanggal, toggle tampilan
 │   ├── labels.js        label nama di atas benda (CSS2DRenderer)
 │   └── infoPanel.js     panel info (samping di desktop, bottom sheet di HP)
 ├── scene/
 │   ├── bodies.js        daftar benda yang bisa dipilih, dipakai bareng semua modul interaksi
+│   ├── scaleMode.js     transisi mode Enak Dilihat dan Skala Nyata
 │   ├── sun.js           matahari (shader plasma + glow + cahaya)
 │   ├── planets.js       8 planet dengan revolusi, rotasi, kemiringan sumbu
 │   ├── earth.js         Bumi 3 lapis (siang malam, awan, atmosfer)
@@ -65,7 +78,7 @@ src/
 │   └── milkyWay.js      latar Bima Sakti (sphere BackSide redup)
 ├── shaders/             shader Bumi dan atmosfer (di-import pakai ?raw)
 └── utils/
-    ├── scale.js         rumus skala "enak dilihat"
+    ├── scale.js         rumus dua mode skala (Enak Dilihat dan Skala Nyata)
     ├── loader.js        LoadingManager bersama + muat tekstur dengan fallback
     ├── device.js        deteksi mobile
     ├── noise.js         noise buat tekstur prosedural
@@ -77,5 +90,5 @@ src/
 - [x] Fase 1, scene dasar, matahari, 8 planet muter, bintang, orbit
 - [x] Fase 2, tekstur asli, Bumi 3 lapis, cincin Saturnus, sabuk asteroid
 - [x] Fase 3, klik planet, label, kamera terbang, panel info
-- [ ] Fase 4, toolbar waktu, mode skala, loading screen
+- [x] Fase 4, toolbar waktu, mode skala, loading screen
 - [ ] Fase 5, tur otomatis, bulan, versi mobile, polish

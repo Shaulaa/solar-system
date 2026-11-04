@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SUN_RADIUS } from '../utils/scale.js';
+import { SUN_RADIUS, sunRadius, blendScale } from '../utils/scale.js';
 import { sun as sunData } from '../data/planets.js';
 import { loadTexture } from '../utils/loader.js';
 
@@ -174,12 +174,22 @@ export function createSun() {
     surface.material.uniforms.uMapMix.value = 0.5;
   });
 
-  return {
+  const sun = {
     group,
     mesh: surface,
+    // Radius sekarang (unit scene), berubah waktu transisi mode skala
+    radius: SUN_RADIUS,
+    // Geometry tetap ukuran mode pretty, mode lain cukup lewat scale grup.
+    // Glow ikut ke-scale, PointLight gak kena efek scale
+    applyScale(k) {
+      sun.radius = blendScale(sunRadius('pretty'), sunRadius('real'), k);
+      group.scale.setScalar(sun.radius / SUN_RADIUS);
+    },
     update(elapsed) {
       surface.material.uniforms.uTime.value = elapsed;
       surface.rotation.y = elapsed * 0.02;
     }
   };
+
+  return sun;
 }

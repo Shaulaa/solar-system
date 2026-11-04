@@ -101,9 +101,11 @@ export function createSaturnRing(ring, planetRadius) {
 
   return {
     mesh,
-    update() {
+    // radius = radius planet sekarang (berubah waktu transisi mode skala)
+    update(radius) {
       // Posisi planet = pusat cincin, karena cincin nempel di tiltGroup planet
       mesh.getWorldPosition(uniforms.uPlanetPosition.value);
+      uniforms.uPlanetRadius.value = radius;
     }
   };
 }

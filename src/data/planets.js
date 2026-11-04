@@ -64,14 +64,16 @@ export const planets = [
       fakta: 'Satu satunya planet yang diketahui punya kehidupan.'
     },
     // radius relatif ke Bumi (sama kayak planet, nanti lewat scaleRadius)
-    // orbitRadius dalam kelipatan radius planet induk yang SUDAH di-scale, bukan jarak asli.
-    // Jarak asli Bulan 60x radius Bumi, kalau dipakai mentah Bulan bakal nyasar jauh dari Bumi di skala ini
+    // orbitRadius dalam kelipatan radius planet induk yang SUDAH di-scale (mode Enak Dilihat).
+    // Jarak asli Bulan 60x radius Bumi, kalau dipakai mentah Bulan bakal nyasar jauh dari Bumi di skala ini.
+    // distanceKm jarak asli, dipakai mode Skala Nyata
     moons: [
       {
         id: 'moon',
         name: 'Bulan',
         radius: 0.27,
         orbitRadius: 2.4,
+        distanceKm: 384400,
         orbitPeriod: 27.3,
         // Rotasinya sama dengan periode orbit (tidal lock)
         rotationPeriod: 27.3,

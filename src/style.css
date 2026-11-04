@@ -46,33 +46,54 @@ body {
   letter-spacing: 0.04em;
 }
 
-.status {
-  position: fixed;
-  z-index: 2;
-  bottom: 24px;
-  left: 32px;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  opacity: 0.5;
-  pointer-events: none;
-}
+
 
 /* Kredit tekstur, wajib ada karena lisensi CC BY 4.0. Dibikin kecil dan redup biar gak ganggu pemandangan */
 .credit {
   position: fixed;
   z-index: 2;
   right: 24px;
-  bottom: 22px;
+  bottom: 30px;
   font-size: 11px;
   letter-spacing: 0.04em;
   opacity: 0.4;
-  transition: opacity 0.3s ease;
 }
 
 .credit:hover,
 .credit:focus-within {
   opacity: 0.85;
+}
+
+/* Selama loading dan intro, HUD disembunyikan lewat class di body (dipasang dari HTML,
+   jadi gak sempat kedip). Waktu class dilepas, tiap elemen balik ke opacity aslinya
+   (kredit tetap redup 0.4), pakai translate biar gak bentrok sama transform toolbar */
+.hud,
+.toolbar,
+.credit {
+  transition:
+    opacity 0.9s cubic-bezier(0.215, 0.61, 0.355, 1),
+    translate 0.9s cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
+.toolbar {
+  transition-delay: 0.12s;
+}
+
+.credit {
+  transition-delay: 0.24s;
+}
+
+body.is-intro .hud,
+body.is-intro .toolbar,
+body.is-intro .credit {
+  opacity: 0;
+  visibility: hidden;
+  translate: 0 12px;
+}
+
+/* Setelah HUD selesai muncul, delay dilepas biar hover kredit tetap responsif */
+body.hud-ready .credit {
+  transition: opacity 0.3s ease;
 }
 
 .credit a {
@@ -90,6 +111,266 @@ body {
   --panel-bg: rgba(10, 12, 20, 0.55);
   --panel-border: rgba(255, 255, 255, 0.08);
   --radius: 14px;
+}
+
+/* Loading screen, paling atas. Hitam penuh biar planet yang belum bertekstur gak kelihatan */
+.loading {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  background: #010104;
+  color: var(--text);
+  user-select: none;
+}
+
+.loading-title {
+  font-size: 22px;
+  font-weight: 300;
+  letter-spacing: 0.5em;
+  margin-right: -0.5em; /* letter-spacing nambah spasi di huruf terakhir, ini biar tetap di tengah */
+  text-transform: uppercase;
+}
+
+.loading-bar {
+  width: min(240px, 60vw);
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.loading-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-cool), var(--accent-warm));
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.loading-percent {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Toolbar mengambang di bawah tengah */
+.toolbar {
+  position: fixed;
+  z-index: 2;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--panel-bg);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.tb-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+
+@media (hover: hover) {
+  .tb-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.06);
+  }
+}
+
+.tb-btn[aria-pressed='true'] {
+  opacity: 1;
+  color: var(--accent-cool);
+}
+
+.tb-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+  background: none;
+}
+
+.tb-btn:focus-visible,
+.tb-speed input:focus-visible {
+  outline: 1px solid var(--accent-cool);
+  outline-offset: 2px;
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-play,
+.tb-btn.is-paused .icon-pause {
+  display: none;
+}
+
+.tb-btn.is-paused .icon-play {
+  display: block;
+}
+
+.icon-play,
+.icon-fill {
+  fill: currentColor;
+  stroke: none;
+}
+
+.tb-speed {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px;
+}
+
+/* Slider tipis, track 1px biar senada sama progress bar loading */
+.tb-speed input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 92px;
+  height: 20px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.tb-speed input::-webkit-slider-runnable-track {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.tb-speed input::-moz-range-track {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.tb-speed input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 11px;
+  height: 11px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--accent-warm);
+  border: 0;
+}
+
+.tb-speed input::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--accent-warm);
+  border: 0;
+}
+
+.tb-speed-label {
+  min-width: 76px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.tb-date {
+  min-width: 132px;
+  padding: 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-align: center;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.tb-sep {
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--panel-border);
+}
+
+/* Tooltip ringan dari data-tooltip, muncul di atas elemen waktu hover / fokus keyboard */
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translate(-50%, 4px);
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: rgba(10, 12, 20, 0.85);
+  border: 1px solid var(--panel-border);
+  color: var(--text);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+/* Hover cuma di perangkat yang beneran punya hover. Di layar sentuh :hover nyangkut setelah tap,
+   jadi tooltip-nya gak hilang hilang dan nutupin isi toolbar */
+@media (hover: hover) {
+  [data-tooltip]:hover::after {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+[data-tooltip]:focus-visible::after,
+[data-tooltip]:has(:focus-visible)::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* Penjelasan mode skala nyata, nempel di atas toolbar */
+.scale-note {
+  position: fixed;
+  z-index: 2;
+  left: 50%;
+  bottom: 86px;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(255, 179, 107, 0.08);
+  border: 1px solid rgba(255, 179, 107, 0.18);
+  color: var(--accent-warm);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-align: center;
+  pointer-events: none;
+}
+
+.scale-note[hidden] {
+  display: none;
 }
 
 /* Label nama benda langit (CSS2DRenderer). Layer-nya gak boleh nangkep pointer,
@@ -258,6 +539,45 @@ body {
   opacity: 1;
 }
 
+/* Layar menengah: toolbar di tengah bisa nabrak kredit di kanan bawah, kredit naik ke atasnya */
+@media (max-width: 1180px) {
+  .credit {
+    bottom: 84px;
+  }
+}
+
+/* Layar sempit: toolbar dibikin dua baris (kontrol waktu di atas, toggle di bawah) */
+@media (max-width: 640px) {
+  .toolbar {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    transform: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 2px;
+  }
+
+  .tb-date {
+    min-width: 0;
+  }
+
+  .tb-sep {
+    display: none;
+  }
+
+  .scale-note {
+    bottom: 128px;
+  }
+
+  .credit {
+    bottom: auto;
+    top: 96px;
+    right: auto;
+    left: 16px;
+  }
+}
+
 /* Bottom sheet di layar sempit */
 @media (max-width: 767px) {
   .info-panel {
@@ -292,9 +612,6 @@ body {
   }
   .hud h1 {
     font-size: 20px;
-  }
-  .status {
-    left: 16px;
   }
   .credit {
     right: 16px;
