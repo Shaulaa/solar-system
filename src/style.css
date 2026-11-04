@@ -25,6 +25,7 @@ body {
 
 .hud {
   position: fixed;
+  z-index: 2;
   top: 28px;
   left: 32px;
   pointer-events: none;
@@ -47,6 +48,7 @@ body {
 
 .status {
   position: fixed;
+  z-index: 2;
   bottom: 24px;
   left: 32px;
   font-size: 12px;
@@ -59,6 +61,7 @@ body {
 /* Kredit tekstur, wajib ada karena lisensi CC BY 4.0. Dibikin kecil dan redup biar gak ganggu pemandangan */
 .credit {
   position: fixed;
+  z-index: 2;
   right: 24px;
   bottom: 22px;
   font-size: 11px;
@@ -77,6 +80,209 @@ body {
   text-decoration: underline;
   text-decoration-color: rgba(232, 232, 240, 0.35);
   text-underline-offset: 2px;
+}
+
+/* Token warna dan panel dari PRD bagian 9 */
+:root {
+  --text: #e8e8f0;
+  --accent-cool: #8fb4ff;
+  --accent-warm: #ffb36b;
+  --panel-bg: rgba(10, 12, 20, 0.55);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --radius: 14px;
+}
+
+/* Label nama benda langit (CSS2DRenderer). Layer-nya gak boleh nangkep pointer,
+   kalau nggak drag kamera ketahan di atas label */
+.labels-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.label {
+  padding-bottom: 6px;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text);
+  white-space: nowrap;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.9);
+  opacity: 0.4;
+  transition: opacity 0.35s ease;
+  user-select: none;
+}
+
+.label.is-hover {
+  opacity: 1;
+}
+
+.label.is-hidden {
+  opacity: 0;
+}
+
+/* Panel info. Desktop nempel kanan, mobile jadi bottom sheet (lihat media query di bawah) */
+.info-panel {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 3;
+  width: min(360px, calc(100vw - 48px));
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 24px 28px 22px;
+  background: var(--panel-bg);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  color: var(--text);
+}
+
+.info-panel[hidden] {
+  display: none;
+}
+
+.info-panel button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.info-panel button:focus-visible {
+  outline: 1px solid var(--accent-cool);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.info-back {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  transition: opacity 0.2s ease;
+}
+
+.info-back:hover {
+  opacity: 1;
+}
+
+.info-header {
+  margin: 22px 0 20px;
+}
+
+.info-subtitle {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--accent-warm);
+  opacity: 0.85;
+}
+
+.info-title {
+  margin-top: 6px;
+  font-size: 30px;
+  font-weight: 300;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.info-stats {
+  display: grid;
+  gap: 0;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--panel-border);
+  font-size: 13px;
+}
+
+.info-row dt {
+  opacity: 0.55;
+  flex-shrink: 0;
+}
+
+.info-row dd {
+  text-align: right;
+  font-weight: 400;
+}
+
+.info-fact {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(143, 180, 255, 0.06);
+  border: 1px solid rgba(143, 180, 255, 0.12);
+}
+
+.info-fact-label {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-cool);
+}
+
+.info-fact-text {
+  margin-top: 6px;
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1.55;
+}
+
+.info-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--panel-border);
+}
+
+.info-nav button {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.info-nav button:hover {
+  opacity: 1;
+}
+
+/* Bottom sheet di layar sempit */
+@media (max-width: 767px) {
+  .info-panel {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 55vh;
+    padding: 18px 20px calc(16px + env(safe-area-inset-bottom));
+    border-radius: var(--radius) var(--radius) 0 0;
+    border-bottom: 0;
+  }
+
+  .info-header {
+    margin: 14px 0 12px;
+  }
+
+  .info-title {
+    font-size: 24px;
+  }
+
+  .info-row {
+    padding: 8px 0;
+  }
 }
 
 @media (max-width: 600px) {

@@ -16,10 +16,34 @@
 
     <div class="hud">
       <h1>Tata Surya</h1>
-      <p class="sub">Drag buat muter, scroll buat zoom, spasi buat pause</p>
+      <p class="sub">Klik planet buat lihat detail, drag buat muter, scroll buat zoom, spasi buat pause</p>
     </div>
 
     <div class="status" id="status">1 detik = 10 hari</div>
+
+    <!-- Panel info benda langit. Isinya diisi ui/infoPanel.js dari data/planets.js -->
+    <aside class="info-panel" id="info-panel" aria-labelledby="info-title" hidden>
+      <button class="info-back" type="button" data-action="back" aria-label="Kembali ke tampilan tata surya">
+        <span aria-hidden="true">&larr;</span> Kembali
+      </button>
+
+      <header class="info-header">
+        <p class="info-subtitle" id="info-subtitle" data-animate></p>
+        <h2 class="info-title" id="info-title" data-animate></h2>
+      </header>
+
+      <dl class="info-stats" id="info-stats"></dl>
+
+      <div class="info-fact" data-animate>
+        <p class="info-fact-label">Fakta unik</p>
+        <p class="info-fact-text" id="info-fact"></p>
+      </div>
+
+      <nav class="info-nav" aria-label="Navigasi benda langit">
+        <button type="button" data-action="prev" id="info-prev"></button>
+        <button type="button" data-action="next" id="info-next"></button>
+      </nav>
+    </aside>
 
     <p class="credit">
       Textures by

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { loadTexture } from '../utils/loader.js';
+import { OVERVIEW_POSITION } from '../controls/cameraRig.js';
 
 // Latar Bima Sakti, sphere raksasa yang dilihat dari dalam (BackSide)
 // Tambahan di luar PRD, lihat Catatan Keputusan
@@ -33,9 +34,9 @@ const GALACTIC_TILT = 60 * DEG;
 // waktu dilihat dari posisi overview default. Kalau cuma diputar di sumbu X,
 // kamera overview malah menghadap kutub galaksi dan pitanya gak kelihatan sama sekali
 const GALACTIC_AZIMUTH = -15.4 * DEG;
-// Arah pandang kamera overview default (posisi akhir intro di main.js ke titik 0,0,0).
+// Arah pandang kamera overview default (dari OVERVIEW_POSITION ke titik 0,0,0).
 // Pusat galaksi (bagian paling terang) diarahkan ke sini, jadi pas di belakang matahari
-const OVERVIEW_DIRECTION = new THREE.Vector3(0, -85, -185).normalize();
+const OVERVIEW_DIRECTION = OVERVIEW_POSITION.clone().negate().normalize();
 
 // Perkecil + potong bintang terang di canvas, hasilnya tekstur baru.
 // Tekstur asli langsung di-dispose karena gak dipakai lagi

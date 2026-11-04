@@ -1,6 +1,11 @@
 // Data planet tata surya
 // radius relatif ke Bumi, distance dalam AU, periode dalam hari (Bumi), tilt dalam derajat
 // rotationPeriod negatif artinya rotasinya kebalik (retrograde)
+//
+// Panel info (ui/infoPanel.js) baca semua isinya dari sini.
+// Angka seperti distance, orbitPeriod, rotationPeriod, dan tilt diformat otomatis
+// (AU ke juta km, hari ke tahun / jam), jadi gak perlu ditulis ulang sebagai teks.
+// subtitle cuma diisi kalau gak bisa diturunkan (planet otomatis "Planet ke N dari Matahari")
 
 export const planets = [
   {
@@ -68,11 +73,16 @@ export const planets = [
         radius: 0.27,
         orbitRadius: 2.4,
         orbitPeriod: 27.3,
+        // Rotasinya sama dengan periode orbit (tidal lock)
+        rotationPeriod: 27.3,
+        tilt: 6.7,
+        subtitle: 'Satelit alami Bumi',
         texture: '2k_moon.jpg',
         look: { type: 'rocky', colors: ['#4a4a4a', '#8a8a88', '#c4c4c0'] },
         info: {
           diameter: '3.474 km',
           jarak: '384.400 km dari Bumi',
+          suhu: '-173°C sampai 127°C',
           fakta: 'Bulan selalu nunjukin sisi yang sama ke Bumi karena rotasinya sama persis dengan periode orbitnya.'
         }
       }
@@ -168,7 +178,12 @@ export const planets = [
 ];
 
 export const sun = {
+  id: 'sun',
   name: 'Matahari',
+  subtitle: 'Bintang di pusat tata surya',
+  // Rotasi di ekuator, kutubnya lebih lambat (sekitar 35 hari) karena Matahari bukan benda padat
+  rotationPeriod: 25.4,
+  tilt: 7.25,
   // opsional, cuma dicampur ke warna shader plasma
   texture: '2k_sun.jpg',
   info: {

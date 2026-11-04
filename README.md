@@ -30,19 +30,30 @@ Tekstur lain yang belum dipakai (planet katai, normal map dan specular map Bumi 
 
 ## Kontrol
 
-1. Drag mouse buat muter kamera
-2. Scroll buat zoom
-3. Klik kanan + drag buat geser
-4. Spasi buat pause atau lanjut
+1. Klik planet, Matahari, atau Bulan buat terbang ke sana dan lihat info lengkapnya
+2. Drag mouse buat muter kamera (juga waktu lagi fokus ke planet, kamera tetap ngikutin planetnya)
+3. Scroll buat zoom, klik kanan + drag buat geser
+4. Panah kiri / kanan buat pindah ke planet sebelumnya / berikutnya
+5. Esc, tombol Kembali, atau klik area kosong buat balik ke tampilan tata surya
+6. Spasi buat pause atau lanjut
+
+Di HP: tap = klik, satu jari = muter, cubit = zoom. Panel info muncul dari bawah.
 
 ## Struktur
 
 ```
 src/
-├── main.js              renderer, kamera, bloom, loop utama
+├── main.js              renderer, kamera, bloom, loop utama, penghubung semua modul
 ├── style.css
-├── data/planets.js      data dan info tiap planet
+├── data/planets.js      data dan info tiap planet (sumber tunggal isi panel info)
+├── controls/
+│   ├── picker.js        klik / hover lewat raycasting, bedain klik dan drag
+│   └── cameraRig.js     kamera terbang ke benda dan ngikutin benda yang difokus
+├── ui/
+│   ├── labels.js        label nama di atas benda (CSS2DRenderer)
+│   └── infoPanel.js     panel info (samping di desktop, bottom sheet di HP)
 ├── scene/
+│   ├── bodies.js        daftar benda yang bisa dipilih, dipakai bareng semua modul interaksi
 │   ├── sun.js           matahari (shader plasma + glow + cahaya)
 │   ├── planets.js       8 planet dengan revolusi, rotasi, kemiringan sumbu
 │   ├── earth.js         Bumi 3 lapis (siang malam, awan, atmosfer)
@@ -65,6 +76,6 @@ src/
 
 - [x] Fase 1, scene dasar, matahari, 8 planet muter, bintang, orbit
 - [x] Fase 2, tekstur asli, Bumi 3 lapis, cincin Saturnus, sabuk asteroid
-- [ ] Fase 3, klik planet, label, kamera terbang, panel info
+- [x] Fase 3, klik planet, label, kamera terbang, panel info
 - [ ] Fase 4, toolbar waktu, mode skala, loading screen
 - [ ] Fase 5, tur otomatis, bulan, versi mobile, polish
