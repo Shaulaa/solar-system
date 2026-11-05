@@ -42,17 +42,20 @@ const FLY_EASE = 'power3.inOut';
 const FOCUS_DISTANCE = 6; // kelipatan radius benda
 const FOCUS_FILL = 0.6;
 const FOCUS_MIN_DISTANCE = 1.5; // kelipatan radius, biar zoom gak nembus awan / atmosfer
-// Kamera ditaruh di arah matahari ke planet lalu diputar segini (di sumbu Y).
-// Kalau gak diputar, kamera ada tepat di belakang planet dan yang kelihatan cuma sisi malam.
-// Dengan 120 derajat sebagian besar sisi siang kelihatan, terminator juga masih kebagian
-const VIEW_ANGLE = (120 * Math.PI) / 180;
-// Kamera agak dari atas (sekitar 31 derajat di atas bidang orbit). Bulan ngorbit di bidang
+// Sudut fase: sudut antara arah benda ke kamera dan arah benda ke Matahari (3D).
+// 0 berarti kamera tepat di sisi Matahari (planet bulat penuh terang, terminator gak kelihatan),
+// 180 berarti di belakang planet (cuma sisi malam). 55 derajat bikin sekitar 4/5 sisi siang
+// kelihatan dan terminator tetap ada di tepi
+const PHASE_ANGLE = (55 * Math.PI) / 180;
+// Kamera agak dari atas, sekitar 31 derajat di atas bidang orbit. Bulan ngorbit di bidang
 // ekliptika, jadi dari ketinggian ini bulan yang lewat di depan kelihatan di bawah planet,
-// bukan nutupin planetnya
-const VIEW_LIFT = 0.6;
+// bukan nutupin planetnya. Sudut fase di atas tetap dijaga, sisanya diambil dari putaran horizontal
+const VIEW_ELEVATION = Math.atan(0.6);
 const VIEW_SHIFT_DURATION = 0.7;
 
 const UP = new THREE.Vector3(0, 1, 0);
+const COS_ELEVATION = Math.cos(VIEW_ELEVATION);
+const SIN_ELEVATION = Math.sin(VIEW_ELEVATION);
 
 const blendDistance = (from, to, t) => from * Math.pow(to / from, t);
 
@@ -107,19 +110,45 @@ export function createCameraRig({ camera, controls }) {
     return Math.max(body.radius * FOCUS_DISTANCE, body.boundingRadius / Math.sin(halfAngle));
   }
 
+  const sunward = new THREE.Vector3();
+  const side = new THREE.Vector3();
+
+  // Arah kamera dari benda: naik VIEW_ELEVATION dari bidang orbit, dan diputar horizontal
+  // dari arah Matahari secukupnya sampai sudut fase 3D-nya pas PHASE_ANGLE.
+  // Matahari ada di (0,0,0), jadi arah benda ke Matahari = -posisi benda
   function computeOffset(target, position) {
-    const horizontal = new THREE.Vector3(position.x, 0, position.z);
-    if (horizontal.lengthSq() < 1e-6) {
-      // Matahari ada di pusat, gak punya arah matahari ke benda.
+    sunward.copy(position).negate();
+    const horizontalLength = Math.hypot(sunward.x, sunward.z);
+    if (horizontalLength < 1e-6) {
+      // Matahari sendiri gak punya arah ke Matahari.
       // Pakai arah kamera sekarang aja biar terbangnya lurus ke depan
       target.copy(camera.position).sub(controls.target);
       target.y = 0;
       if (target.lengthSq() < 1e-6) target.set(0, 0, 1);
-      target.normalize();
+      target.normalize().multiplyScalar(COS_ELEVATION);
     } else {
-      target.copy(horizontal).normalize().applyAxisAngle(UP, VIEW_ANGLE);
+      // Planet yang orbitnya miring (Merkurius 7 derajat, Pluto 17) agak di atas / bawah bidang,
+      // jadi komponen vertikal arah ke Matahari ikut dihitung:
+      // cos(fase) = cos(elevasi) cos(putaran) |horizontal| + sin(elevasi) y
+      sunward.normalize();
+      const flat = Math.hypot(sunward.x, sunward.z);
+      const cosTurn = THREE.MathUtils.clamp(
+        (Math.cos(PHASE_ANGLE) - SIN_ELEVATION * sunward.y) / (COS_ELEVATION * flat),
+        -1,
+        1
+      );
+      const turn = Math.acos(cosTurn);
+      sunward.y = 0;
+      sunward.normalize();
+      // Diputar ke arah yang sama seperti sebelumnya (searah gerak planet di orbitnya)
+      side.crossVectors(UP, sunward);
+      target
+        .copy(sunward)
+        .multiplyScalar(Math.cos(turn))
+        .addScaledVector(side, -Math.sin(turn))
+        .multiplyScalar(COS_ELEVATION);
     }
-    target.y += VIEW_LIFT;
+    target.y = SIN_ELEVATION;
     return target.normalize().multiplyScalar(focusDistance());
   }
 

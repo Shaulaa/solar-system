@@ -20,11 +20,13 @@ const OVERVIEW_GROWTH = scaleDistance(outermost, 'real') / scaleDistance(outermo
 
 // Layar sempit (HP portrait) sudut pandang horizontalnya sempit, orbit luar kepotong kiri kanan.
 // Komposisi overview default pas buat rasio layar segini (orbit Neptunus pas muat lebarnya),
-// di bawahnya kamera overview mundur sebanding biar orbit Neptunus tetap kelihatan utuh
+// di bawahnya kamera overview mundur. Mundurnya gak penuh sebanding (dipangkatkan 0.85),
+// jadi di HP planet gak terlalu kecil, dan orbit Neptunus cuma kepotong sedikit di kiri kanan
 const OVERVIEW_FIT_ASPECT = 1.75;
+const OVERVIEW_FIT_POWER = 0.85;
 
 export function overviewFit(aspect) {
-  return Math.max(1, OVERVIEW_FIT_ASPECT / aspect);
+  return Math.max(1, Math.pow(OVERVIEW_FIT_ASPECT / aspect, OVERVIEW_FIT_POWER));
 }
 
 // Pengaturan kamera dasar tiap mode (layar lebar). Pakai cameraSettings() biar ikut layar sempit

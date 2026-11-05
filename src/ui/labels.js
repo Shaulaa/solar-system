@@ -17,16 +17,20 @@ const MAX_DISTANCE = { star: Infinity, planet: Infinity, dwarf: Infinity, moon: 
 const LABEL_LIFT = 1.25;
 
 // Anti tumpuk. Di mode Skala Nyata (dan kalau zoom jauh) label planet dalam bisa numpuk jadi satu.
-// Label yang tabrakan di layar disembunyikan, yang menang yang prioritasnya lebih tinggi.
-// Lebar label diperkirakan dari jumlah huruf (font 11px uppercase + letter spacing 0.22em),
-// biar gak perlu baca ukuran DOM tiap frame (itu maksa browser hitung ulang layout)
+// Label yang tabrakan di layar disembunyikan, yang menang yang prioritasnya lebih tinggi
+// (Matahari, lalu planet yang lebih besar, lalu bulan).
+// Ukuran tiap label diukur dari DOM cuma sekali (dan diulang waktu layar di-resize atau font
+// selesai dimuat), gak tiap frame, karena baca ukuran DOM maksa browser hitung ulang layout.
+// Sebelum sempat diukur, ukurannya diperkirakan dari jumlah huruf
 const LABEL_CHAR_WIDTH = 9.5;
 const LABEL_PADDING = 10;
-const LABEL_HEIGHT = 18;
+const LABEL_HEIGHT = 20; // termasuk padding bawah 6px
 const KIND_PRIORITY = { star: 3, planet: 2, dwarf: 2, moon: 1 };
+// Jarak minimal antar label. Di layar sempit dibikin lebih lega, karena label lebih rapat
+const LABEL_GAP = { wide: 2, narrow: 8 };
+const NARROW_SCREEN = 768;
 // Label yang sebagian keluar layar disembunyikan (bukan digeser masuk, karena label yang
-// digeser jadi gak nunjuk ke bendanya lagi). Tinggi elemen termasuk padding bawah 6px
-const LABEL_BOX_HEIGHT = 22;
+// digeser jadi gak nunjuk ke bendanya lagi)
 const EDGE_MARGIN = 4;
 
 export function createLabels({ bodies }) {
@@ -57,6 +61,8 @@ export function createLabels({ bodies }) {
       object,
       state: '',
       width: body.name.length * LABEL_CHAR_WIDTH + LABEL_PADDING,
+      height: LABEL_HEIGHT,
+      measured: false,
       screen: new THREE.Vector3()
     };
   });
@@ -72,10 +78,29 @@ export function createLabels({ bodies }) {
     return KIND_PRIORITY[body.kind] * 1000 + (body.data.radius ?? 0);
   }
 
+  let gap = window.innerWidth < NARROW_SCREEN ? LABEL_GAP.narrow : LABEL_GAP.wide;
+
+  // Ukur sekali begitu elemennya sudah ada di halaman (CSS2DRenderer baru masang elemen
+  // di render pertama). Kalau hasilnya 0 (layer label lagi gak tampil), coba lagi nanti
+  function measure(item) {
+    if (item.measured || !item.element.isConnected) return;
+    const width = item.element.offsetWidth;
+    if (width === 0) return;
+    item.width = width;
+    item.height = item.element.offsetHeight;
+    item.measured = true;
+  }
+
+  function remeasure() {
+    for (const item of items) item.measured = false;
+  }
+  document.fonts?.ready.then(remeasure);
+
+  // Kotak label: tengah bawah di screen, lebar width, tinggi height ke atas
   function overlaps(a, b) {
     return (
-      Math.abs(a.screen.x - b.screen.x) < (a.width + b.width) / 2 &&
-      Math.abs(a.screen.y - b.screen.y) < LABEL_HEIGHT
+      Math.abs(a.screen.x - b.screen.x) < (a.width + b.width) / 2 + gap &&
+      Math.abs(a.screen.y - b.screen.y) < (a.height + b.height) / 2 + gap
     );
   }
 
@@ -85,7 +110,7 @@ export function createLabels({ bodies }) {
     return (
       item.screen.x - half >= EDGE_MARGIN &&
       item.screen.x + half <= viewWidth - EDGE_MARGIN &&
-      item.screen.y - LABEL_BOX_HEIGHT >= EDGE_MARGIN &&
+      item.screen.y - item.height >= EDGE_MARGIN &&
       item.screen.y <= viewHeight - EDGE_MARGIN
     );
   }
@@ -115,6 +140,9 @@ export function createLabels({ bodies }) {
     },
     setSize(width, height) {
       viewWidth = width;
+      gap = width < NARROW_SCREEN ? LABEL_GAP.narrow : LABEL_GAP.wide;
+      // Breakpoint CSS bisa ngubah ukuran font label, jadi diukur ulang
+      remeasure();
       viewHeight = height;
       renderer.setSize(width, height);
     },
@@ -124,6 +152,7 @@ export function createLabels({ bodies }) {
 
       for (const item of items) {
         const { body, object } = item;
+        measure(item);
         body.getPosition(position);
         const distance = position.distanceTo(camera.position);
         object.position.copy(position);
