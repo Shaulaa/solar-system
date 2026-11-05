@@ -99,7 +99,7 @@ scene.add(stars.points);
 // Semua tekstur sudah mulai dimuat di atas. Kalau ternyata gak ada sama sekali, loading langsung selesai
 loadingScreen.checkNothingToLoad();
 
-const scaleMode = createScaleMode({ sun, planets, moons, asteroidBelt });
+const scaleMode = createScaleMode({ sun, planets, moons, asteroidBelt, orbits });
 
 // Post processing buat glow matahari
 const composer = new EffectComposer(renderer);

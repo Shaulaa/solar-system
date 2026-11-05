@@ -37,7 +37,7 @@ export function overviewPositionAt(k, target = new THREE.Vector3()) {
   return target.copy(OVERVIEW_POSITION).multiplyScalar(blendScale(1, OVERVIEW_GROWTH, k));
 }
 
-export function createScaleMode({ sun, planets, moons, asteroidBelt }) {
+export function createScaleMode({ sun, planets, moons, asteroidBelt, orbits }) {
   const state = { k: 0 };
   let mode = 'pretty';
   let tween = null;
@@ -47,6 +47,7 @@ export function createScaleMode({ sun, planets, moons, asteroidBelt }) {
     planets.applyScale(state.k);
     moons.applyScale(state.k);
     asteroidBelt.applyScale(state.k);
+    orbits.applyScale(state.k);
   }
 
   // Pindah mode. Kalau dipanggil di tengah transisi, tween lama ditimpa dan transisi

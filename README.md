@@ -8,7 +8,8 @@ Dibuat dengan Three.js, GSAP, dan Vite, tanpa framework UI.
 
 ## Fitur
 
-- **Visual sinematik.** Matahari dari shader plasma + bloom, Bumi 3 lapis (siang malam dengan lampu kota, awan, atmosfer), cincin Saturnus dengan bayangan planet, sabuk asteroid 2.000 batu dalam 1 draw call, dan latar Bima Sakti
+- **Visual sinematik.** Matahari dari shader plasma + bloom, Bumi 3 lapis (siang malam dengan lampu kota, relief, kilau matahari di laut, awan, atmosfer), cincin Saturnus dengan bayangan planet, sabuk asteroid 2.000 batu dalam 1 draw call, dan latar Bima Sakti
+- **Posisi planet asli.** Orbit elips dan miring dari elemen orbit JPL, posisi tiap planet dihitung pakai persamaan Kepler sesuai tanggal simulasi. Jadi susunan planet di layar sama dengan langit hari ini
 - **Kamera terbang.** Klik planet, Matahari, atau bulan, kamera terbang dan nempel ke benda yang terus bergerak tanpa getar, tapi tetap bisa diputar bebas
 - **Panel info.** Diameter, jarak, lama setahun dan sehari, suhu, jumlah bulan, kemiringan sumbu, dan fakta unik. Semua dari satu file data
 - **Tur otomatis.** Matahari sampai Neptunus dengan narasi singkat di tiap pemberhentian, berhenti sendiri kalau user ngambil alih kamera
@@ -69,7 +70,8 @@ npm run preview   # cek hasil build secara lokal
 Beberapa bagian yang paling menarik buat dibaca kodenya
 
 - **Kamera ngikutin planet tanpa getar** ([cameraRig.js](src/controls/cameraRig.js)). Selama terbang, tujuan kamera dihitung ulang tiap frame dari posisi planet sekarang. Setelah sampai, kamera dan target digeser sebesar pergerakan planet. Urutan update di loop utama sengaja diatur (planet, lalu kamera, lalu `controls.update()`), hasil ukurnya selisih posisi kamera ke planet cuma 1e-14 selama 120 frame
-- **Siang malam Bumi** ([earth.frag](src/shaders/earth.frag)). Satu shader nyampur daymap dan nightmap pakai `smoothstep` di area terminator. Arah matahari dan normal sama sama di world space, jadi terminator gak ikut geser waktu kamera diputar
+- **Siang malam Bumi** ([earth.frag](src/shaders/earth.frag)). Satu shader nyampur daymap dan nightmap pakai `smoothstep` di area terminator. Arah matahari dan normal sama sama di world space, jadi terminator gak ikut geser waktu kamera diputar. Relief dari normal map (tangent dihitung langsung di shader, tanpa `computeTangents`) dan kilau matahari Blinn Phong yang cuma muncul di laut lewat specular map
+- **Orbit Kepler** ([kepler.js](src/utils/kepler.js)). Elemen orbit J2000 diputar ke bidang ekliptika, persamaan Kepler diselesaikan pakai Newton. Di mode Enak Dilihat cuma jarak ke Matahari yang dikompres, arahnya tetap, jadi kemiringan orbit dan arah perihelion tetap benar
 - **Dua mode skala tanpa bikin geometry baru** ([scaleMode.js](src/scene/scaleMode.js), [scale.js](src/utils/scale.js)). Geometry dibuat sekali, transisi cuma ngubah scale dan posisi dengan interpolasi geometris (bedanya sampai 76x). Near plane kamera dinamis, karena di skala nyata kamera bisa cuma 0,085 unit dari Bumi
 - **Klik yang tepat sasaran** ([picker.js](src/controls/picker.js)). Raycast ke mesh asli dulu, baru hit area yang diperbesar. Hit area minimal 9 px di layar biar planet sekecil 1 piksel tetap bisa diklik, dan cuma dipakai kalau bendanya kelihatan kecil
 - **Label anti tumpuk** ([labels.js](src/ui/labels.js)). Label yang tabrakan di layar disembunyikan berdasarkan prioritas, tanpa baca ukuran DOM tiap frame
@@ -89,7 +91,11 @@ Cara konversi ulang ke WebP, pakai [cwebp](https://developers.google.com/speed/w
 cd public/textures
 for f in *.jpg; do cwebp -q 85 "$f" -o "${f%.jpg}.webp"; done
 cwebp -lossless 2k_saturn_ring_alpha.png -o 2k_saturn_ring_alpha.webp
+cwebp -q 90 2k_earth_normal_map.png -o 2k_earth_normal_map.webp
+cwebp -q 85 2k_earth_specular_map.png -o 2k_earth_specular_map.webp
 ```
+
+Normal map dan specular map Bumi dari Solar System Scope berformat `.tif` yang gak bisa dibaca browser, jadi dikonversi dulu ke `.png` (misal pakai Pillow atau GIMP) sebelum ke WebP.
 
 Cincin Saturnus wajib lossless karena transparansinya ada di channel alpha. Setelah dikonversi, file JPG / PNG aslinya boleh dipindah keluar dari `public/` biar gak ikut ke build. Di project ini dipindah ke `textures-extra/original/` (di-ignore git).
 
@@ -118,17 +124,19 @@ src/
 │   ├── bodies.js        daftar benda yang bisa dipilih, dipakai bareng semua modul interaksi
 │   ├── scaleMode.js     transisi mode Enak Dilihat dan Skala Nyata
 │   ├── sun.js           matahari (shader plasma + glow + cahaya)
-│   ├── planets.js       planet dan planet katai, revolusi, rotasi, kemiringan sumbu
-│   ├── earth.js         Bumi 3 lapis (siang malam, awan, atmosfer)
+│   ├── planets.js       planet dan planet katai, orbit elips, rotasi, kemiringan sumbu
+│   ├── earth.js         Bumi 3 lapis (siang malam, relief, kilau laut, awan, atmosfer)
 │   ├── moons.js         bulan yang mengorbit planet induknya
 │   ├── saturnRing.js    cincin dengan UV radial + bayangan planet
 │   ├── asteroidBelt.js  sabuk asteroid (InstancedMesh, 1 draw call)
-│   ├── orbits.js        garis orbit (satu geometry yang di-scale)
+│   ├── orbits.js        garis orbit elips (buffer ditulis ulang waktu ganti skala)
 │   ├── stars.js         bintang berkelip
 │   └── milkyWay.js      latar Bima Sakti
 ├── shaders/             shader Bumi dan atmosfer (di-import pakai ?raw)
 └── utils/
     ├── scale.js         rumus dua mode skala
+    ├── kepler.js        posisi planet dari elemen orbit (persamaan Kepler)
+    ├── time.js          tanggal simulasi dan jarak ke J2000
     ├── loader.js        LoadingManager bersama, WebP dulu lalu fallback
     ├── performance.js   pantau fps dan turunkan kualitas otomatis
     ├── device.js        deteksi mobile
@@ -140,6 +148,7 @@ src/
 
 - Tekstur oleh [Solar System Scope](https://www.solarsystemscope.com/textures/), lisensi [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 - Data planet dari [NASA Planetary Fact Sheet](https://nssdc.gsfc.nasa.gov/planetary/factsheet/)
+- Elemen orbit dari [JPL, Approximate Positions of the Planets](https://ssd.jpl.nasa.gov/planets/approx_pos.html)
 - Font [Space Grotesk](https://fonts.google.com/specimen/Space+Grotesk)
 
 ## Progress
@@ -149,3 +158,5 @@ src/
 - [x] Fase 3, klik planet, label, kamera terbang, panel info
 - [x] Fase 4, toolbar waktu, mode skala, loading screen
 - [x] Fase 5, tur otomatis, bulan, versi mobile, polish
+- [x] Tambahan, relief dan kilau laut Bumi, orbit elips dan miring sesuai posisi asli
+- [ ] Deploy

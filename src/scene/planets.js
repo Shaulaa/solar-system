@@ -3,6 +3,8 @@ import { planets as planetData, dwarfPlanets } from '../data/planets.js';
 import { createPlanetTexture } from '../utils/planetTexture.js';
 import { loadTexture, assignTexture } from '../utils/loader.js';
 import { scaleDistance, scaleRadius, blendScale } from '../utils/scale.js';
+import { createKeplerOrbit } from '../utils/kepler.js';
+import { START_DAYS_SINCE_J2000 } from '../utils/time.js';
 import { createEarth } from './earth.js';
 import { createSaturnRing } from './saturnRing.js';
 
@@ -48,34 +50,36 @@ function createBody(data, radius, seed) {
   };
 }
 
+// Jarak dari Matahari (AU) ke unit scene untuk nilai k mana pun (0 = pretty, 1 = real)
+export function scaleDistanceAt(au, k) {
+  return blendScale(scaleDistance(au), scaleDistance(au, 'real'), k);
+}
+
 // Hierarki tiap planet
-// orbitPlane (miring sesuai inklinasi orbit, cuma Pluto) > orbitPivot (muter = revolusi)
-//   > anchor (geser sejauh jarak orbit) > tiltGroup (miring sumbu) > mesh (rotasi)
+// root (visibilitas) > anchor (posisi di orbit) > tiltGroup (miring sumbu) > mesh (rotasi)
 // Bulan nanti ditempel ke anchor (lihat moons.js), cincin ke tiltGroup
+//
+// Orbitnya elips dan miring sesuai elemen orbit asli (utils/kepler.js), dan posisinya sesuai
+// tanggal simulasi. Posisi dihitung dulu dalam AU, lalu jaraknya ke Matahari di-scale
+// (arahnya tetap). Jadi di mode Enak Dilihat bentuk elipsnya ikut terkompres, tapi
+// kemiringan dan arah perihelionnya tetap benar
 //
 // Geometry dibikin sekali di ukuran mode pretty. Pindah mode skala cukup ngubah
 // scale tiltGroup (radius) dan posisi anchor (jarak), jadi gak ada geometry baru yang dibuat
 function createPlanet(data, index) {
   const size = { pretty: scaleRadius(data.radius), real: scaleRadius(data.radius, 'real') };
-  const orbit = { pretty: scaleDistance(data.distance), real: scaleDistance(data.distance, 'real') };
   const radius = size.pretty;
-  const distance = orbit.pretty;
   const seed = index + 1;
+  const orbit = createKeplerOrbit(data.distance, data.orbitPeriod, data.orbit);
 
-  // Bidang orbit. Planet utama dianggap sebidang (PRD), cuma planet katai yang dikasih inklinasi
-  const orbitPlane = new THREE.Object3D();
-  orbitPlane.name = `${data.id}-orbit-plane`;
-  orbitPlane.rotation.z = (data.inclination ?? 0) * DEG;
+  const root = new THREE.Object3D();
+  root.name = `${data.id}-root`;
   // Benda tersembunyi (easter egg Pluto) baru kelihatan setelah reveal()
-  orbitPlane.visible = !data.hidden;
-
-  const orbitPivot = new THREE.Object3D();
-  orbitPivot.name = `${data.id}-orbit`;
-  orbitPlane.add(orbitPivot);
+  root.visible = !data.hidden;
 
   const anchor = new THREE.Object3D();
-  anchor.position.x = distance;
-  orbitPivot.add(anchor);
+  anchor.name = `${data.id}-anchor`;
+  root.add(anchor);
 
   const tiltGroup = new THREE.Object3D();
   tiltGroup.rotation.z = data.tilt * DEG;
@@ -87,38 +91,51 @@ function createPlanet(data, index) {
   const ring = data.ring ? createSaturnRing(data.ring, radius) : null;
   if (ring) tiltGroup.add(ring.mesh);
 
-  // Posisi awal acak biar planet gak baris lurus semua
-  const startAngle = (index * 2.39996) % (Math.PI * 2);
+  // Posisi heliosentris dalam AU, diisi update()
+  const helio = new THREE.Vector3();
+  let k = 0;
+
+  function place() {
+    const au = helio.length();
+    planet.distance = scaleDistanceAt(au, k);
+    anchor.position.copy(helio).multiplyScalar(planet.distance / au);
+  }
 
   const planet = {
     data,
-    // Radius dan jarak orbit sekarang (unit scene), berubah waktu transisi mode skala
+    orbit,
+    // Radius dan jarak ke Matahari sekarang (unit scene). Jarak berubah sepanjang orbit
+    // (elips) dan waktu transisi mode skala
     radius,
-    distance,
+    distance: 0,
     baseRadius: size.pretty,
-    orbitPlane,
-    orbitPivot,
+    root,
     anchor,
     tiltGroup,
     mesh: body.mesh,
     get visible() {
-      return orbitPlane.visible;
+      return root.visible;
     },
     reveal() {
-      orbitPlane.visible = true;
+      root.visible = true;
     },
-    applyScale(k) {
+    applyScale(nextK) {
+      k = nextK;
       planet.radius = blendScale(size.pretty, size.real, k);
-      planet.distance = blendScale(orbit.pretty, orbit.real, k);
-      anchor.position.x = planet.distance;
       tiltGroup.scale.setScalar(planet.radius / size.pretty);
+      place();
     },
     update(simDays) {
-      orbitPivot.rotation.y = startAngle + (simDays / data.orbitPeriod) * Math.PI * 2;
+      orbit.positionAt(START_DAYS_SINCE_J2000 + simDays, helio);
+      place();
       body.update((simDays / data.rotationPeriod) * Math.PI * 2 * ROTATION_SCALE);
       ring?.update(planet.radius);
     }
   };
+
+  // Posisi awal langsung diisi, biar modul lain (garis orbit, kamera) gak pernah lihat posisi nol
+  orbit.positionAt(START_DAYS_SINCE_J2000, helio);
+  place();
 
   return planet;
 }
@@ -131,7 +148,7 @@ export function createPlanets() {
   // bedanya ditandai lewat data.kind
   const list = [...planetData, ...dwarfPlanets].map((data, i) => {
     const planet = createPlanet(data, i);
-    group.add(planet.orbitPlane);
+    group.add(planet.root);
     return planet;
   });
 

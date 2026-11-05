@@ -7,12 +7,24 @@ import { loadTexture, assignTexture } from '../utils/loader.js';
 import { createPlanetTexture } from '../utils/planetTexture.js';
 
 // Bumi dibikin 3 lapis, gak lewat jalur planet generik
-// 1. permukaan, shader custom yang nyampur daymap dan nightmap (lampu kota) berdasarkan arah matahari
+// 1. permukaan, shader custom yang nyampur daymap dan nightmap (lampu kota) berdasarkan arah matahari,
+//    plus relief dari normal map dan kilau matahari di laut dari specular map
 // 2. awan, sphere 1.01x dengan alphaMap, muter sedikit lebih cepat dari permukaan
 // 3. atmosfer, shell 1.04x BackSide + additive, nyala biru di tepi
 
 const CLOUD_SPEED = 1.15;
 const SEGMENTS = 64;
+const NORMAL_STRENGTH = 8;
+const SPECULAR_STRENGTH = 0.9;
+const SUN_COLOR = new THREE.Color(0xfff1dd); // sama dengan PointLight di scene/sun.js
+
+// Tekstur 1x1 pengganti selama normal map / specular map belum ada (atau gak dipakai).
+// Normal (0.5, 0.5, 1) berarti permukaan rata, specular hitam berarti gak ada kilau
+function createFlatTexture(r, g, b) {
+  const texture = new THREE.DataTexture(new Uint8Array([r, g, b, 255]), 1, 1);
+  texture.needsUpdate = true;
+  return texture;
+}
 
 export function createEarth(data, radius, seed) {
   const group = new THREE.Group();
@@ -28,7 +40,12 @@ export function createEarth(data, radius, seed) {
     uniforms: {
       uDayMap: { value: null },
       uNightMap: { value: null },
+      uNormalMap: { value: createFlatTexture(128, 128, 255) },
+      uSpecularMap: { value: createFlatTexture(0, 0, 0) },
+      uNormalStrength: { value: NORMAL_STRENGTH },
+      uSpecularStrength: { value: SPECULAR_STRENGTH },
       uSunDirection: { value: sunDirection },
+      uSunColor: { value: SUN_COLOR },
       uAtmosphereColor: { value: atmosphereColor }
     },
     vertexShader: earthVertex,
@@ -78,11 +95,30 @@ export function createEarth(data, radius, seed) {
 
   // Tekstur, masing masing punya fallback prosedural sendiri.
   // Seed day dan night sengaja sama supaya lampu kota prosedural jatuh di daratan prosedural juga
-  const { day, night, clouds: cloudsFile } = data.texture;
+  const { day, night, clouds: cloudsFile, normal, specular } = data.texture;
+  const uniforms = surfaceMaterial.uniforms;
 
-  loadTexture(day, { fallback: () => createPlanetTexture(data.look, seed) }).then((texture) => {
-    surfaceMaterial.uniforms.uDayMap.value = texture;
+  const dayLoaded = loadTexture(day, { fallback: () => createPlanetTexture(data.look, seed) });
+  dayLoaded.then((texture) => {
+    uniforms.uDayMap.value = texture;
   });
+
+  // Normal map dan specular map itu data, jadi linear. Gak ada fallback prosedural:
+  // kalau filenya gak ada, Bumi tetap rata tanpa kilau. Kalau daymap-nya yang prosedural
+  // (file asli gak ada), dua peta ini juga gak dipakai, karena benua dan lautnya gak bakal pas
+  const attachDataMap = (file, uniform) => {
+    Promise.all([dayLoaded, loadTexture(file, { color: false })]).then(([dayTexture, texture]) => {
+      if (!texture) return;
+      if (dayTexture.isCanvasTexture) {
+        texture.dispose();
+        return;
+      }
+      uniforms[uniform].value.dispose();
+      uniforms[uniform].value = texture;
+    });
+  };
+  attachDataMap(normal, 'uNormalMap');
+  attachDataMap(specular, 'uSpecularMap');
 
   loadTexture(night, {
     fallback: () => createPlanetTexture({ type: 'earthNight', colors: data.look.colors }, seed)

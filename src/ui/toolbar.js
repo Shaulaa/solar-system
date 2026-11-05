@@ -3,6 +3,8 @@
 // State aslinya (waktu, orbit, label, skala) tetap dipegang main.js, jadi tombol toolbar
 // dan shortcut keyboard selalu lewat jalur yang sama dan gak mungkin beda state
 
+import { simDate } from '../utils/time.js';
+
 // Preset kecepatan, urut dari slider paling kiri
 export const SPEED_PRESETS = [
   { days: 1, label: '1 hari/dtk', spoken: '1 hari per detik' },
@@ -37,10 +39,7 @@ export function createToolbar({
   const speedLabel = document.getElementById('speed-label');
   const dateElement = document.getElementById('sim-date');
 
-  // Tanggal simulasi mulai dari hari ini, lalu maju sesuai simDays.
-  // Dihitung lewat new Date(tahun, bulan, tanggal + n), bukan tambah milidetik,
-  // biar gak meleset sehari di negara yang pakai daylight saving time
-  const today = new Date();
+  // Tanggal simulasi mulai dari hari ini, lalu maju sesuai simDays (lihat utils/time.js)
   let shownDay = null;
 
   element.addEventListener('click', (event) => {
@@ -100,7 +99,7 @@ export function createToolbar({
       const day = Math.floor(simDays);
       if (day === shownDay) return;
       shownDay = day;
-      const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + day);
+      const date = simDate(day);
       dateElement.textContent = dateFormat.format(date);
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const dayOfMonth = String(date.getDate()).padStart(2, '0');

@@ -2,6 +2,11 @@
 // radius relatif ke Bumi, distance dalam AU, periode dalam hari (Bumi), tilt dalam derajat
 // rotationPeriod negatif artinya rotasinya kebalik (retrograde)
 //
+// distance = sumbu semi mayor (jarak rata rata), orbitPeriod = periode sidereal.
+// orbit = elemen orbit J2000 dari JPL (Standish, "Keplerian Elements for Approximate Positions
+// of the Major Planets"), semua dalam derajat. Dipakai utils/kepler.js buat ngitung posisi asli
+// planet di tanggal simulasi. perihelion dan meanLongitude berupa bujur, bukan argumen
+//
 // Panel info (ui/infoPanel.js) baca semua isinya dari sini.
 // Angka seperti distance, orbitPeriod, rotationPeriod, dan tilt diformat otomatis
 // (AU ke juta km, hari ke tahun / jam), jadi gak perlu ditulis ulang sebagai teks.
@@ -15,7 +20,8 @@ export const planets = [
     name: 'Merkurius',
     radius: 0.383,
     distance: 0.387,
-    orbitPeriod: 88,
+    orbitPeriod: 87.969,
+    orbit: { eccentricity: 0.2056, inclination: 7.00, node: 48.33, perihelion: 77.46, meanLongitude: 252.25 },
     rotationPeriod: 58.6,
     tilt: 0.03,
     texture: '2k_mercury.jpg',
@@ -33,7 +39,8 @@ export const planets = [
     name: 'Venus',
     radius: 0.949,
     distance: 0.723,
-    orbitPeriod: 224.7,
+    orbitPeriod: 224.701,
+    orbit: { eccentricity: 0.0068, inclination: 3.39, node: 76.68, perihelion: 131.60, meanLongitude: 181.98 },
     rotationPeriod: -243,
     tilt: 177.4,
     texture: '2k_venus_atmosphere.jpg',
@@ -51,14 +58,18 @@ export const planets = [
     name: 'Bumi',
     radius: 1,
     distance: 1,
-    orbitPeriod: 365.25,
+    orbitPeriod: 365.256,
+    orbit: { eccentricity: 0.0167, inclination: 0.00, node: 0.00, perihelion: 102.94, meanLongitude: 100.46 },
     rotationPeriod: 1,
     tilt: 23.4,
-    // Bumi punya 3 tekstur, dipakai sama scene/earth.js (permukaan siang malam + awan)
+    // Bumi punya 5 tekstur, dipakai sama scene/earth.js (permukaan siang malam, awan,
+    // relief, dan kilau laut). Normal dan specular map aslinya .tif, dikonversi ke .png
     texture: {
       day: '2k_earth_daymap.jpg',
       night: '2k_earth_nightmap.jpg',
-      clouds: '2k_earth_clouds.jpg'
+      clouds: '2k_earth_clouds.jpg',
+      normal: '2k_earth_normal_map.png',
+      specular: '2k_earth_specular_map.png'
     },
     narration: 'Rumah kita. Satu satunya tempat yang sejauh ini diketahui punya kehidupan.',
     look: { type: 'earth', colors: ['#0b2a5c', '#1d5fa8', '#3f7a3a', '#c9b47a', '#f2f4f7'] },
@@ -77,7 +88,7 @@ export const planets = [
         id: 'moon',
         name: 'Bulan',
         radius: 0.27,
-        orbitRadius: 2.4,
+        orbitRadius: 2.3,
         distanceKm: 384400,
         orbitPeriod: 27.3,
         // Rotasinya sama dengan periode orbit (tidal lock)
@@ -100,7 +111,8 @@ export const planets = [
     name: 'Mars',
     radius: 0.532,
     distance: 1.524,
-    orbitPeriod: 687,
+    orbitPeriod: 686.98,
+    orbit: { eccentricity: 0.0934, inclination: 1.85, node: 49.56, perihelion: -23.94, meanLongitude: -4.55 },
     rotationPeriod: 1.03,
     tilt: 25.2,
     texture: '2k_mars.jpg',
@@ -138,7 +150,7 @@ export const planets = [
         name: 'Deimos',
         subtitle: 'Bulan kecil Mars',
         radius: 0.000973,
-        orbitRadius: 2.8,
+        orbitRadius: 2.6,
         distanceKm: 23463,
         orbitPeriod: 1.263,
         rotationPeriod: 1.263,
@@ -157,7 +169,8 @@ export const planets = [
     name: 'Jupiter',
     radius: 11.21,
     distance: 5.203,
-    orbitPeriod: 4331,
+    orbitPeriod: 4332.59,
+    orbit: { eccentricity: 0.0484, inclination: 1.30, node: 100.47, perihelion: 14.73, meanLongitude: 34.40 },
     rotationPeriod: 0.41,
     tilt: 3.1,
     texture: '2k_jupiter.jpg',
@@ -248,7 +261,8 @@ export const planets = [
     name: 'Saturnus',
     radius: 9.45,
     distance: 9.537,
-    orbitPeriod: 10747,
+    orbitPeriod: 10759.22,
+    orbit: { eccentricity: 0.0539, inclination: 2.49, node: 113.66, perihelion: 92.60, meanLongitude: 49.95 },
     rotationPeriod: 0.45,
     tilt: 26.7,
     texture: '2k_saturn.jpg',
@@ -268,7 +282,8 @@ export const planets = [
     name: 'Uranus',
     radius: 4.01,
     distance: 19.19,
-    orbitPeriod: 30589,
+    orbitPeriod: 30685.4,
+    orbit: { eccentricity: 0.0473, inclination: 0.77, node: 74.02, perihelion: 170.95, meanLongitude: 313.24 },
     rotationPeriod: -0.72,
     tilt: 97.8,
     texture: '2k_uranus.jpg',
@@ -286,7 +301,8 @@ export const planets = [
     name: 'Neptunus',
     radius: 3.88,
     distance: 30.07,
-    orbitPeriod: 59800,
+    orbitPeriod: 60189,
+    orbit: { eccentricity: 0.0086, inclination: 1.77, node: 131.78, perihelion: 44.96, meanLongitude: -55.12 },
     rotationPeriod: 0.67,
     tilt: 28.3,
     texture: '2k_neptune.jpg',
@@ -320,7 +336,7 @@ export const sun = {
 };
 
 // Planet katai. Pluto disembunyikan (hidden) dan baru muncul kalau user ngetik "pluto"
-// di kotak pencarian. inclination = kemiringan bidang orbit terhadap bidang planet lain (derajat)
+// di kotak pencarian
 export const dwarfPlanets = [
   {
     id: 'pluto',
@@ -330,8 +346,8 @@ export const dwarfPlanets = [
     subtitle: 'Planet katai di Sabuk Kuiper',
     radius: 0.1868,
     distance: 39.48,
-    inclination: 17.16,
     orbitPeriod: 90560,
+    orbit: { eccentricity: 0.2488, inclination: 17.14, node: 110.30, perihelion: 224.07, meanLongitude: 238.93 },
     rotationPeriod: -6.39,
     tilt: 122.5,
     look: { type: 'rocky', colors: ['#5e4c3e', '#b89d82', '#efe1cf'] },

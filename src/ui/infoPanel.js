@@ -44,7 +44,7 @@ function getStats(body) {
 
   return [
     ['Diameter', info.diameter],
-    isPlanet && ['Jarak dari Matahari', formatDistance(data.distance)],
+    isPlanet && ['Jarak rata rata dari Matahari', formatDistance(data.distance)],
     kind === 'moon' && ['Jarak orbit', info.jarak],
     isPlanet && ['Lama setahun', formatYear(data.orbitPeriod)],
     kind === 'moon' && ['Lama mengorbit', formatYear(data.orbitPeriod)],

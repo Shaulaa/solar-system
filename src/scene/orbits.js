@@ -1,10 +1,12 @@
 import * as THREE from 'three';
+import { scaleDistanceAt } from './planets.js';
 
-// Garis orbit tipis buat tiap planet
+// Garis orbit tipis buat tiap planet, bentuknya elips dan miring sesuai orbit aslinya
 //
-// Semua garis pakai SATU geometry lingkaran radius 1, lalu di-scale sejauh jarak orbit planet.
-// Jadi waktu mode skala berubah, cukup scale-nya yang diganti tiap frame,
-// gak perlu bikin ulang geometry (dan gak ada yang perlu di-dispose)
+// Tiap planet punya satu geometry yang dibuat sekali. Titik titiknya disimpan dalam AU,
+// lalu waktu mode skala berubah posisinya ditulis ulang ke buffer yang sama
+// (jarak tiap titik ke Matahari di-scale, arahnya tetap, sama persis seperti planetnya).
+// Gak ada geometry baru yang dibuat, jadi gak ada yang perlu di-dispose
 const SEGMENTS = 256;
 
 export function createOrbits(planetList) {
@@ -18,30 +20,41 @@ export function createOrbits(planetList) {
     depthWrite: false
   });
 
-  const curve = new THREE.EllipseCurve(0, 0, 1, 1, 0, Math.PI * 2);
-  const points = curve.getPoints(SEGMENTS).map((p) => new THREE.Vector3(p.x, 0, p.y));
-  const geometry = new THREE.BufferGeometry().setFromPoints(points);
-
   const lines = planetList.map((planet) => {
+    const pointsAU = planet.orbit.path(SEGMENTS, () => new THREE.Vector3());
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SEGMENTS * 3), 3));
+
     const line = new THREE.LineLoop(geometry, material);
     line.name = `${planet.data.id}-orbit-line`;
-    line.scale.setScalar(planet.distance);
-    // Ikut miring sama bidang orbit planetnya (Pluto 17 derajat)
-    line.rotation.copy(planet.orbitPlane.rotation);
     line.visible = planet.visible;
     group.add(line);
-    return { line, planet };
+    return { line, planet, pointsAU };
   });
+
+  const point = new THREE.Vector3();
+
+  function applyScale(k) {
+    for (const { line, pointsAU } of lines) {
+      const position = line.geometry.attributes.position;
+      pointsAU.forEach((au, i) => {
+        point.copy(au).multiplyScalar(scaleDistanceAt(au.length(), k) / au.length());
+        position.setXYZ(i, point.x, point.y, point.z);
+      });
+      position.needsUpdate = true;
+      line.geometry.computeBoundingSphere();
+    }
+  }
+
+  applyScale(0);
 
   return {
     group,
-    // Ikutin jarak orbit dan visibilitas planet sekarang
-    // (jarak berubah waktu transisi mode skala, visibilitas berubah waktu Pluto ketemu)
+    // Dipanggil scene/scaleMode.js tiap frame selama transisi mode skala
+    applyScale,
+    // Ikutin visibilitas planet (Pluto baru kelihatan setelah ketemu)
     update() {
-      for (const { line, planet } of lines) {
-        line.scale.setScalar(planet.distance);
-        line.visible = planet.visible;
-      }
+      for (const { line, planet } of lines) line.visible = planet.visible;
     }
   };
 }
