@@ -1,93 +1,95 @@
-# Tata Surya Interaktif
+# Interactive Solar System
 
-Tata surya 3D yang bisa dijelajahi langsung di browser. Klik planet buat terbang ke sana, ikuti tur otomatis, atau ganti ke skala asli dan lihat betapa kecilnya planet dibanding jarak antar orbitnya.
+A 3D solar system you can explore right in the browser. Click a planet to fly there, sit back for a guided tour, or switch to true scale and see how tiny the planets are compared to the distances between their orbits.
 
-Dibuat dengan Three.js, GSAP, dan Vite, tanpa framework UI.
+Built with Three.js, GSAP, and Vite, no UI framework.
 
-**Coba langsung: [solarsystem-id.vercel.app](https://solarsystem-id.vercel.app)**
+### [▶ Live demo: solarsystem-id.vercel.app](https://solarsystem-id.vercel.app)
 
-![Demo: klik Saturnus, kamera terbang, panel info muncul](docs/demo.gif)
+> The interface is in Indonesian (Bahasa Indonesia).
 
-## Fitur
+[![Demo: click Saturn, the camera flies over, the info panel slides in](docs/demo.gif)](https://solarsystem-id.vercel.app)
 
-- **Visual sinematik.** Matahari dari shader plasma + bloom, Bumi 3 lapis (siang malam dengan lampu kota, relief, kilau matahari di laut, awan, atmosfer), cincin Saturnus dengan bayangan planet, sabuk asteroid 2.000 batu dalam 1 draw call, dan latar Bima Sakti
-- **Posisi planet asli.** Orbit elips dan miring dari elemen orbit JPL, posisi tiap planet dihitung pakai persamaan Kepler sesuai tanggal simulasi. Jadi susunan planet di layar sama dengan langit hari ini
-- **Kamera terbang.** Klik planet, Matahari, atau bulan, kamera terbang dan nempel ke benda yang terus bergerak tanpa getar, tapi tetap bisa diputar bebas
-- **Panel info.** Diameter, jarak, lama setahun dan sehari, suhu, jumlah bulan, kemiringan sumbu, dan fakta unik. Semua dari satu file data
-- **Tur otomatis.** Matahari sampai Neptunus dengan narasi singkat di tiap pemberhentian, berhenti sendiri kalau user ngambil alih kamera
-- **Skala Nyata.** Transisi 2,5 detik dari skala "enak dilihat" ke perbandingan asli (1 AU = 400 unit) dan balik lagi
-- **Kontrol waktu.** Pause, 4 preset kecepatan (1 hari sampai 1 tahun per detik), dan tanggal simulasi yang mulai dari hari ini
-- **Pencarian.** Tekan `/` atau `Ctrl+K`, ketik nama planet atau bulan, Enter langsung terbang. Ada satu benda rahasia yang muncul kalau namanya diketik
-- **9 bulan.** Bulan, Fobos, Deimos, dan 4 bulan Galilean Jupiter, semuanya bisa diklik
-- **Nyaman di HP.** Bottom sheet yang bisa ditarik turun, toolbar ringkas, beban grafis dikurangi otomatis
-- **Aksesibel.** Semua tombol punya label dan tooltip, bisa dipakai penuh pakai keyboard
+## Features
 
-## Tampilan
+- **Cinematic visuals.** Sun from a plasma shader with bloom. Three-layer Earth with day and night city lights, surface relief, sun glint on the oceans, clouds, and atmosphere. Saturn's rings receive the planet's shadow, a 2,000-rock asteroid belt renders in a single draw call, and the Milky Way sits in the background
+- **Real planet positions.** Elliptical, inclined orbits from JPL orbital elements. Each planet's position is solved with Kepler's equation for the simulated date, so the layout on screen matches the actual sky today
+- **Camera flights.** Click a planet, the Sun, or a moon and the camera flies there and locks onto the moving body without jitter, while you can still orbit around it freely
+- **Info panel.** Diameter, distance, length of year and day, temperature, number of moons, axial tilt, and a fun fact. Everything comes from a single data file
+- **Guided tour.** From the Sun out to Neptune with a short narration at each stop. It stops on its own as soon as you take over the camera
+- **True scale.** A 2.5 second transition from the "pretty" scale to real proportions (1 AU = 400 units) and back
+- **Time controls.** Pause, 4 speed presets (1 day to 1 year per second), and a simulation date that starts today
+- **Search.** Press `/` or `Ctrl+K`, type a planet or moon name (English spellings work too), press Enter to fly there. There is one hidden object that shows up if you type its name
+- **9 moons.** The Moon, Phobos, Deimos, and Jupiter's 4 Galilean moons, all clickable
+- **Mobile friendly.** Swipe-to-close bottom sheet, compact toolbar, and graphics quality that drops automatically on slower devices
+- **Accessible.** Every button has a label and tooltip, and everything works from the keyboard
+
+## Screenshots
 
 | | |
 |---|---|
-| ![Tampilan tata surya](docs/overview.jpg) | ![Bumi dengan panel info](docs/earth.jpg) |
-| ![Saturnus dan cincinnya](docs/saturn.jpg) | ![Tur otomatis](docs/tour.jpg) |
-| ![Mode Skala Nyata](docs/real-scale.jpg) | ![Versi HP](docs/mobile.jpg) |
+| ![Solar system overview](docs/overview.jpg) | ![Earth with the info panel](docs/earth.jpg) |
+| ![Saturn and its rings](docs/saturn.jpg) | ![Guided tour](docs/tour.jpg) |
+| ![True scale mode](docs/real-scale.jpg) | ![Mobile version](docs/mobile.jpg) |
 
-## Cara jalanin
+## Running locally
 
-Butuh Node.js 18 atau lebih baru.
+Requires Node.js 18 or newer.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Buka alamat yang muncul di terminal (biasanya http://localhost:5173).
+Open the address printed in the terminal (usually http://localhost:5173).
 
-Buat versi produksi
+Production build
 
 ```bash
-npm run build     # hasilnya di folder dist/
-npm run preview   # cek hasil build secara lokal
+npm run build     # output goes to dist/
+npm run preview   # serve the build locally
 ```
 
-## Kontrol
+## Controls
 
-| Aksi | Mouse / sentuh | Keyboard |
+| Action | Mouse / touch | Keyboard |
 |---|---|---|
-| Pilih benda langit | Klik / tap | |
-| Muter kamera | Drag / satu jari | |
-| Zoom | Scroll / cubit | |
-| Geser kamera | Klik kanan + drag | |
-| Balik ke tampilan awal | Klik area kosong, tombol Kembali, tarik turun panel (HP) | `Esc` |
-| Planet sebelumnya / berikutnya | Tombol di bawah panel info | `←` `→` |
-| Pause / lanjut | Tombol play | `Spasi` |
-| Kecepatan waktu | Slider | `1` sampai `4` |
-| Garis orbit / label | Tombol toolbar | `O` / `L` |
-| Skala Nyata | Tombol toolbar | `S` |
-| Tur otomatis | Tombol toolbar | `T` |
-| Cari | Tombol toolbar | `/` atau `Ctrl+K` |
-| Tentang | Tombol toolbar | `?` |
-| Skip intro | Klik di mana saja | Tombol apa saja |
+| Select a body | Click / tap | |
+| Orbit the camera | Drag / one finger | |
+| Zoom | Scroll / pinch | |
+| Pan | Right click + drag | |
+| Back to overview | Click empty space, Back button, swipe the panel down (mobile) | `Esc` |
+| Previous / next planet | Buttons under the info panel | `←` `→` |
+| Pause / resume | Play button | `Space` |
+| Time speed | Slider | `1` to `4` |
+| Orbit lines / labels | Toolbar buttons | `O` / `L` |
+| True scale | Toolbar button | `S` |
+| Guided tour | Toolbar button | `T` |
+| Search | Toolbar button | `/` or `Ctrl+K` |
+| About | Toolbar button | `?` |
+| Skip intro | Click anywhere | Any key |
 
-## Catatan teknis
+## Technical notes
 
-Beberapa bagian yang paling menarik buat dibaca kodenya
+The parts most worth reading in the code
 
-- **Kamera ngikutin planet tanpa getar** ([cameraRig.js](src/controls/cameraRig.js)). Selama terbang, tujuan kamera dihitung ulang tiap frame dari posisi planet sekarang. Setelah sampai, kamera dan target digeser sebesar pergerakan planet. Urutan update di loop utama sengaja diatur (planet, lalu kamera, lalu `controls.update()`), hasil ukurnya selisih posisi kamera ke planet cuma 1e-14 selama 120 frame
-- **Siang malam Bumi** ([earth.frag](src/shaders/earth.frag)). Satu shader nyampur daymap dan nightmap pakai `smoothstep` di area terminator. Arah matahari dan normal sama sama di world space, jadi terminator gak ikut geser waktu kamera diputar. Relief dari normal map (tangent dihitung langsung di shader, tanpa `computeTangents`) dan kilau matahari Blinn Phong yang cuma muncul di laut lewat specular map
-- **Orbit Kepler** ([kepler.js](src/utils/kepler.js)). Elemen orbit J2000 diputar ke bidang ekliptika, persamaan Kepler diselesaikan pakai Newton. Di mode Enak Dilihat cuma jarak ke Matahari yang dikompres, arahnya tetap, jadi kemiringan orbit dan arah perihelion tetap benar
-- **Dua mode skala tanpa bikin geometry baru** ([scaleMode.js](src/scene/scaleMode.js), [scale.js](src/utils/scale.js)). Geometry dibuat sekali, transisi cuma ngubah scale dan posisi dengan interpolasi geometris (bedanya sampai 76x). Near plane kamera dinamis, karena di skala nyata kamera bisa cuma 0,085 unit dari Bumi
-- **Klik yang tepat sasaran** ([picker.js](src/controls/picker.js)). Raycast ke mesh asli dulu, baru hit area yang diperbesar. Hit area minimal 9 px di layar biar planet sekecil 1 piksel tetap bisa diklik, dan cuma dipakai kalau bendanya kelihatan kecil
-- **Label anti tumpuk** ([labels.js](src/ui/labels.js)). Label yang tabrakan di layar disembunyikan berdasarkan prioritas, tanpa baca ukuran DOM tiap frame
-- **Performa.** Fps dipantau per detik. Kalau di bawah 40 selama 3 detik, pixel ratio diturunin ke 1 (di HP bloom juga dimatikan). Render berhenti total waktu tab gak aktif. Tekstur WebP, 58 persen lebih kecil dari JPG aslinya
+- **Jitter-free camera follow** ([cameraRig.js](src/controls/cameraRig.js)). While flying, the camera's destination is recomputed every frame from the planet's current position. Once it arrives, the camera and its target are moved by the planet's per-frame delta. The update order in the main loop is deliberate (planets, then camera, then `controls.update()`). Measured drift between camera and planet: 1e-14 over 120 frames
+- **Earth's day and night** ([earth.frag](src/shaders/earth.frag)). One shader blends the day map and night map with a `smoothstep` across the terminator. Sun direction and normals are both in world space, so the terminator stays put when the camera rotates. Relief comes from a normal map (tangents are derived in the shader, no `computeTangents`), and a Blinn-Phong sun glint appears only on water via the specular map
+- **Kepler orbits** ([kepler.js](src/utils/kepler.js)). J2000 orbital elements are rotated into the ecliptic plane and Kepler's equation is solved with Newton's method. In the pretty scale only the distance from the Sun is compressed while the direction is kept, so orbital inclination and perihelion direction stay correct
+- **Two scale modes without new geometry** ([scaleMode.js](src/scene/scaleMode.js), [scale.js](src/utils/scale.js)). Geometry is created once, and the transition only changes scale and position using geometric interpolation (the two modes differ by up to 76x). The camera near plane is dynamic, because in true scale the camera can be just 0.085 units from Earth
+- **Precise picking** ([picker.js](src/controls/picker.js)). Raycasts hit the real meshes first, then enlarged hit areas. Hit areas are at least 9 px on screen so a planet smaller than a pixel is still clickable, and they are only used when the body looks small
+- **Overlap-free labels** ([labels.js](src/ui/labels.js)). Labels that collide on screen are hidden by priority, without reading DOM sizes every frame
+- **Performance.** FPS is sampled every second. If it stays under 40 for 3 seconds, the pixel ratio drops to 1 (bloom is also turned off on mobile). Rendering stops completely while the tab is hidden. Textures are WebP, 58 percent smaller than the original JPGs
 
-Semua keputusan teknis dan alasannya dicatat di bagian Catatan Keputusan di [PRD.md](PRD.md).
+Every technical decision and the reasoning behind it is logged in the decision log (Catatan Keputusan) in [PRD.md](PRD.md), written in Indonesian.
 
-## Tekstur
+## Textures
 
-Tekstur dari [Solar System Scope](https://www.solarsystemscope.com/textures/) (CC BY 4.0), disimpan di `public/textures/` dalam format WebP.
+Textures by [Solar System Scope](https://www.solarsystemscope.com/textures/) (CC BY 4.0), stored in `public/textures/` as WebP.
 
-Kode tetap pakai nama file asli (misal `2k_mars.jpg`), loader nyoba versi `.webp` dulu, lalu file aslinya, lalu tekstur prosedural. Jadi folder ini boleh isi WebP, file asli dari Solar System Scope, atau kosong sama sekali (project tetap jalan).
+The code keeps the original file names (for example `2k_mars.jpg`). The loader tries the `.webp` version first, then the original file, then a procedural texture. So this folder can hold WebP files, the original Solar System Scope files, or nothing at all (the project still runs).
 
-Cara konversi ulang ke WebP, pakai [cwebp](https://developers.google.com/speed/webp/download)
+To convert to WebP again, use [cwebp](https://developers.google.com/speed/webp/download)
 
 ```bash
 cd public/textures
@@ -97,76 +99,76 @@ cwebp -q 90 2k_earth_normal_map.png -o 2k_earth_normal_map.webp
 cwebp -q 85 2k_earth_specular_map.png -o 2k_earth_specular_map.webp
 ```
 
-Normal map dan specular map Bumi dari Solar System Scope berformat `.tif` yang gak bisa dibaca browser, jadi dikonversi dulu ke `.png` (misal pakai Pillow atau GIMP) sebelum ke WebP.
+Solar System Scope ships Earth's normal and specular maps as `.tif`, which browsers can't read, so convert them to `.png` first (with Pillow or GIMP, for example) before WebP.
 
-Cincin Saturnus wajib lossless karena transparansinya ada di channel alpha. Setelah dikonversi, file JPG / PNG aslinya boleh dipindah keluar dari `public/` biar gak ikut ke build. Di project ini dipindah ke `textures-extra/original/` (di-ignore git).
+Saturn's ring must be lossless because its transparency lives in the alpha channel. After converting, the original JPG / PNG files can be moved out of `public/` so they don't end up in the build. In this project they live in `textures-extra/original/` (git-ignored).
 
-## Deploy
+## Deployment
 
-Versi online di-hosting di Vercel (preset Vite, tanpa konfigurasi tambahan). Deploy manual dari folder project
+The live version is hosted on Vercel (Vite preset, no extra configuration). To deploy manually from the project folder
 
 ```bash
 vercel deploy --prod
 ```
 
-[.vercelignore](.vercelignore) memastikan folder yang gak dibutuhkan build (`textures-extra/`, `docs/`) gak ikut diunggah.
+[.vercelignore](.vercelignore) keeps folders the build doesn't need (`textures-extra/`, `docs/`) from being uploaded.
 
-Semua path aset relatif ke `BASE_URL` Vite, jadi aman juga di-deploy ke subfolder (misal GitHub Pages). Kalau alamat deploy berubah, ganti `og:url` dan `og:image` di [index.html](index.html), karena sebagian besar media sosial gak bisa baca path relatif.
+All asset paths are relative to Vite's `BASE_URL`, so the app also works from a subfolder (GitHub Pages, for example). If the deployment address changes, update `og:url` and `og:image` in [index.html](index.html), since most social networks can't resolve relative paths.
 
-## Struktur
+## Project structure
 
 ```
 src/
-├── main.js              renderer, kamera, bloom, loop utama, penghubung semua modul
+├── main.js              renderer, camera, bloom, main loop, wires all modules together
 ├── style.css
-├── data/planets.js      data planet, bulan, dan narasi tur (sumber tunggal semua isi)
+├── data/planets.js      planet, moon, and tour narration data (single source for all content)
 ├── controls/
-│   ├── picker.js        klik / hover lewat raycasting, bedain klik dan drag
-│   ├── cameraRig.js     intro, kamera terbang ke benda, ngikutin benda yang difokus
-│   └── tour.js          tur otomatis (GSAP timeline)
+│   ├── picker.js        click / hover via raycasting, tells clicks apart from drags
+│   ├── cameraRig.js     intro, camera flights, following the focused body
+│   └── tour.js          guided tour (GSAP timeline)
 ├── ui/
-│   ├── loader.js        loading screen (nyambung ke LoadingManager)
-│   ├── toolbar.js       play / pause, kecepatan, tanggal, toggle tampilan
-│   ├── labels.js        label nama di atas benda (CSS2DRenderer) + anti tumpuk
-│   ├── infoPanel.js     panel info (samping di desktop, bottom sheet di HP)
-│   └── search.js        pencarian (combobox ARIA)
+│   ├── loader.js        loading screen (hooked to the LoadingManager)
+│   ├── toolbar.js       play / pause, speed, date, display toggles
+│   ├── labels.js        name labels above bodies (CSS2DRenderer) with overlap hiding
+│   ├── infoPanel.js     info panel (side panel on desktop, bottom sheet on mobile)
+│   └── search.js        search (ARIA combobox)
 ├── scene/
-│   ├── bodies.js        daftar benda yang bisa dipilih, dipakai bareng semua modul interaksi
-│   ├── scaleMode.js     transisi mode Enak Dilihat dan Skala Nyata
-│   ├── sun.js           matahari (shader plasma + glow + cahaya)
-│   ├── planets.js       planet dan planet katai, orbit elips, rotasi, kemiringan sumbu
-│   ├── earth.js         Bumi 3 lapis (siang malam, relief, kilau laut, awan, atmosfer)
-│   ├── moons.js         bulan yang mengorbit planet induknya
-│   ├── saturnRing.js    cincin dengan UV radial + bayangan planet
-│   ├── asteroidBelt.js  sabuk asteroid (InstancedMesh, 1 draw call)
-│   ├── orbits.js        garis orbit elips (buffer ditulis ulang waktu ganti skala)
-│   ├── stars.js         bintang berkelip
-│   └── milkyWay.js      latar Bima Sakti
-├── shaders/             shader Bumi dan atmosfer (di-import pakai ?raw)
+│   ├── bodies.js        registry of selectable bodies, shared by all interaction modules
+│   ├── scaleMode.js     transition between pretty and true scale
+│   ├── sun.js           the Sun (plasma shader, glow, light)
+│   ├── planets.js       planets and dwarf planets, elliptical orbits, rotation, axial tilt
+│   ├── earth.js         three-layer Earth (day and night, relief, ocean glint, clouds, atmosphere)
+│   ├── moons.js         moons orbiting their parent planets
+│   ├── saturnRing.js    ring with radial UVs and the planet's shadow
+│   ├── asteroidBelt.js  asteroid belt (InstancedMesh, 1 draw call)
+│   ├── orbits.js        elliptical orbit lines (buffer rewritten on scale change)
+│   ├── stars.js         twinkling stars
+│   └── milkyWay.js      Milky Way background
+├── shaders/             Earth and atmosphere shaders (imported with ?raw)
 └── utils/
-    ├── scale.js         rumus dua mode skala
-    ├── kepler.js        posisi planet dari elemen orbit (persamaan Kepler)
-    ├── time.js          tanggal simulasi dan jarak ke J2000
-    ├── loader.js        LoadingManager bersama, WebP dulu lalu fallback
-    ├── performance.js   pantau fps dan turunkan kualitas otomatis
-    ├── device.js        deteksi mobile
-    ├── noise.js         noise buat tekstur prosedural
-    └── planetTexture.js tekstur prosedural (fallback kalau file tekstur gak ada)
+    ├── scale.js         formulas for both scale modes
+    ├── kepler.js        planet positions from orbital elements (Kepler's equation)
+    ├── time.js          simulation date and days since J2000
+    ├── loader.js        shared LoadingManager, WebP first then fallbacks
+    ├── performance.js   FPS monitoring and automatic quality drop
+    ├── device.js        mobile detection
+    ├── noise.js         noise for procedural textures
+    └── planetTexture.js procedural textures (fallback when texture files are missing)
 ```
 
-## Kredit
+## Credits
 
-- Tekstur oleh [Solar System Scope](https://www.solarsystemscope.com/textures/), lisensi [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
-- Data planet dari [NASA Planetary Fact Sheet](https://nssdc.gsfc.nasa.gov/planetary/factsheet/)
-- Elemen orbit dari [JPL, Approximate Positions of the Planets](https://ssd.jpl.nasa.gov/planets/approx_pos.html)
-- Font [Space Grotesk](https://fonts.google.com/specimen/Space+Grotesk)
+- Textures by [Solar System Scope](https://www.solarsystemscope.com/textures/), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- Planet data from the [NASA Planetary Fact Sheet](https://nssdc.gsfc.nasa.gov/planetary/factsheet/)
+- Orbital elements from [JPL, Approximate Positions of the Planets](https://ssd.jpl.nasa.gov/planets/approx_pos.html)
+- Font: [Space Grotesk](https://fonts.google.com/specimen/Space+Grotesk)
 
 ## Progress
 
-- [x] Fase 1, scene dasar, matahari, 8 planet muter, bintang, orbit
-- [x] Fase 2, tekstur asli, Bumi 3 lapis, cincin Saturnus, sabuk asteroid
-- [x] Fase 3, klik planet, label, kamera terbang, panel info
-- [x] Fase 4, toolbar waktu, mode skala, loading screen
-- [x] Fase 5, tur otomatis, bulan, versi mobile, polish
-- [x] Tambahan, relief dan kilau laut Bumi, orbit elips dan miring sesuai posisi asli
-- [x] Deploy ke Vercel
+- [x] Phase 1: base scene, Sun, 8 orbiting planets, stars, orbit lines
+- [x] Phase 2: real textures, three-layer Earth, Saturn's rings, asteroid belt
+- [x] Phase 3: planet picking, labels, camera flights, info panel
+- [x] Phase 4: time toolbar, scale modes, loading screen
+- [x] Phase 5: guided tour, moons, mobile version, polish
+- [x] Extras: Earth relief and ocean glint, elliptical inclined orbits with real positions
+- [x] Deployed to Vercel
