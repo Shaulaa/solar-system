@@ -4,6 +4,8 @@ Tata surya 3D yang bisa dijelajahi langsung di browser. Klik planet buat terbang
 
 Dibuat dengan Three.js, GSAP, dan Vite, tanpa framework UI.
 
+**Coba langsung: [solar-system-eight-blush.vercel.app](https://solar-system-eight-blush.vercel.app)**
+
 ![Demo: klik Saturnus, kamera terbang, panel info muncul](docs/demo.gif)
 
 ## Fitur
@@ -101,7 +103,15 @@ Cincin Saturnus wajib lossless karena transparansinya ada di channel alpha. Sete
 
 ## Deploy
 
-Semua path aset sudah relatif ke `BASE_URL` Vite, jadi aman di-deploy ke subfolder (misal GitHub Pages). Setelah punya alamat tetap, ganti `og:image` di [index.html](index.html) jadi URL lengkap (misal `https://contoh.com/og.jpg`), karena sebagian besar media sosial gak bisa baca path relatif.
+Versi online di-hosting di Vercel (preset Vite, tanpa konfigurasi tambahan). Deploy manual dari folder project
+
+```bash
+vercel deploy --prod
+```
+
+[.vercelignore](.vercelignore) memastikan folder yang gak dibutuhkan build (`textures-extra/`, `docs/`) gak ikut diunggah.
+
+Semua path aset relatif ke `BASE_URL` Vite, jadi aman juga di-deploy ke subfolder (misal GitHub Pages). Kalau alamat deploy berubah, ganti `og:url` dan `og:image` di [index.html](index.html), karena sebagian besar media sosial gak bisa baca path relatif.
 
 ## Struktur
 
@@ -159,4 +169,4 @@ src/
 - [x] Fase 4, toolbar waktu, mode skala, loading screen
 - [x] Fase 5, tur otomatis, bulan, versi mobile, polish
 - [x] Tambahan, relief dan kilau laut Bumi, orbit elips dan miring sesuai posisi asli
-- [ ] Deploy
+- [x] Deploy ke Vercel

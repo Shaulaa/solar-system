@@ -1,0 +1,5 @@
+# Yang diunggah ke Vercel cukup yang dibutuhkan buat build (Vercel build ulang dari source)
+node_modules
+dist
+textures-extra
+docs
