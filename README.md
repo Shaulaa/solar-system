@@ -4,7 +4,7 @@ Tata surya 3D yang bisa dijelajahi langsung di browser. Klik planet buat terbang
 
 Dibuat dengan Three.js, GSAP, dan Vite, tanpa framework UI.
 
-**Coba langsung: [solar-system-eight-blush.vercel.app](https://solar-system-eight-blush.vercel.app)**
+**Coba langsung: [solarsystem-id.vercel.app](https://solarsystem-id.vercel.app)**
 
 ![Demo: klik Saturnus, kamera terbang, panel info muncul](docs/demo.gif)
 
