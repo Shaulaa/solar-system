@@ -24,6 +24,10 @@ const LABEL_CHAR_WIDTH = 9.5;
 const LABEL_PADDING = 10;
 const LABEL_HEIGHT = 18;
 const KIND_PRIORITY = { star: 3, planet: 2, dwarf: 2, moon: 1 };
+// Label yang sebagian keluar layar disembunyikan (bukan digeser masuk, karena label yang
+// digeser jadi gak nunjuk ke bendanya lagi). Tinggi elemen termasuk padding bawah 6px
+const LABEL_BOX_HEIGHT = 22;
+const EDGE_MARGIN = 4;
 
 export function createLabels({ bodies }) {
   const renderer = new CSS2DRenderer();
@@ -72,6 +76,17 @@ export function createLabels({ bodies }) {
     return (
       Math.abs(a.screen.x - b.screen.x) < (a.width + b.width) / 2 &&
       Math.abs(a.screen.y - b.screen.y) < LABEL_HEIGHT
+    );
+  }
+
+  // screen.y = tepi bawah label (titik jangkarnya di tengah bawah)
+  function isInsideView(item) {
+    const half = item.width / 2;
+    return (
+      item.screen.x - half >= EDGE_MARGIN &&
+      item.screen.x + half <= viewWidth - EDGE_MARGIN &&
+      item.screen.y - LABEL_BOX_HEIGHT >= EDGE_MARGIN &&
+      item.screen.y <= viewHeight - EDGE_MARGIN
     );
   }
 
@@ -128,7 +143,8 @@ export function createLabels({ bodies }) {
           } else {
             item.screen.x = ((item.screen.x + 1) / 2) * viewWidth;
             item.screen.y = ((1 - item.screen.y) / 2) * viewHeight;
-            candidates.push(item);
+            if (isInsideView(item)) candidates.push(item);
+            else item.visible = false;
           }
         }
       }

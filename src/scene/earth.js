@@ -13,6 +13,9 @@ import { createPlanetTexture } from '../utils/planetTexture.js';
 // 3. atmosfer, shell 1.04x BackSide + additive, nyala biru di tepi
 
 const CLOUD_SPEED = 1.15;
+const CLOUD_SCALE = 1.01;
+// Lapisan terluar Bumi, dipakai juga buat bounding sphere (jarak kamera fokus)
+export const ATMOSPHERE_SCALE = 1.04;
 const SEGMENTS = 64;
 const NORMAL_STRENGTH = 8;
 const SPECULAR_STRENGTH = 0.9;
@@ -67,7 +70,7 @@ export function createEarth(data, radius, seed) {
     metalness: 0
   });
   const clouds = new THREE.Mesh(
-    new THREE.SphereGeometry(radius * 1.01, SEGMENTS, SEGMENTS),
+    new THREE.SphereGeometry(radius * CLOUD_SCALE, SEGMENTS, SEGMENTS),
     cloudsMaterial
   );
   clouds.name = `${data.id}-clouds`;
@@ -76,7 +79,7 @@ export function createEarth(data, radius, seed) {
 
   // Atmosfer
   const atmosphere = new THREE.Mesh(
-    new THREE.SphereGeometry(radius * 1.04, SEGMENTS, SEGMENTS),
+    new THREE.SphereGeometry(radius * ATMOSPHERE_SCALE, SEGMENTS, SEGMENTS),
     new THREE.ShaderMaterial({
       uniforms: {
         uSunDirection: { value: sunDirection },
@@ -144,6 +147,7 @@ export function createEarth(data, radius, seed) {
   return {
     group,
     mesh: surface,
+    boundingScale: ATMOSPHERE_SCALE,
     update(spin) {
       surface.rotation.y = spin;
       clouds.rotation.y = spin * CLOUD_SPEED;

@@ -35,16 +35,21 @@ const NEAR_MAX = 0.1;
 
 const FLY_DURATION = 1.8;
 const FLY_EASE = 'power3.inOut';
-const FOCUS_DISTANCE = 5; // kelipatan radius benda
+// Jarak kamera fokus. Minimal 6x radius benda, dan cukup jauh supaya bounding sphere-nya
+// (termasuk cincin Saturnus / atmosfer Bumi) cuma ngisi FOCUS_FILL dari setengah area layar
+// yang gak ketutup panel info. Di layar portrait (HP) yang sempit itu sisi horizontal,
+// jadi kamera otomatis mundur
+const FOCUS_DISTANCE = 6; // kelipatan radius benda
+const FOCUS_FILL = 0.6;
 const FOCUS_MIN_DISTANCE = 1.5; // kelipatan radius, biar zoom gak nembus awan / atmosfer
 // Kamera ditaruh di arah matahari ke planet lalu diputar segini (di sumbu Y).
 // Kalau gak diputar, kamera ada tepat di belakang planet dan yang kelihatan cuma sisi malam.
 // Dengan 120 derajat sebagian besar sisi siang kelihatan, terminator juga masih kebagian
 const VIEW_ANGLE = (120 * Math.PI) / 180;
-const VIEW_LIFT = 0.35; // sedikit dari atas
-// Layar portrait (HP) sudut pandang horizontalnya sempit, di 5x radius planet bakal mentok
-// kiri kanan layar. Di bawah rasio ini jarak fokus ditambah supaya planet tetap muat
-const PORTRAIT_FIT = 0.75;
+// Kamera agak dari atas (sekitar 31 derajat di atas bidang orbit). Bulan ngorbit di bidang
+// ekliptika, jadi dari ketinggian ini bulan yang lewat di depan kelihatan di bawah planet,
+// bukan nutupin planetnya
+const VIEW_LIFT = 0.6;
 const VIEW_SHIFT_DURATION = 0.7;
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -78,6 +83,8 @@ export function createCameraRig({ camera, controls }) {
   // Geser framing (fraksi lebar / tinggi layar) biar benda yang difokus gak ketutup panel info.
   // x: ke kiri waktu panel nempel di kanan (desktop), y: ke atas waktu bottom sheet (HP)
   const view = { x: 0, y: 0 };
+  // Nilai tujuan geseran (view di atas dianimasikan ke sini), dipakai buat ngitung jarak fokus
+  const viewTarget = { x: 0, y: 0 };
   let appliedView = '';
 
   // Selesaikan sisa inertia damping OrbitControls sekarang juga.
@@ -87,6 +94,17 @@ export function createCameraRig({ camera, controls }) {
     controls.enableDamping = false;
     controls.update();
     controls.enableDamping = damping;
+  }
+
+  // Jarak kamera ke benda yang difokus, lihat FOCUS_DISTANCE dan FOCUS_FILL
+  function focusDistance() {
+    const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    // Bagian layar yang gak ketutup panel: panel desktop nutup 2x dari lebar,
+    // bottom sheet HP kira kira 2y dari tinggi (benda digeser ke tengah sisanya)
+    const tanX = tanHalfFov * camera.aspect * (1 - 2 * viewTarget.x);
+    const tanY = tanHalfFov * (1 - 2 * viewTarget.y);
+    const halfAngle = Math.atan(Math.min(tanX, tanY) * FOCUS_FILL);
+    return Math.max(body.radius * FOCUS_DISTANCE, body.boundingRadius / Math.sin(halfAngle));
   }
 
   function computeOffset(target, position) {
@@ -102,8 +120,7 @@ export function createCameraRig({ camera, controls }) {
       target.copy(horizontal).normalize().applyAxisAngle(UP, VIEW_ANGLE);
     }
     target.y += VIEW_LIFT;
-    const fit = Math.max(1, PORTRAIT_FIT / camera.aspect);
-    return target.normalize().multiplyScalar(body.radius * FOCUS_DISTANCE * fit);
+    return target.normalize().multiplyScalar(focusDistance());
   }
 
   function startTween(nextMode, duration = FLY_DURATION) {
@@ -231,6 +248,8 @@ export function createCameraRig({ camera, controls }) {
   }
 
   function setViewShift({ x = 0, y = 0 } = {}) {
+    viewTarget.x = x;
+    viewTarget.y = y;
     gsap.to(view, {
       x,
       y,
@@ -252,7 +271,9 @@ export function createCameraRig({ camera, controls }) {
       // Arah kamera (relatif ke arah Matahari) juga dihitung ulang tiap frame. Di kecepatan tinggi
       // planet bisa muter beberapa kali selama terbang, kalau offset-nya dikunci dari awal
       // kamera bakal nyampe di sisi malam. Matahari dikecualikan karena arahnya diambil dari kamera
+      // Jaraknya juga, karena panel info (yang nentuin area kosong di layar) baru dibuka setelah focus()
       if (body.kind !== 'star') computeOffset(offset, bodyPosition);
+      else offset.setLength(focusDistance());
       destination.copy(bodyPosition).add(offset);
       camera.position.lerpVectors(startPosition, destination, progress.t);
       controls.target.lerpVectors(startTarget, bodyPosition, progress.t);

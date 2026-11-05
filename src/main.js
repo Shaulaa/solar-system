@@ -17,7 +17,8 @@ import { createAsteroidBelt } from './scene/asteroidBelt.js';
 import { createBodyRegistry } from './scene/bodies.js';
 import {
   createScaleMode,
-  CAMERA_SETTINGS,
+  cameraSettings,
+  overviewFit,
   SCALE_TRANSITION_DURATION,
   overviewPositionAt
 } from './scene/scaleMode.js';
@@ -50,18 +51,21 @@ renderer.toneMappingExposure = 1.0;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#010104');
 
+// Seberapa jauh kamera overview mundur di layar sempit (1 di layar lebar), lihat scene/scaleMode.js
+let fit = overviewFit(window.innerWidth / window.innerHeight);
+
 const camera = new THREE.PerspectiveCamera(
   50,
   window.innerWidth / window.innerHeight,
   0.1,
-  CAMERA_SETTINGS.pretty.far
+  cameraSettings('pretty', fit).far
 );
 
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 controls.dampingFactor = 0.06;
-controls.minDistance = CAMERA_SETTINGS.pretty.minDistance;
-controls.maxDistance = CAMERA_SETTINGS.pretty.maxDistance;
+controls.minDistance = cameraSettings('pretty', fit).minDistance;
+controls.maxDistance = cameraSettings('pretty', fit).maxDistance;
 controls.enablePan = true;
 // Di layar sentuh: satu jari muter, dua jari cubit buat zoom (sekaligus geser).
 // Ini memang default OrbitControls, ditulis eksplisit biar jelas sengaja
@@ -116,6 +120,8 @@ composer.addPass(new OutputPass());
 // Interaksi: daftar benda, kamera terbang, label, panel info, dan klik / hover
 const bodies = createBodyRegistry({ sun, planets, moons });
 const rig = createCameraRig({ camera, controls });
+const overviewTarget = new THREE.Vector3();
+rig.setOverview({ position: overviewPositionAt(0, fit, overviewTarget) });
 const labels = createLabels({ bodies });
 scene.add(labels.group);
 labels.setSize(window.innerWidth, window.innerHeight);
@@ -224,7 +230,6 @@ function setLabelsVisible(visible) {
 
 // Mode skala
 const scaleNote = document.getElementById('scale-note');
-const overviewTarget = new THREE.Vector3();
 
 function setScaleNote(show) {
   if (show) {
@@ -250,18 +255,16 @@ function toggleScaleMode() {
   if (phase !== 'ready') return;
   tour.stop();
   const next = scaleMode.mode === 'pretty' ? 'real' : 'pretty';
-  const target = CAMERA_SETTINGS[next];
+  const target = cameraSettings(next, fit);
 
   // Keluar dari fokus dulu, kamera balik ke overview mode tujuan bareng transisi skalanya
   clearFocus();
 
   // Batas jarak dan far plane dilonggarkan dulu ke yang paling besar dari dua mode,
   // kalau nggak OrbitControls nahan kamera di tengah jalan. Baru diketatkan setelah sampai
-  controls.maxDistance = Math.max(
-    CAMERA_SETTINGS.pretty.maxDistance,
-    CAMERA_SETTINGS.real.maxDistance
-  );
-  camera.far = Math.max(CAMERA_SETTINGS.pretty.far, CAMERA_SETTINGS.real.far);
+  const other = cameraSettings(scaleMode.mode, fit);
+  controls.maxDistance = Math.max(other.maxDistance, target.maxDistance);
+  camera.far = Math.max(other.far, target.far);
   camera.updateProjectionMatrix();
 
   rig.setOverview({ minDistance: target.minDistance });
@@ -269,10 +272,12 @@ function toggleScaleMode() {
 
   scaleMode.set(next, {
     // Tujuan kamera ikut mundur / maju sebanding ukuran dunia di tiap frame transisi
-    onUpdate: (k) => rig.setOverview({ position: overviewPositionAt(k, overviewTarget) }),
+    onUpdate: (k) => rig.setOverview({ position: overviewPositionAt(k, fit, overviewTarget) }),
     onComplete: () => {
-      controls.maxDistance = target.maxDistance;
-      camera.far = target.far;
+      // Dihitung ulang, siapa tahu layarnya diputar selama transisi
+      const settings = cameraSettings(next, fit);
+      controls.maxDistance = settings.maxDistance;
+      camera.far = settings.far;
       camera.updateProjectionMatrix();
     }
   });
@@ -476,11 +481,26 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+// Layar diputar / di-resize: posisi overview dan batas kamera ikut lebar layar yang baru.
+// Kamera gak dipindah paksa (user mungkin lagi ngatur sudutnya sendiri), cuma tujuan
+// overview berikutnya dan batasnya yang diganti. Selama transisi skala, onComplete-nya yang ngatur
+function updateOverviewFit() {
+  const next = overviewFit(camera.aspect);
+  if (next === fit) return;
+  fit = next;
+  rig.setOverview({ position: overviewPositionAt(scaleMode.k, fit, overviewTarget) });
+  if (scaleMode.transitioning) return;
+  const settings = cameraSettings(scaleMode.mode, fit);
+  controls.maxDistance = settings.maxDistance;
+  camera.far = settings.far;
+}
+
 // Resize
 window.addEventListener('resize', () => {
   const w = window.innerWidth;
   const h = window.innerHeight;
   camera.aspect = w / h;
+  updateOverviewFit();
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
   composer.setSize(w, h);

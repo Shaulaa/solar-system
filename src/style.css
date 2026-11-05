@@ -46,6 +46,11 @@ body {
   letter-spacing: 0.04em;
 }
 
+/* Versi pendek subjudul buat layar sempit (lihat media query 640px) */
+.sub-narrow {
+  display: none;
+}
+
 
 
 /* Kredit tekstur, wajib ada karena lisensi CC BY 4.0. Dibikin kecil dan redup biar gak ganggu pemandangan */
@@ -126,6 +131,16 @@ body.hud-ready .credit {
   background: #010104;
   color: var(--text);
   user-select: none;
+  /* Durasi fade harus sama dengan FADE_MS di ui/loader.js */
+  transition:
+    opacity 0.5s ease,
+    visibility 0s linear 0.5s;
+}
+
+.loading.is-done {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .loading-title {
@@ -150,6 +165,8 @@ body.hud-ready .credit {
   background: linear-gradient(90deg, var(--accent-cool), var(--accent-warm));
   transform: scaleX(0);
   transform-origin: left center;
+  /* Bar ngejar progress asli dengan transisi pendek, jalan di compositor tanpa nunggu JS */
+  transition: transform 0.25s ease-out;
 }
 
 .loading-percent {
@@ -931,9 +948,26 @@ body.is-touring .scale-note {
     top: 132px;
   }
 
+  /* Subjudul dipaksa satu baris (versi pendek, kalau masih kepanjangan dipotong ...),
+     jadi tinggi HUD pasti dan kredit di bawahnya gak pernah ketabrak */
+  .sub-wide {
+    display: none;
+  }
+
+  .sub-narrow {
+    display: inline;
+  }
+
+  .hud .sub {
+    max-width: calc(100vw - 32px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .credit {
     bottom: auto;
-    top: 96px;
+    top: 84px;
     right: auto;
     left: 16px;
   }
@@ -982,7 +1016,7 @@ body.is-touring .scale-note {
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .hud {
     top: 18px;
     left: 16px;

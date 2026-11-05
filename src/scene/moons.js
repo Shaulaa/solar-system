@@ -22,8 +22,17 @@ const TEXTURE_SIZE = { width: 256, height: 128 };
 const MIN_VISUAL_PERIOD = 3;
 const visualPeriod = (days) => Math.sqrt(days * days + MIN_VISUAL_PERIOD * MIN_VISUAL_PERIOD);
 
+// Di mode Enak Dilihat bulan maksimal segini kali radius planet induknya.
+// Pangkat 0.55 bikin Bulan Bumi hampir setengah Bumi, cukup besar buat nutupin Bumi waktu
+// lewat di depannya. Batasnya 0,27 = perbandingan asli Bulan dan Bumi.
+// Bulan Jupiter jauh di bawah batas ini, gak kena
+const MAX_PRETTY_SIZE = 0.27;
+
 function createMoon(moonData, planet, index) {
-  const size = { pretty: scaleRadius(moonData.radius), real: scaleRadius(moonData.radius, 'real') };
+  const size = {
+    pretty: Math.min(scaleRadius(moonData.radius), planet.baseRadius * MAX_PRETTY_SIZE),
+    real: scaleRadius(moonData.radius, 'real')
+  };
   // Mode pretty pakai kelipatan radius planet induk, mode real pakai jarak asli dalam km
   const orbit = {
     pretty: planet.baseRadius * moonData.orbitRadius,

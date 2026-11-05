@@ -1,14 +1,16 @@
-import gsap from 'gsap';
-
 // Loading screen yang nyambung ke LoadingManager bersama (utils/loader.js)
 //
 // Wajib dibuat SEBELUM modul scene dibuat, karena tekstur mulai dimuat begitu
 // createSun / createPlanets dipanggil. Kalau handler dipasang belakangan, progress awalnya kelewat.
 // Tekstur yang gagal dimuat tetap dihitung selesai (LoadingManager manggil itemEnd juga
 // waktu error), jadi loading gak pernah nyangkut walaupun folder textures kosong
+//
+// Progress ditulis langsung dari callback LoadingManager, dan semua animasinya (bar dan fade out)
+// pakai transisi CSS. Gak ada tween yang nunggu requestAnimationFrame, jadi overlay gak
+// ketahan lebih lama dari loading aslinya walaupun main thread lagi sibuk upload tekstur
 
 const MIN_VISIBLE_MS = 800; // biar gak kedip kalau semua tekstur sudah di-cache browser
-const FADE_DURATION = 0.7;
+const FADE_MS = 500; // harus sama dengan transisi .loading di style.css
 
 export function createLoadingScreen({ manager }) {
   const element = document.getElementById('loading');
@@ -16,7 +18,6 @@ export function createLoadingScreen({ manager }) {
   const percent = document.getElementById('loading-percent');
 
   const shownAt = performance.now();
-  const shown = { value: 0 };
   let started = false;
   let finished = false;
   let resolveReady;
@@ -24,40 +25,31 @@ export function createLoadingScreen({ manager }) {
     resolveReady = resolve;
   });
 
-  function render() {
-    fill.style.transform = `scaleX(${shown.value})`;
-    percent.textContent = String(Math.round(shown.value * 100));
+  function setProgress(value) {
+    fill.style.transform = `scaleX(${value})`;
+    percent.textContent = String(Math.round(value * 100));
   }
 
-  // Angka yang tampil dikejar pelan pelan, biar bar-nya gak loncat loncat
-  function animateTo(value, onComplete) {
-    gsap.to(shown, {
-      value,
-      duration: 0.4,
-      ease: 'power2.out',
-      overwrite: true,
-      onUpdate: render,
-      onComplete
+  function hide() {
+    element.classList.add('is-done');
+    // Intro langsung jalan bareng overlay yang lagi memudar, gak nunggu fade-nya selesai
+    resolveReady();
+    // Dibuang dari DOM setelah transisi. setTimeout sebagai cadangan kalau transitionend
+    // gak pernah datang (misal tab disembunyikan di tengah fade)
+    // (transitionend dari bar progress ikut bubble ke sini, jadi dicek dulu sumbernya)
+    const remove = () => element.remove();
+    element.addEventListener('transitionend', (event) => {
+      if (event.target === element && event.propertyName === 'opacity') remove();
     });
+    setTimeout(remove, FADE_MS + 100);
   }
 
   function finish() {
     if (finished) return;
     finished = true;
-
-    const wait = Math.max(0, MIN_VISIBLE_MS - (performance.now() - shownAt)) / 1000;
-    animateTo(1, () => {
-      gsap.to(element, {
-        autoAlpha: 0,
-        duration: FADE_DURATION,
-        delay: wait,
-        ease: 'power2.inOut',
-        onComplete: () => {
-          element.remove();
-          resolveReady();
-        }
-      });
-    });
+    setProgress(1);
+    const wait = Math.max(0, MIN_VISIBLE_MS - (performance.now() - shownAt));
+    setTimeout(hide, wait);
   }
 
   manager.onStart = () => {
@@ -65,12 +57,12 @@ export function createLoadingScreen({ manager }) {
   };
   manager.onProgress = (_url, loaded, total) => {
     started = true;
-    animateTo(loaded / total);
+    setProgress(loaded / total);
   };
   manager.onLoad = finish;
 
   return {
-    // Resolve setelah overlay selesai fade out
+    // Resolve begitu overlay mulai memudar
     ready,
     // Dipanggil setelah semua modul scene dibuat. Kalau ternyata gak ada yang dimuat sama sekali,
     // onLoad gak akan pernah dipanggil, jadi diselesaikan manual

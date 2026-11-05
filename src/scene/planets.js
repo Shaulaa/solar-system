@@ -91,6 +91,10 @@ function createPlanet(data, index) {
   const ring = data.ring ? createSaturnRing(data.ring, radius) : null;
   if (ring) tiltGroup.add(ring.mesh);
 
+  // Radius terluar benda (kelipatan radius planet): tepi cincin Saturnus, atmosfer Bumi, atau permukaannya.
+  // Dipakai kamera biar seluruh benda muat di layar waktu difokus
+  const boundingScale = Math.max(data.ring?.outer ?? 1, body.boundingScale ?? 1);
+
   // Posisi heliosentris dalam AU, diisi update()
   const helio = new THREE.Vector3();
   let k = 0;
@@ -109,6 +113,9 @@ function createPlanet(data, index) {
     radius,
     distance: 0,
     baseRadius: size.pretty,
+    get boundingRadius() {
+      return planet.radius * boundingScale;
+    },
     root,
     anchor,
     tiltGroup,

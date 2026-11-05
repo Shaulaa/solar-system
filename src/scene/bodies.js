@@ -11,6 +11,7 @@ import { sun as sunData } from '../data/planets.js';
 //   visible          false kalau bendanya masih tersembunyi (easter egg Pluto)
 //   parentId         id planet induk (khusus bulan)
 //   radius           radius SEKARANG dalam unit scene (getter, ikut berubah waktu ganti mode skala)
+//   boundingRadius   radius terluar termasuk cincin / atmosfer, dipakai buat jarak kamera fokus
 //   mesh             mesh yang dirender, posisi dunianya = posisi benda
 //   getPosition(v)   tulis posisi dunia benda ke v
 function makeBody({ source, ...fields }) {
@@ -19,6 +20,9 @@ function makeBody({ source, ...fields }) {
     mesh: source.mesh,
     get radius() {
       return source.radius;
+    },
+    get boundingRadius() {
+      return source.boundingRadius ?? source.radius;
     },
     get visible() {
       return source.visible ?? true;

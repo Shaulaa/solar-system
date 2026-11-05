@@ -18,8 +18,17 @@ const EASE = 'power3.inOut';
 const outermost = planetData[planetData.length - 1].distance;
 const OVERVIEW_GROWTH = scaleDistance(outermost, 'real') / scaleDistance(outermost);
 
-// Pengaturan kamera tiap mode. Posisi overview-nya dihitung lewat overviewPositionAt()
-export const CAMERA_SETTINGS = {
+// Layar sempit (HP portrait) sudut pandang horizontalnya sempit, orbit luar kepotong kiri kanan.
+// Komposisi overview default pas buat rasio layar segini (orbit Neptunus pas muat lebarnya),
+// di bawahnya kamera overview mundur sebanding biar orbit Neptunus tetap kelihatan utuh
+const OVERVIEW_FIT_ASPECT = 1.75;
+
+export function overviewFit(aspect) {
+  return Math.max(1, OVERVIEW_FIT_ASPECT / aspect);
+}
+
+// Pengaturan kamera dasar tiap mode (layar lebar). Pakai cameraSettings() biar ikut layar sempit
+const CAMERA_SETTINGS = {
   pretty: {
     minDistance: 15,
     maxDistance: 600,
@@ -32,9 +41,20 @@ export const CAMERA_SETTINGS = {
   }
 };
 
-// Posisi overview untuk nilai k mana pun, mundur sebanding dengan dunianya
-export function overviewPositionAt(k, target = new THREE.Vector3()) {
-  return target.copy(OVERVIEW_POSITION).multiplyScalar(blendScale(1, OVERVIEW_GROWTH, k));
+// maxDistance dan far ikut dikali fit, kalau nggak kamera overview yang mundur kena batas zoom
+// dan sisi jauh orbit Neptunus kepotong far plane
+export function cameraSettings(mode, fit = 1) {
+  const base = CAMERA_SETTINGS[mode];
+  return {
+    minDistance: base.minDistance,
+    maxDistance: base.maxDistance * fit,
+    far: base.far * fit
+  };
+}
+
+// Posisi overview untuk nilai k mana pun, mundur sebanding dengan dunianya (dan lebar layar)
+export function overviewPositionAt(k, fit = 1, target = new THREE.Vector3()) {
+  return target.copy(OVERVIEW_POSITION).multiplyScalar(blendScale(1, OVERVIEW_GROWTH, k) * fit);
 }
 
 export function createScaleMode({ sun, planets, moons, asteroidBelt, orbits }) {
