@@ -81,8 +81,6 @@ The parts most worth reading in the code
 - **Overlap-free labels** ([labels.js](src/ui/labels.js)). Labels that collide on screen are hidden by priority, without reading DOM sizes every frame
 - **Performance.** FPS is sampled every second. If it stays under 40 for 3 seconds, the pixel ratio drops to 1 (bloom is also turned off on mobile). Rendering stops completely while the tab is hidden. Textures are WebP, 58 percent smaller than the original JPGs
 
-Every technical decision and the reasoning behind it is logged in the decision log (Catatan Keputusan) in [PRD.md](PRD.md), written in Indonesian.
-
 ## Textures
 
 Textures by [Solar System Scope](https://www.solarsystemscope.com/textures/) (CC BY 4.0), stored in `public/textures/` as WebP.
