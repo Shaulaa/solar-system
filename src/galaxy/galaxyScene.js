@@ -10,9 +10,11 @@ import { createGalaxyParticles } from './galaxyParticles.js';
 // 1 unit = 100 tahun cahaya. Tiap frame urutannya galaxyScene dulu, depth buffer dikosongkan,
 // baru tata surya. Tata surya selalu tergambar di atas galaksi tanpa rebutan depth
 //
-// Titik (0,0,0) galaxyScene = posisi Matahari, jadi kamera galaksi selalu dekat titik asal
-// waktu zoomLevel kecil (presisi aman). Isi galaksi ditaruh di grup `galaxy` yang digeser
-// supaya pusat galaksi ada di tempat yang benar relatif ke Matahari
+// Di awal, titik (0,0,0) galaxyScene = posisi Matahari. Isi galaksi ditaruh di grup `galaxy` yang
+// digeser supaya pusat galaksi ada di tempat yang benar relatif ke Matahari. Waktu galaksi berputar,
+// Matahari ikut terbawa di lengan Orion dan pindah dari titik asal, kamera galaksi ngikutin.
+// Presisi tetap aman: matriks kamera dihitung three.js dalam double di JS, dan galat float32
+// di sekitar 500 unit (sekitar 3e-5) jauh lebih kecil dari jarak partikel terdekat
 
 // Matahari sekitar 26.000 tahun cahaya dari pusat galaksi, sedikit di atas bidangnya (sekitar 65 tahun cahaya)
 export const SUN_GALACTIC_RADIUS = 260;
@@ -24,7 +26,7 @@ const NEAR_MIN = 1e-4;
 const NEAR_MAX = 1;
 const FAR_MARGIN = 3000;
 
-// Galaksi berputar pelan, cukup buat kesan hidup (bukan kecepatan asli).
+// Galaksi berputar pelan di pusatnya, cukup buat kesan hidup (bukan kecepatan asli).
 // Satu putaran 30 menit. Arahnya bikin lengan spiral "tertinggal" (trailing) seperti galaksi asli
 const ROTATION_PERIOD = 30 * 60;
 
@@ -40,14 +42,16 @@ export function createGalaxyScene({ pixelRatio = 1 } = {}) {
   // Matahari di sumbu -X. Orientasinya disamakan dengan pita Bima Sakti di latar (scene/milkyWay.js):
   // sumbu Y = kutub galaksi, +X = arah pusat galaksi dilihat dari Matahari.
   //
-  // galaxy (orientasi + geser) > content (berputar di sumbu kutub) > partikel.
-  // Matahari ikut berputar bersama piringannya (posisinya tetap di koordinat content), jadi
-  // tiap frame galaxy digeser supaya Matahari tetap di titik asal. Hasilnya galaksi berputar
-  // di sumbu kutub yang lewat Matahari: lingkungan sekitar Matahari (taji Orion) gak bergeser,
-  // dan registrasi dengan tata surya / penanda "Kamu di sini" tetap pas
+  // galaxy (orientasi + geser, diam) > content (berputar di sumbu kutub lewat pusat galaksi) > partikel.
+  // Matahari ikut berputar bersama piringannya: posisinya tetap di koordinat content, jadi
+  // lingkungan sekitarnya (taji Orion) gak bergeser relatif ke Matahari. Posisi dunianya
+  // (sunPosition) dihitung ulang tiap frame, dipakai kamera galaksi dan penanda "Kamu di sini"
+  const sunLocal = new THREE.Vector3(-SUN_GALACTIC_RADIUS, SUN_GALACTIC_HEIGHT, 0);
   const galaxy = new THREE.Group();
   galaxy.name = 'galaxy';
   galaxy.quaternion.copy(galacticOrientation());
+  // Digeser sekali: di putaran 0 Matahari tepat di titik asal
+  galaxy.position.copy(sunLocal).applyQuaternion(galaxy.quaternion).negate();
   scene.add(galaxy);
 
   const content = new THREE.Group();
@@ -57,15 +61,15 @@ export function createGalaxyScene({ pixelRatio = 1 } = {}) {
   const particles = createGalaxyParticles({ pixelRatio });
   content.add(particles.group);
 
-  const sunLocal = new THREE.Vector3(-SUN_GALACTIC_RADIUS, SUN_GALACTIC_HEIGHT, 0);
-  const sunWorld = new THREE.Vector3();
+  // Posisi Matahari di galaxyScene sekarang
+  const sunPosition = new THREE.Vector3();
 
-  function placeSunAtOrigin(elapsed) {
+  function rotate(elapsed) {
     content.rotation.y = (elapsed / ROTATION_PERIOD) * Math.PI * 2;
-    sunWorld.copy(sunLocal).applyEuler(content.rotation).applyQuaternion(galaxy.quaternion);
-    galaxy.position.copy(sunWorld).negate();
+    content.updateMatrixWorld(true);
+    content.localToWorld(sunPosition.copy(sunLocal));
   }
-  placeSunAtOrigin(0);
+  rotate(0);
 
   const direction = new THREE.Vector3();
 
@@ -75,18 +79,20 @@ export function createGalaxyScene({ pixelRatio = 1 } = {}) {
     galaxy,
     content,
     particles,
-    // Kamera galaksi ikut orientasi kamera utama. Posisinya di arah yang sama dari Matahari
+    sunPosition,
+    // Kamera galaksi ikut orientasi kamera utama. Posisinya di arah yang sama dari Matahari (yang ikut
+    // berputar bersama galaksi)
     // dengan jarak dari zoomLevel (sudah termasuk zoom virtual), dikonversi ke satuan galaksi.
     // Jadi Matahari di kedua scene selalu jatuh di titik layar yang sama.
     // frame = { delta, elapsed, viewportHeight (piksel device) }
     update(mainCamera, zoomLevel, fit, { delta, elapsed, viewportHeight }) {
-      placeSunAtOrigin(elapsed);
+      rotate(elapsed);
       particles.setOpacity(fadeBetween(zoomLevel, STAGES.galaxyIn.start, STAGES.galaxyIn.end));
 
       const distance = auToGalaxyUnits(zoomLevelToAU(zoomLevel, fit));
       direction.copy(mainCamera.position);
       if (direction.lengthSq() < 1e-12) direction.set(0, 0, 1);
-      camera.position.copy(direction.normalize()).multiplyScalar(distance);
+      camera.position.copy(direction.normalize()).multiplyScalar(distance).add(sunPosition);
       camera.quaternion.copy(mainCamera.quaternion);
 
       // Proyeksi disamakan, termasuk geseran framing panel info (setViewOffset)
