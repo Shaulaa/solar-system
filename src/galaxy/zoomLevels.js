@@ -47,6 +47,15 @@ export const STAGES = {
   // cahaya dari Matahari, memudar waktu semuanya sudah numpuk jadi satu titik di dekat Matahari
   nearbyStarsIn: { start: 4, end: 4.6 },
   nearbyStarsOut: { start: 6.6, end: 7.2 },
+  // Tampilan lingkungan Matahari selama tahap bintang tetangga, dilepas bertahap waktu zoom keluar:
+  //   ruang kosong partikel galaksi sekitar 300 tahun cahaya di sekitar Matahari (galaxyShaders.js)
+  //   partikel galaksi diredupkan (NEIGHBORHOOD_DIM di galaxyScene.js). Dari dalam piringan,
+  //     bulge dan lengan yang jauhnya ribuan tahun cahaya kelihatan sebagai pita padat di belakang
+  //     Matahari dan numpuk dengan 33 bintang tetangga. Ruang kosong saja gak cukup, partikel dalam
+  //     375 tahun cahaya cuma sekitar 95 dari 500 ribu
+  // Mulai bareng bintang tetangga memudar, selesai waktu kamera sekitar 500 tahun cahaya dari
+  // Matahari, jadi ruang kosongnya sudah kecil di layar waktu tertutup lagi
+  neighborhoodOut: { start: 6.4, end: 7.5 },
   // Partikel galaksi muncul, gantian dengan latar lama yang memudar.
   // Dari dalam piringan galaksi partikelnya kelihatan sebagai pita Bima Sakti di langit
   galaxyIn: { start: 3, end: 4 },

@@ -60,6 +60,9 @@ const WORLD_UP = new THREE.Vector3(0, 1, 0);
 // karena di sana kamera baru sekitar 16 unit dari Matahari sedangkan pusat galaksi 260 unit
 const CENTER_FOLLOW = 0.25;
 
+// Kecerahan partikel galaksi selama tahap bintang tetangga (lihat STAGES.neighborhoodOut)
+const NEIGHBORHOOD_DIM = 0.3;
+
 // Kotak cadangan levelForStar (NDC), dipakai kalau kotak yang diminta gak ketemu
 const LOOSE_STAR_BOX = { xMin: -0.88, xMax: 0.88, yMin: -0.85, yMax: 0.85 };
 
@@ -95,7 +98,7 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
   const texture = createGalaxyTexture({ renderer, anisotropy });
   content.add(texture.mesh);
 
-  const particles = createGalaxyParticles({ pixelRatio });
+  const particles = createGalaxyParticles({ pixelRatio, sunLocal });
   content.add(particles.group);
 
   // Posisi Matahari di galaxyScene sekarang
@@ -215,7 +218,11 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
     // frame = { delta, elapsed, viewportHeight (piksel device), cssWidth, cssHeight, mainTarget }
     update(mainCamera, zoomLevel, fit, { delta, elapsed, viewportHeight, cssWidth, cssHeight, mainTarget }) {
       rotate(elapsed);
-      particles.setOpacity(fadeBetween(zoomLevel, STAGES.galaxyIn.start, STAGES.galaxyIn.end));
+      const neighborhood = 1 - fadeBetween(zoomLevel, STAGES.neighborhoodOut.start, STAGES.neighborhoodOut.end);
+      particles.setOpacity(
+        fadeBetween(zoomLevel, STAGES.galaxyIn.start, STAGES.galaxyIn.end) * THREE.MathUtils.lerp(1, NEIGHBORHOOD_DIM, neighborhood)
+      );
+      particles.setLocalClearing(neighborhood);
       if (particles.state === 'ready' && zoomLevel >= GALAXY_TEXTURE_LOAD_AT) texture.load();
       texture.update(fadeBetween(zoomLevel, STAGES.galaxyTexture.start, STAGES.galaxyTexture.end), delta);
 

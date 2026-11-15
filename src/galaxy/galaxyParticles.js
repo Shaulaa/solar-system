@@ -32,7 +32,7 @@ const SEED = 20261115;
 const MATERIAL_OF = { glow: 'glow', dust: 'dust' };
 const RENDER_ORDER = { star: 0, glow: 1, dust: 2 };
 
-export function createGalaxyParticles({ pixelRatio }) {
+export function createGalaxyParticles({ pixelRatio, sunLocal }) {
   const group = new THREE.Group();
   group.name = 'galaxy-particles';
   group.visible = false;
@@ -43,6 +43,7 @@ export function createGalaxyParticles({ pixelRatio }) {
     dust: createParticleMaterial('dust', { pixelRatio })
   };
   const materialList = Object.values(materials);
+  for (const material of materialList) material.uniforms.uSunLocal.value.copy(sunLocal);
   const geometries = [];
 
   // idle -> generating -> warming -> ready (atau error)
@@ -142,6 +143,10 @@ export function createGalaxyParticles({ pixelRatio }) {
     },
     setPixelRatio(ratio) {
       for (const material of materialList) setMaterialPixelRatio(material, ratio);
+    },
+    // Kekuatan ruang kosong di sekitar Matahari, 0 sampai 1 (lihat galaxyShaders.js)
+    setLocalClearing(strength) {
+      for (const material of materialList) material.uniforms.uClearStrength.value = strength;
     },
     // camera = kamera galaksi, viewportHeight = tinggi drawing buffer dalam piksel device.
     // Posisi kamera diubah ke koordinat galaksi buat ekstinksi dan debu di shader
