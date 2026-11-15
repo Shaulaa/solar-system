@@ -7,10 +7,14 @@ import { STAGES, fadeBetween } from '../galaxy/zoomLevels.js';
 //   bola Matahari                                 diganti titik bintang yang ukurannya tetap di layar
 //   bintang kelap kelip dan sphere Bima Sakti     memudar, nanti digantikan isi galaxyScene
 
-// Opacity semua material di bawah beberapa objek sekaligus.
-// Material bawaan pakai material.opacity (dikali opacity aslinya), ShaderMaterial custom pakai
-// uniform uOpacity. Material yang aslinya opaque baru dijadikan transparan selama memudar,
-// biar urutan gambar di tampilan normal gak berubah. Objeknya disembunyikan kalau sudah 0
+// Memudarkan semua material di bawah beberapa objek sekaligus, TANPA pernah mengubah
+// material.transparent. Three.js nge-compile versi opaque dan transparan sebagai shader terpisah,
+// dan kalau versi itu belum ada di cache shader GPU, kompilasinya memblokir halaman sekitar 100 ms
+// (terukur di zoomLevel 2,0 dan 2,58). Jadi:
+//   material transparan (awan, cincin, atmosfer)   opacity dikali alpha
+//   material opaque bawaan (planet, bulan, batu)   warna dikali alpha, memudar ke hitam
+//   ShaderMaterial custom                          uniform uOpacity (shader-nya yang ngatur)
+// Di latar hitam memudar ke hitam kelihatan sama dengan jadi transparan. Objeknya disembunyikan di 0
 function createMaterialFade(roots) {
   const entries = [];
   const seen = new Set();
@@ -22,8 +26,10 @@ function createMaterialFade(roots) {
       entries.push({
         material,
         opacity: material.opacity,
-        transparent: material.transparent,
-        uniform: material.uniforms?.uOpacity ?? null
+        uniform: material.uniforms?.uOpacity ?? null,
+        // Warna asli disalin waktu mulai memudar, bukan sekarang: tekstur planet yang selesai dimuat
+        // ngubah warna dasar material jadi putih
+        color: !material.transparent && material.color ? material.color.clone() : null
       });
     });
   }
@@ -32,16 +38,17 @@ function createMaterialFade(roots) {
 
   return function setOpacity(alpha) {
     if (alpha === current) return;
+    const starting = current === 1;
     current = alpha;
     for (const entry of entries) {
       const { material } = entry;
-      if (entry.uniform) entry.uniform.value = alpha;
-      else material.opacity = entry.opacity * alpha;
-      const transparent = entry.transparent || alpha < 1;
-      if (material.transparent !== transparent) {
-        material.transparent = transparent;
-        // Material bawaan three.js nge-compile versi opaque dan transparan secara terpisah
-        material.needsUpdate = true;
+      if (entry.uniform) {
+        entry.uniform.value = alpha;
+      } else if (entry.color) {
+        if (starting) entry.color.copy(material.color);
+        material.color.copy(entry.color).multiplyScalar(alpha);
+      } else {
+        material.opacity = entry.opacity * alpha;
       }
     }
     for (const root of roots) root.visible = alpha > 0;

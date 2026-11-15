@@ -7,7 +7,8 @@ uniform float uSpecularStrength;
 uniform vec3 uSunDirection;
 uniform vec3 uSunColor;
 uniform vec3 uAtmosphereColor;
-// 1 normal, turun ke 0 waktu zoom keluar tata surya (scene/solarFade.js)
+// 1 normal, turun ke 0 waktu zoom keluar tata surya (scene/solarFade.js).
+// Permukaan tetap opaque dan memudar ke hitam, lihat penjelasan di solarFade.js
 uniform float uOpacity;
 
 varying vec2 vUv;
@@ -66,7 +67,7 @@ void main() {
   float fresnel = pow(1.0 - max(dot(normal, viewDir), 0.0), 3.0);
   color += uAtmosphereColor * fresnel * smoothstep(-0.1, 0.5, sunDot) * 0.6;
 
-  gl_FragColor = vec4(color, uOpacity);
+  gl_FragColor = vec4(color * uOpacity, 1.0);
 
   #include <tonemapping_fragment>
   #include <colorspace_fragment>

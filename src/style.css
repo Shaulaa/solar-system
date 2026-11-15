@@ -390,6 +390,56 @@ body.hud-ready .credit {
   display: none;
 }
 
+/* Indikator kecil selama partikel galaksi dibuat di worker */
+.galaxy-status {
+  position: fixed;
+  z-index: 2;
+  left: 50%;
+  top: 28px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  pointer-events: none;
+}
+
+.galaxy-status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-cool);
+  animation: galaxy-pulse 1.1s ease-in-out infinite;
+}
+
+.galaxy-status.is-error::before {
+  background: var(--accent-warm);
+  animation: none;
+}
+
+.galaxy-status[hidden] {
+  display: none;
+}
+
+@keyframes galaxy-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .galaxy-status::before {
+    animation: none;
+  }
+}
+
 /* Narasi tur otomatis, di atas toolbar */
 .narration {
   position: fixed;

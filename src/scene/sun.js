@@ -123,7 +123,8 @@ const surfaceMaterial = () =>
         float rim = 1.0 - max(dot(vNormal, vView), 0.0);
         col += vec3(1.0, 0.45, 0.08) * pow(rim, 2.5);
 
-        gl_FragColor = vec4(col, uOpacity);
+        // Tetap opaque, memudar ke hitam (lihat scene/solarFade.js)
+        gl_FragColor = vec4(col * uOpacity, 1.0);
       }
     `
   });
@@ -246,16 +247,8 @@ export function createSun() {
     },
     // Waktu zoom keluar tata surya: body = opacity bola Matahari + glow, star = opacity titik bintang
     setFade({ body, star: starAlpha }) {
-      const surfaceMaterial = surface.material;
-      surfaceMaterial.uniforms.uOpacity.value = body;
+      surface.material.uniforms.uOpacity.value = body;
       glow.material.uniforms.uOpacity.value = body;
-      // Bola Matahari aslinya opaque. Baru dijadikan transparan selama memudar,
-      // biar urutan gambar di tampilan normal gak berubah
-      const transparent = body < 1;
-      if (surfaceMaterial.transparent !== transparent) {
-        surfaceMaterial.transparent = transparent;
-        surfaceMaterial.needsUpdate = true;
-      }
       surface.visible = body > 0;
       glow.visible = body > 0;
 

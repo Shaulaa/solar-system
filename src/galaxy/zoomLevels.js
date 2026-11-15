@@ -33,8 +33,14 @@ export const STAGES = {
   sunBodyOut: { start: 2.5, end: 3.1 },
   // Titik bintang Matahari 6 px kebesaran buat skala galaksi. Sementara dipudarkan di tahap galaksi,
   // penggantinya penanda "Kamu di sini" (tahap G4)
-  sunStarOut: { start: 6.5, end: 7.5 }
+  sunStarOut: { start: 6.5, end: 7.5 },
+  // Partikel galaksi muncul, gantian dengan latar lama yang memudar.
+  // Dari dalam piringan galaksi partikelnya kelihatan sebagai pita Bima Sakti di langit
+  galaxyIn: { start: 3, end: 4 }
 };
+
+// Partikel galaksi baru di-generate (di worker) waktu zoomLevel pertama kali lewat angka ini
+export const GALAXY_GENERATE_AT = 3;
 
 // 0 di bawah start, 1 di atas end, di antaranya smoothstep biar awal dan akhirnya halus
 export function fadeBetween(zoomLevel, start, end) {

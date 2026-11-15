@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { galacticOrientation } from '../scene/milkyWay.js';
-import { auToGalaxyUnits, zoomLevelToAU } from './zoomLevels.js';
+import { auToGalaxyUnits, zoomLevelToAU, fadeBetween, STAGES } from './zoomLevels.js';
+import { createGalaxyParticles } from './galaxyParticles.js';
 
 // Scene galaksi, dirender di lapisan bawah sebelum tata surya (render berlapis)
 //
@@ -23,7 +24,11 @@ const NEAR_MIN = 1e-4;
 const NEAR_MAX = 1;
 const FAR_MARGIN = 3000;
 
-export function createGalaxyScene() {
+// Galaksi berputar pelan, cukup buat kesan hidup (bukan kecepatan asli).
+// Satu putaran 30 menit. Arahnya bikin lengan spiral "tertinggal" (trailing) seperti galaksi asli
+const ROTATION_PERIOD = 30 * 60;
+
+export function createGalaxyScene({ pixelRatio = 1 } = {}) {
   const scene = new THREE.Scene();
   scene.name = 'galaxy-scene';
   // Latar hitam pindah ke sini, scene tata surya dirender tanpa latar di atasnya
@@ -34,13 +39,33 @@ export function createGalaxyScene() {
   // Grup isi galaksi dalam koordinat galaksi: pusat galaksi di (0,0,0), piringan di bidang XZ,
   // Matahari di sumbu -X. Orientasinya disamakan dengan pita Bima Sakti di latar (scene/milkyWay.js):
   // sumbu Y = kutub galaksi, +X = arah pusat galaksi dilihat dari Matahari.
-  // Partikel galaksi (tahap G2) tinggal ditambahkan ke grup ini
+  //
+  // galaxy (orientasi + geser) > content (berputar di sumbu kutub) > partikel.
+  // Matahari ikut berputar bersama piringannya (posisinya tetap di koordinat content), jadi
+  // tiap frame galaxy digeser supaya Matahari tetap di titik asal. Hasilnya galaksi berputar
+  // di sumbu kutub yang lewat Matahari: lingkungan sekitar Matahari (taji Orion) gak bergeser,
+  // dan registrasi dengan tata surya / penanda "Kamu di sini" tetap pas
   const galaxy = new THREE.Group();
   galaxy.name = 'galaxy';
   galaxy.quaternion.copy(galacticOrientation());
-  const sunLocal = new THREE.Vector3(-SUN_GALACTIC_RADIUS, SUN_GALACTIC_HEIGHT, 0);
-  galaxy.position.copy(sunLocal).applyQuaternion(galaxy.quaternion).negate();
   scene.add(galaxy);
+
+  const content = new THREE.Group();
+  content.name = 'galaxy-content';
+  galaxy.add(content);
+
+  const particles = createGalaxyParticles({ pixelRatio });
+  content.add(particles.group);
+
+  const sunLocal = new THREE.Vector3(-SUN_GALACTIC_RADIUS, SUN_GALACTIC_HEIGHT, 0);
+  const sunWorld = new THREE.Vector3();
+
+  function placeSunAtOrigin(elapsed) {
+    content.rotation.y = (elapsed / ROTATION_PERIOD) * Math.PI * 2;
+    sunWorld.copy(sunLocal).applyEuler(content.rotation).applyQuaternion(galaxy.quaternion);
+    galaxy.position.copy(sunWorld).negate();
+  }
+  placeSunAtOrigin(0);
 
   const direction = new THREE.Vector3();
 
@@ -48,10 +73,16 @@ export function createGalaxyScene() {
     scene,
     camera,
     galaxy,
+    content,
+    particles,
     // Kamera galaksi ikut orientasi kamera utama. Posisinya di arah yang sama dari Matahari
     // dengan jarak dari zoomLevel (sudah termasuk zoom virtual), dikonversi ke satuan galaksi.
-    // Jadi Matahari di kedua scene selalu jatuh di titik layar yang sama
-    update(mainCamera, zoomLevel, fit) {
+    // Jadi Matahari di kedua scene selalu jatuh di titik layar yang sama.
+    // frame = { delta, elapsed, viewportHeight (piksel device) }
+    update(mainCamera, zoomLevel, fit, { delta, elapsed, viewportHeight }) {
+      placeSunAtOrigin(elapsed);
+      particles.setOpacity(fadeBetween(zoomLevel, STAGES.galaxyIn.start, STAGES.galaxyIn.end));
+
       const distance = auToGalaxyUnits(zoomLevelToAU(zoomLevel, fit));
       direction.copy(mainCamera.position);
       if (direction.lengthSq() < 1e-12) direction.set(0, 0, 1);
@@ -70,6 +101,7 @@ export function createGalaxyScene() {
         camera.clearViewOffset();
       }
       camera.updateProjectionMatrix();
+      particles.update(delta, camera, viewportHeight);
     }
   };
 }

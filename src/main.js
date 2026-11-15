@@ -26,7 +26,7 @@ import {
 import { createPicker } from './controls/picker.js';
 import { createCameraRig, createVirtualZoom } from './controls/cameraRig.js';
 import { createGalaxyScene } from './galaxy/galaxyScene.js';
-import { zoomLevelAt, MAX_ZOOM_LEVEL } from './galaxy/zoomLevels.js';
+import { zoomLevelAt, MAX_ZOOM_LEVEL, GALAXY_GENERATE_AT } from './galaxy/zoomLevels.js';
 import { createTour } from './controls/tour.js';
 import { createLabels } from './ui/labels.js';
 import { createInfoPanel } from './ui/infoPanel.js';
@@ -54,7 +54,7 @@ renderer.toneMappingExposure = 1.0;
 // Render berlapis: galaxyScene (punya latar hitam) digambar dulu, baru scene tata surya di atasnya.
 // Makanya scene tata surya gak punya background, kalau punya galaksinya ketimpa
 const scene = new THREE.Scene();
-const galaxy = createGalaxyScene();
+const galaxy = createGalaxyScene({ pixelRatio: renderer.getPixelRatio() });
 
 // Seberapa jauh kamera overview mundur di layar sempit (1 di layar lebar), lihat scene/scaleMode.js
 let fit = overviewFit(window.innerWidth / window.innerHeight);
@@ -554,6 +554,7 @@ function setPixelRatio(ratio) {
   composer.setPixelRatio(ratio);
   stars.setPixelRatio(ratio);
   sun.setPixelRatio(ratio);
+  galaxy.particles.setPixelRatio(ratio);
 }
 
 const performanceMonitor = createPerformanceMonitor({
@@ -582,6 +583,35 @@ document.addEventListener('visibilitychange', () => {
     frameId = requestAnimationFrame(tick);
   }
 });
+
+// Partikel galaksi dibuat sekali, waktu zoomLevel pertama kali lewat GALAXY_GENERATE_AT.
+// Jumlahnya bertingkat: HP 100 ribu, desktop yang sudah diturunkan kualitasnya 200 ribu, desktop 500 ribu
+const GALAXY_PARTICLES = { mobile: 100_000, low: 200_000, desktop: 500_000 };
+const galaxyStatus = document.getElementById('galaxy-status');
+let galaxyStatusState = '';
+
+function galaxyParticleCount() {
+  if (isMobile) return GALAXY_PARTICLES.mobile;
+  return performanceMonitor.level >= 1 ? GALAXY_PARTICLES.low : GALAXY_PARTICLES.desktop;
+}
+
+function updateGalaxyGeneration() {
+  const particles = galaxy.particles;
+  if (particles.state === 'idle' && zoomLevel >= GALAXY_GENERATE_AT) {
+    particles.generate(galaxyParticleCount());
+  }
+  // Indikator cuma kalau user sudah di skala galaksi dan datanya belum siap (atau gagal)
+  let next = '';
+  if (zoomLevel >= GALAXY_GENERATE_AT) {
+    if (particles.state === 'generating') next = 'generating';
+    else if (particles.state === 'error') next = 'error';
+  }
+  if (next === galaxyStatusState) return;
+  galaxyStatusState = next;
+  galaxyStatus.hidden = next === '';
+  galaxyStatus.classList.toggle('is-error', next === 'error');
+  galaxyStatus.textContent = next === 'error' ? 'Galaksi gagal disiapkan' : 'Menyiapkan galaksi';
+}
 
 // Klik / hover benda cuma jalan setelah intro dan selama tata surya gak lagi dikecilkan
 // (planetnya memudar, yang kelihatan cuma titik)
@@ -633,7 +663,12 @@ function tick(now) {
   });
   solarFade.update(zoomLevel);
   labels.setWorldScale(worldScale);
-  galaxy.update(camera, zoomLevel, fit);
+  galaxy.update(camera, zoomLevel, fit, {
+    delta,
+    elapsed,
+    viewportHeight: renderer.domElement.height
+  });
+  updateGalaxyGeneration();
 
   // Hover, label, dan UI dihitung dari posisi kamera yang sudah final
   syncPicker();
@@ -660,6 +695,7 @@ frameId = requestAnimationFrame(tick);
 
 // Biar gampang debug dari console browser
 window.solar = {
+  renderer,
   scene,
   camera,
   controls,
