@@ -25,8 +25,10 @@ const OPACITY = 0.12;
 // (lihat STAGES.galaxyTexture). Plus mipmap butuh sekitar 22 MB memori GPU. Versi 4096 (89 MB)
 // bikin satu frame macet 50 sampai 83 ms waktu ANGLE mengisi nol memori tekstur barunya
 const TEXTURE_SIZE = 2048;
-// Diupload ke GPU satu tile tiap TILE_INTERVAL frame (1024 px = 4 MB per tile, 4 tile)
-const TILE_SIZE = 1024;
+// Diupload ke GPU satu tile tiap TILE_INTERVAL frame (512 px = 1 MB per tile, 16 tile, sekitar
+// 0,5 detik, masih jauh sebelum lapisannya kelihatan di STAGES.galaxyTexture). Tile 1024 px terukur
+// 68 ms per tile di 390x844 dengan CPU 4x lebih lambat (long task 83 sampai 92 ms)
+const TILE_SIZE = 512;
 const TILE_INTERVAL = 2;
 // Jeda (frame) antara alokasi tekstur dan tile pertama, biar pengisian nol memori tekstur baru
 // (ANGLE, Chrome di Windows) selesai di belakang dan tile pertama gak nunggu
