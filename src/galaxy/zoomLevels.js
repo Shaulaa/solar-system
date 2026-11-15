@@ -36,7 +36,14 @@ export const STAGES = {
   sunStarOut: { start: 6.5, end: 7.5 },
   // Partikel galaksi muncul, gantian dengan latar lama yang memudar.
   // Dari dalam piringan galaksi partikelnya kelihatan sebagai pita Bima Sakti di langit
-  galaxyIn: { start: 3, end: 4 }
+  galaxyIn: { start: 3, end: 4 },
+  // Lapisan tekstur ilustrasi galaksi. Satu texel-nya sekitar 0,31 unit (31 tahun cahaya), jadi baru
+  // boleh kelihatan kalau satu texel di layar sekitar 2 px atau kurang (kamera minimal sekitar 127 unit
+  // dari Matahari, zoomLevel sekitar 8,9). Lebih dekat dari itu teksturnya jadi kabut buram dan
+  // detail tajamnya diurus partikel
+  galaxyTexture: { start: 8.6, end: 9.3 },
+  // Bloom pindah dari setelan tata surya (glow Matahari) ke setelan galaksi
+  galaxyBloom: { start: 4, end: 6.5 }
 };
 
 // Partikel galaksi baru di-generate (di worker) waktu zoomLevel pertama kali lewat angka ini

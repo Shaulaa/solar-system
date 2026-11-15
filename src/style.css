@@ -69,6 +69,16 @@ body {
   opacity: 0.85;
 }
 
+/* Kredit ilustrasi galaksi, baris kedua di bawah kredit tekstur */
+.credit-galaxy {
+  display: block;
+  margin-top: 2px;
+}
+
+.credit-galaxy[hidden] {
+  display: none;
+}
+
 /* Selama loading dan intro, HUD disembunyikan lewat class di body (dipasang dari HTML,
    jadi gak sempat kedip). Waktu class dilepas, tiap elemen balik ke opacity aslinya
    (kredit tetap redup 0.4), pakai translate biar gak bentrok sama transform toolbar */

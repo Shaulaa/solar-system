@@ -26,7 +26,13 @@ import {
 import { createPicker } from './controls/picker.js';
 import { createCameraRig, createVirtualZoom } from './controls/cameraRig.js';
 import { createGalaxyScene } from './galaxy/galaxyScene.js';
-import { zoomLevelAt, MAX_ZOOM_LEVEL, GALAXY_GENERATE_AT } from './galaxy/zoomLevels.js';
+import {
+  zoomLevelAt,
+  fadeBetween,
+  STAGES,
+  MAX_ZOOM_LEVEL,
+  GALAXY_GENERATE_AT
+} from './galaxy/zoomLevels.js';
 import { createTour } from './controls/tour.js';
 import { createLabels } from './ui/labels.js';
 import { createInfoPanel } from './ui/infoPanel.js';
@@ -54,7 +60,12 @@ renderer.toneMappingExposure = 1.0;
 // Render berlapis: galaxyScene (punya latar hitam) digambar dulu, baru scene tata surya di atasnya.
 // Makanya scene tata surya gak punya background, kalau punya galaksinya ketimpa
 const scene = new THREE.Scene();
-const galaxy = createGalaxyScene({ pixelRatio: renderer.getPixelRatio() });
+const galaxy = createGalaxyScene({
+  renderer,
+  pixelRatio: renderer.getPixelRatio(),
+  mobile: isMobile,
+  anisotropy: Math.min(renderer.capabilities.getMaxAnisotropy(), 8)
+});
 
 // Seberapa jauh kamera overview mundur di layar sempit (1 di layar lebar), lihat scene/scaleMode.js
 let fit = overviewFit(window.innerWidth / window.innerHeight);
@@ -598,7 +609,7 @@ function galaxyParticleCount() {
 function updateGalaxyGeneration() {
   const particles = galaxy.particles;
   if (particles.state === 'idle' && zoomLevel >= GALAXY_GENERATE_AT) {
-    particles.generate(galaxyParticleCount());
+    galaxy.prepare(galaxyParticleCount());
   }
   // Indikator cuma kalau user sudah di skala galaksi dan datanya belum siap (atau gagal)
   let next = '';
@@ -611,6 +622,42 @@ function updateGalaxyGeneration() {
   galaxyStatus.hidden = next === '';
   galaxyStatus.classList.toggle('is-error', next === 'error');
   galaxyStatus.textContent = next === 'error' ? 'Galaksi gagal disiapkan' : 'Menyiapkan galaksi';
+}
+
+// Kredit ilustrasi galaksi NASA/JPL-Caltech wajib tampil selama lapisan teksturnya kelihatan
+const galaxyCredit = document.getElementById('credit-galaxy');
+function updateGalaxyCredit() {
+  const show = galaxy.texture.visible;
+  if (galaxyCredit.hidden === !show) return;
+  galaxyCredit.hidden = !show;
+}
+
+// Bloom per tahap. Setelan tata surya bikin glow Matahari. Di tahap galaksi inti galaksi dan ribuan
+// partikel terang ikut kena, dan pendarnya kelihatan sebagai kotak samar di sekitar bulge.
+// Penyebabnya UnrealBloomPass: blur di tiap mip pakai kernel gaussian yang dipotong tepat di
+// 1 sigma, jadi sumber yang sangat terang selalu menghasilkan kotak, paling kelihatan di dua mip
+// terbesar. Parameter radius cuma menggeser bobot mip, gak bisa mematikannya. Jadi di tahap galaksi
+// bobot tiap mip (bloomFactors) diatur langsung: mip besar hampir 0, pendar inti tinggal dari mip
+// kecil yang tepinya ketutup inti yang memang sudah jenuh. Kekuatan juga dikurangi biar gak putih semua
+const bloomFactors = bloom.compositeMaterial.uniforms.bloomFactors.value;
+const BLOOM = {
+  solar: {
+    strength: bloom.strength,
+    radius: bloom.radius,
+    threshold: bloom.threshold,
+    factors: [...bloomFactors]
+  },
+  galaxy: { strength: bloom.strength * 0.6, radius: 0, threshold: 1.0, factors: [1, 0.55, 0.18, 0.03, 0] }
+};
+function updateBloom() {
+  const t = fadeBetween(zoomLevel, STAGES.galaxyBloom.start, STAGES.galaxyBloom.end);
+  const { lerp } = THREE.MathUtils;
+  bloom.strength = lerp(BLOOM.solar.strength, BLOOM.galaxy.strength, t);
+  bloom.radius = lerp(BLOOM.solar.radius, BLOOM.galaxy.radius, t);
+  bloom.threshold = lerp(BLOOM.solar.threshold, BLOOM.galaxy.threshold, t);
+  for (let i = 0; i < bloomFactors.length; i++) {
+    bloomFactors[i] = lerp(BLOOM.solar.factors[i], BLOOM.galaxy.factors[i], t);
+  }
 }
 
 // Klik / hover benda cuma jalan setelah intro dan selama tata surya gak lagi dikecilkan
@@ -669,6 +716,8 @@ function tick(now) {
     viewportHeight: renderer.domElement.height
   });
   updateGalaxyGeneration();
+  updateGalaxyCredit();
+  updateBloom();
 
   // Hover, label, dan UI dihitung dari posisi kamera yang sudah final
   syncPicker();
@@ -696,6 +745,7 @@ frameId = requestAnimationFrame(tick);
 // Biar gampang debug dari console browser
 window.solar = {
   renderer,
+  bloom,
   scene,
   camera,
   controls,

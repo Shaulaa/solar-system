@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { galacticOrientation } from '../scene/milkyWay.js';
 import { auToGalaxyUnits, zoomLevelToAU, fadeBetween, STAGES } from './zoomLevels.js';
 import { createGalaxyParticles } from './galaxyParticles.js';
+import { createGalaxyTexture } from './galaxyTexture.js';
 
 // Scene galaksi, dirender di lapisan bawah sebelum tata surya (render berlapis)
 //
@@ -27,10 +28,11 @@ const NEAR_MAX = 1;
 const FAR_MARGIN = 3000;
 
 // Galaksi berputar pelan di pusatnya, cukup buat kesan hidup (bukan kecepatan asli).
-// Satu putaran 30 menit. Arahnya bikin lengan spiral "tertinggal" (trailing) seperti galaksi asli
+// Satu putaran 30 menit, searah jarum jam dilihat dari kutub utara galaksi (theta membesar),
+// jadi lengan yang melengkung ke arah theta mengecil (workers/galaxyWorker.js) "tertinggal" (trailing)
 const ROTATION_PERIOD = 30 * 60;
 
-export function createGalaxyScene({ pixelRatio = 1 } = {}) {
+export function createGalaxyScene({ renderer, pixelRatio = 1, mobile = false, anisotropy = 1 }) {
   const scene = new THREE.Scene();
   scene.name = 'galaxy-scene';
   // Latar hitam pindah ke sini, scene tata surya dirender tanpa latar di atasnya
@@ -58,6 +60,9 @@ export function createGalaxyScene({ pixelRatio = 1 } = {}) {
   content.name = 'galaxy-content';
   galaxy.add(content);
 
+  const texture = createGalaxyTexture({ renderer, mobile, anisotropy });
+  content.add(texture.mesh);
+
   const particles = createGalaxyParticles({ pixelRatio });
   content.add(particles.group);
 
@@ -65,7 +70,8 @@ export function createGalaxyScene({ pixelRatio = 1 } = {}) {
   const sunPosition = new THREE.Vector3();
 
   function rotate(elapsed) {
-    content.rotation.y = (elapsed / ROTATION_PERIOD) * Math.PI * 2;
+    // rotation.y negatif = theta membesar (lihat galaxyWorker.js soal arah sudut)
+    content.rotation.y = -(elapsed / ROTATION_PERIOD) * Math.PI * 2;
     content.updateMatrixWorld(true);
     content.localToWorld(sunPosition.copy(sunLocal));
   }
@@ -79,7 +85,13 @@ export function createGalaxyScene({ pixelRatio = 1 } = {}) {
     galaxy,
     content,
     particles,
+    texture,
     sunPosition,
+    // Partikel dibuat di worker dan tekstur mulai dimuat, sekali saja
+    prepare(total) {
+      particles.generate(total);
+      texture.load();
+    },
     // Kamera galaksi ikut orientasi kamera utama. Posisinya di arah yang sama dari Matahari (yang ikut
     // berputar bersama galaksi)
     // dengan jarak dari zoomLevel (sudah termasuk zoom virtual), dikonversi ke satuan galaksi.
@@ -88,6 +100,7 @@ export function createGalaxyScene({ pixelRatio = 1 } = {}) {
     update(mainCamera, zoomLevel, fit, { delta, elapsed, viewportHeight }) {
       rotate(elapsed);
       particles.setOpacity(fadeBetween(zoomLevel, STAGES.galaxyIn.start, STAGES.galaxyIn.end));
+      texture.update(fadeBetween(zoomLevel, STAGES.galaxyTexture.start, STAGES.galaxyTexture.end));
 
       const distance = auToGalaxyUnits(zoomLevelToAU(zoomLevel, fit));
       direction.copy(mainCamera.position);

@@ -36,7 +36,9 @@ const vertexShader = /* glsl */ `
   uniform float uDustHalfHeight;
   uniform float uDustRadius;
   uniform float uExtinction;
+  uniform float uDustAlpha;
   varying vec3 vColor;
+  varying float vAlpha;
 
   // Panjang segmen kamera ke titik ini yang ada di dalam lapisan debu: irisan
   // lapisan |y| < uDustHalfHeight dengan silinder jari jari uDustRadius di sekitar sumbu Y.
@@ -76,9 +78,22 @@ const vertexShader = /* glsl */ `
     float depth = max(-mv.z, 1e-6);
     float projected = size * uPixelScale / depth;
     float dim = min(projected / uMinSize, 1.0);
+    float energy = dim * dim;
+    // seed dipakai buat variasi halus, biar gak ada dua partikel kembar
+    float variation = 0.85 + 0.3 * seed;
+  #ifdef DUST
+    // Debu: warnanya tetap gelap, yang diatur seberapa nutup (alpha). Partikel debu cuma masuk akal
+    // dilihat dari atas / serong. Dari samping atau dari dalam piringan peredamannya sudah diurus
+    // ekstinksi di shader bintang, jadi debu yang garis pandangnya sejajar bidang dimatikan
+    vec3 toPoint = normalize(position - uCameraLocal);
+    float faceOn = smoothstep(0.12, 0.45, abs(toPoint.y));
+    vColor = color;
+    vAlpha = uDustAlpha * uOpacity * energy * faceOn * variation;
+  #else
     float transmission = exp(-uExtinction * dustPath(uCameraLocal, position));
-    // seed dipakai buat variasi kecerahan halus, biar gak ada dua partikel kembar
-    vColor = color * uBrightness * uOpacity * transmission * dim * dim * (0.85 + 0.3 * seed);
+    vColor = color * uBrightness * uOpacity * transmission * energy * variation;
+    vAlpha = 1.0;
+  #endif
     gl_PointSize = clamp(projected, uMinSize, uMaxSize);
     gl_Position = projectionMatrix * mv;
   }
@@ -86,6 +101,7 @@ const vertexShader = /* glsl */ `
 
 const fragmentShader = /* glsl */ `
   varying vec3 vColor;
+  varying float vAlpha;
 
   void main() {
     // r2 = 0 di tengah, 1 di tepi kotak titik
@@ -94,39 +110,61 @@ const fragmentShader = /* glsl */ `
     // Gaussian lembut, dipaksa habis sebelum tepi biar gak kelihatan kotak
     float glow = exp(-r2 * 4.0) * (1.0 - smoothstep(0.6, 1.0, r2));
     if (glow < 0.002) discard;
+  #ifdef DUST
+    gl_FragColor = vec4(vColor, glow * vAlpha);
+  #else
     gl_FragColor = vec4(vColor * glow, 1.0);
+  #endif
   }
 `;
 
-// Batas ukuran titik dalam piksel CSS (dikali pixel ratio di uniform)
-// Maksimalnya kecil: partikel yang didekati tampil sebagai bintang tajam, bukan gumpalan cahaya
-export const MIN_POINT_SIZE = 2;
-export const MAX_POINT_SIZE = 8;
 // Setengah tebal lapisan debu (unit galaksi, 1 = 100 tahun cahaya) dan peredamannya per unit.
 // 1 magnitudo per kiloparsec = 0,92 per 32,6 unit
 const DUST_HALF_HEIGHT = 2.5;
 const DUST_RADIUS = 520;
 const EXTINCTION = 0.028;
+// Seberapa nutup satu partikel debu di tengahnya
+const DUST_ALPHA = 0.55;
 
-// Material bintang (AdditiveBlending, cahaya numpuk). Debu nanti (G3) pakai NormalBlending sendiri
-export function createStarMaterial({ brightness, pixelRatio }) {
-  return new THREE.ShaderMaterial({
+// Jenis material partikel. Batas ukuran titik dalam piksel CSS (dikali pixel ratio di uniform)
+//   star   bintang, maksimal kecil: yang didekati tampil sebagai titik tajam, bukan gumpalan
+//   glow   gumpalan gas, boleh besar dan lembut
+//   dust   debu gelap, NormalBlending (menutupi cahaya di belakangnya)
+const KINDS = {
+  star: { minSize: 2, maxSize: 8, blending: THREE.AdditiveBlending, dust: false },
+  glow: { minSize: 2, maxSize: 320, blending: THREE.AdditiveBlending, dust: false },
+  dust: { minSize: 2, maxSize: 24, blending: THREE.NormalBlending, dust: true }
+};
+
+export function createParticleMaterial(kind, { brightness = 1, pixelRatio = 1 } = {}) {
+  const spec = KINDS[kind];
+  const material = new THREE.ShaderMaterial({
     uniforms: {
       uPixelScale: { value: 1 },
-      uMinSize: { value: MIN_POINT_SIZE * pixelRatio },
-      uMaxSize: { value: MAX_POINT_SIZE * pixelRatio },
+      uMinSize: { value: spec.minSize * pixelRatio },
+      uMaxSize: { value: spec.maxSize * pixelRatio },
       uBrightness: { value: brightness },
       uOpacity: { value: 0 },
       uCameraLocal: { value: new THREE.Vector3() },
       uDustHalfHeight: { value: DUST_HALF_HEIGHT },
       uDustRadius: { value: DUST_RADIUS },
-      uExtinction: { value: EXTINCTION }
+      uExtinction: { value: EXTINCTION },
+      uDustAlpha: { value: DUST_ALPHA }
     },
+    defines: spec.dust ? { DUST: '' } : {},
     vertexShader,
     fragmentShader,
     vertexColors: true,
     transparent: true,
     depthWrite: false,
-    blending: THREE.AdditiveBlending
+    blending: spec.blending
   });
+  material.userData.kind = kind;
+  return material;
+}
+
+export function setMaterialPixelRatio(material, ratio) {
+  const spec = KINDS[material.userData.kind];
+  material.uniforms.uMinSize.value = spec.minSize * ratio;
+  material.uniforms.uMaxSize.value = spec.maxSize * ratio;
 }

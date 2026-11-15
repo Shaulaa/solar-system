@@ -1,18 +1,28 @@
-// Web Worker pembuat partikel galaksi Bima Sakti (tahap G2: bulge, batang, lengan spiral, piringan)
+// Web Worker pembuat partikel galaksi Bima Sakti
 //
 // Dijalankan di thread terpisah biar halaman gak freeze waktu ratusan ribu partikel dihitung.
 // Hasilnya dikirim balik sebagai Float32Array transferable (pindah kepemilikan, gak disalin).
 //
 // Koordinat galaksi (1 unit = 100 tahun cahaya): pusat galaksi di (0,0,0), piringan di bidang XZ,
 // sumbu Y = kutub utara galaksi, Matahari di (-260, 0.65, 0). Sudut theta = atan2(z, x),
-// jadi Matahari ada di theta = PI
+// jadi Matahari ada di theta = PI.
+//
+// Arah lengan mengikuti Bima Sakti asli (dan ilustrasi NASA/JPL-Caltech yang dipakai sebagai lapisan
+// tekstur): dilihat dari kutub utara, lengan melengkung berlawanan jarum jam ke arah luar dan
+// galaksi berputar searah jarum jam. Di koordinat ini artinya theta MENGECIL ke arah luar.
+//
+// Komponen
+//   bulge, bar, arms, disk, halo   bintang (AdditiveBlending)
+//   nebula                         titik terang merah muda (nebula HII) dan biru (gugus muda)
+//   glow                           gumpalan gas besar dan lembut di sepanjang lengan
+//   dust                           debu gelap di sisi dalam lengan (NormalBlending)
 //
 // Pesan masuk   { total, seed }
 // Pesan keluar  { components: [{ name, count, position, color, size, seed }], ms }
 
 const DEG = Math.PI / 180;
 
-// Lengan spiral logaritmik dengan sudut pitch 12 derajat: r = rRef * exp(k * (theta - PI))
+// Lengan spiral logaritmik dengan sudut pitch 12 derajat: r = rRef * exp(-k * (theta - PI))
 const PITCH = 12 * DEG;
 const K = Math.tan(PITCH);
 // Panjang batang sekitar 27.000 tahun cahaya, jadi setengahnya 135 unit
@@ -35,11 +45,22 @@ const ARMS = [
 // Taji Orion (lengan lokal tempat Matahari): potongan pendek yang lewat persis di posisi Matahari
 const ORION = { rRef: 260, thetaSpan: 0.65, weight: 0.08 };
 
-// Sudut batang: arah ujung lengan Scutum Centaurus di r = 135
-const BAR_ANGLE = Math.PI + Math.log(BAR_HALF_LENGTH / SCUTUM_REF) / K;
+// Sudut batang: arah ujung lengan Scutum Centaurus di r = 135. Ujung dekatnya ada di sisi -Z,
+// arah gerak Matahari (bujur galaksi positif), seperti batang Bima Sakti asli
+const BAR_ANGLE = Math.PI - Math.log(BAR_HALF_LENGTH / SCUTUM_REF) / K;
 
-// Pembagian jumlah partikel. Totalnya 0,9: sisa 0,1 dicadangkan buat debu, nebula, dan halo (G3)
-const SHARE = { bulge: 0.14, bar: 0.08, arms: 0.42, disk: 0.26 };
+// Pembagian jumlah partikel (totalnya 1)
+const SHARE = {
+  bulge: 0.14,
+  bar: 0.08,
+  arms: 0.42,
+  disk: 0.26,
+  dust: 0.06,
+  nebula: 0.015,
+  halo: 0.025
+};
+// Gumpalan gas jumlahnya tetap (bukan persentase), ukurannya besar jadi gak perlu banyak
+const GLOW_COUNT = { full: 180, small: 70 };
 
 // Warna dalam linear RGB (dikalikan kecerahan di shader)
 const COLORS = {
@@ -47,7 +68,13 @@ const COLORS = {
   bar: [1.0, 0.82, 0.56],
   young: [0.62, 0.76, 1.0],
   white: [1.0, 0.96, 0.9],
-  old: [1.0, 0.86, 0.66]
+  old: [1.0, 0.86, 0.66],
+  hii: [1.0, 0.32, 0.5],
+  cluster: [0.55, 0.75, 1.0],
+  gasPink: [1.0, 0.45, 0.62],
+  gasBlue: [0.5, 0.68, 1.0],
+  // Debu cokelat gelap. Dipakai dengan NormalBlending, jadi warnanya yang menimpa cahaya di belakangnya
+  dust: [0.05, 0.035, 0.025]
 };
 
 // RNG ber-seed (mulberry32): galaksinya sama persis tiap kali dibuka
@@ -73,6 +100,9 @@ function createBuffers(name, count) {
   };
 }
 
+const armTheta = (arm, r) => Math.PI - Math.log(r / arm.rRef) / K;
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
 export function generateGalaxy({ total, seed = 1 }) {
   const random = createRandom(seed);
   // Box Muller, cukup satu nilai per panggilan
@@ -92,18 +122,23 @@ export function generateGalaxy({ total, seed = 1 }) {
   // Ukuran partikel (unit galaksi) divariasikan, sebagian kecil jauh lebih besar (gugus terang)
   const sizeOf = (base) => base * (0.6 + random()) * (random() < 0.03 ? 2.2 : 1);
 
-  // Bulge: elipsoid padat di pusat, makin ke tengah makin rapat (jarak berdistribusi eksponensial)
+  // r dengan kepadatan menurun eksponensial ke luar, dipotong di [rStart, rEnd]
+  function sampleRadius(rStart, rEnd, scale) {
+    const span = 1 - Math.exp(-(rEnd - rStart) / scale);
+    return rStart - scale * Math.log(1 - random() * span);
+  }
+
+  // Bulge: elipsoid gaussian (kepadatannya terbatas di tengah). Versi G2 pakai jarak berdistribusi
+  // eksponensial, yang kepadatannya tak hingga di titik pusat: intinya terlalu terang dan
+  // pendar bloom-nya berbentuk kotak. Inti kecil yang lebih rapat tetap ada (15 persen)
   function makeBulge(count) {
     const b = createBuffers('bulge', count);
     for (let i = 0; i < count; i++) {
-      const r = -16 * Math.log(1 - random() * 0.995);
-      const cosPhi = 2 * random() - 1;
-      const sinPhi = Math.sqrt(1 - cosPhi * cosPhi);
-      const theta = random() * Math.PI * 2;
-      const x = r * sinPhi * Math.cos(theta);
-      const y = r * cosPhi * 0.55;
-      const z = r * sinPhi * Math.sin(theta);
-      write(b, i, x, y, z, COLORS.bulge, 0.75 + random() * 0.5, sizeOf(0.55));
+      const spread = random() < 0.15 ? 8 : 22;
+      const x = gaussian() * spread;
+      const y = gaussian() * spread * 0.6;
+      const z = gaussian() * spread;
+      write(b, i, x, y, z, COLORS.bulge, 0.7 + random() * 0.5, sizeOf(0.6));
     }
     return b;
   }
@@ -129,8 +164,11 @@ export function generateGalaxy({ total, seed = 1 }) {
     return pick < 0.6 ? COLORS.young : pick < 0.85 ? COLORS.white : COLORS.old;
   }
 
+  // Lebar sebaran lengan di jarak r
+  const armSpread = (r, width) => (5 + r * 0.035) * width;
+
   // Satu titik di lengan pada jarak r: sudut dari rumus spiral, lalu disebar tegak lurus lengan.
-  // Sekitar seperlima partikel ngumpul di gugus sepanjang lengan, biar lengannya bertekstur.
+  // Seperlima partikel ngumpul di gugus sepanjang lengan, biar lengannya bertekstur.
   // Gugusnya banyak, ukurannya beragam, dan isinya gak terlalu padat. Gugus yang sedikit dan padat
   // kelihatan kayak manik manik berjarak rata
   function placeOnArm(b, i, theta, r, width, clumps) {
@@ -138,11 +176,10 @@ export function generateGalaxy({ total, seed = 1 }) {
     let z;
     if (clumps && random() < 0.2) {
       const clump = clumps[Math.floor(random() * clumps.length)];
-      const spread = clump.radius;
-      x = clump.x + gaussian() * spread;
-      z = clump.z + gaussian() * spread;
+      x = clump.x + gaussian() * clump.radius;
+      z = clump.z + gaussian() * clump.radius;
     } else {
-      const spread = (5 + r * 0.035) * width;
+      const spread = armSpread(r, width);
       x = r * Math.cos(theta) + gaussian() * spread;
       z = r * Math.sin(theta) + gaussian() * spread;
     }
@@ -151,18 +188,22 @@ export function generateGalaxy({ total, seed = 1 }) {
     write(b, i, x, y, z, armColor(), bright, sizeOf(0.4));
   }
 
-  // r dengan kepadatan menurun eksponensial ke luar, dipotong di [rStart, rEnd]
-  function sampleRadius(rStart, rEnd, scale) {
-    const span = 1 - Math.exp(-(rEnd - rStart) / scale);
-    return rStart - scale * Math.log(1 - random() * span);
+  // Titik acak sepanjang semua lengan, dengan bobot tiap lengan. Dipakai komponen yang
+  // nempel ke lengan (nebula, gas, debu)
+  const armWeightTotal = ARMS.reduce((sum, arm) => sum + arm.weight, 0);
+  function pickArm() {
+    let pick = random() * armWeightTotal;
+    for (const arm of ARMS) {
+      pick -= arm.weight;
+      if (pick <= 0) return arm;
+    }
+    return ARMS[0];
   }
-
-  const armTheta = (arm, r) => Math.PI + Math.log(r / arm.rRef) / K;
 
   function makeArms(count) {
     const b = createBuffers('arms', count);
     let i = 0;
-    const totalWeight = ARMS.reduce((sum, arm) => sum + arm.weight, 0) + ORION.weight;
+    const totalWeight = armWeightTotal + ORION.weight;
 
     for (const arm of ARMS) {
       const n = Math.round((count * arm.weight) / totalWeight);
@@ -186,7 +227,7 @@ export function generateGalaxy({ total, seed = 1 }) {
     // Sisanya buat taji Orion, potongan lengan pendek yang melewati Matahari
     while (i < count) {
       const theta = Math.PI + (random() * 2 - 1) * ORION.thetaSpan;
-      const r = ORION.rRef * Math.exp(K * (theta - Math.PI));
+      const r = ORION.rRef * Math.exp(-K * (theta - Math.PI));
       placeOnArm(b, i, theta, r, 0.55, null);
       i++;
     }
@@ -207,11 +248,132 @@ export function generateGalaxy({ total, seed = 1 }) {
     return b;
   }
 
+  // Debu: jalur gelap tipis di sisi dalam (cekung) tiap lengan, pecah jadi dua tiga untaian
+  // biar kelihatan berserat. Sepersepuluhnya jadi jalur debu di dua sisi depan batang
+  function makeDust(count) {
+    const b = createBuffers('dust', count);
+    const barCount = Math.round(count * 0.1);
+    const cos = Math.cos(BAR_ANGLE);
+    const sin = Math.sin(BAR_ANGLE);
+    // Titik tengah potongan jalur debu batang, acak di sepanjang batang (kedua sisi pusat).
+    // Bagian dalam (di bawah BAR_DUST_INNER) dikosongkan: jalur debu batang gak lewat inti,
+    // kalau lewat jadinya garis gelap yang membelah bulge
+    const BAR_DUST_INNER = 38;
+    const dustSegments = Array.from({ length: 18 }, () => {
+      const side = random() < 0.5 ? -1 : 1;
+      return side * (BAR_DUST_INNER + random() * (BAR_HALF_LENGTH * 0.95 - BAR_DUST_INNER));
+    });
+    for (let i = 0; i < count; i++) {
+      let x;
+      let z;
+      if (i < barCount) {
+        // Jalur debu batang seperti di galaksi berbatang asli: di sisi depan batang (searah putaran),
+        // simetris titik (bentuk S), makin ke ujung makin menjauh dari sumbu batang dan nyambung
+        // ke sisi dalam lengan. Partikelnya ngumpul di potongan potongan pendek biar putus putus,
+        // bukan garis lurus rata (versi pertama kelihatan kayak dua goresan)
+        const segment = dustSegments[Math.floor(random() * dustSegments.length)];
+        const sign = segment >= 0 ? 1 : -1;
+        const along = sign * clamp(Math.abs(segment) + gaussian() * 5, BAR_DUST_INNER, BAR_HALF_LENGTH);
+        const t = Math.abs(along) / BAR_HALF_LENGTH;
+        const across = sign * (10 + 18 * t * t) + gaussian() * (1.5 + 2.5 * t);
+        x = along * cos - across * sin;
+        z = along * sin + across * cos;
+      } else {
+        const arm = pickArm();
+        const r = sampleRadius(arm.rStart, arm.rEnd, 240);
+        const strand = Math.floor(random() * 3);
+        // Ke arah pusat dari garis tengah lengan, tiap untaian sedikit beda jarak
+        const inner = r - armSpread(r, arm.width) * (0.55 + strand * 0.25);
+        const theta = armTheta(arm, r) + gaussian() * 0.01;
+        const jitter = 0.8 + inner * 0.004;
+        x = inner * Math.cos(theta) + gaussian() * jitter;
+        z = inner * Math.sin(theta) + gaussian() * jitter;
+      }
+      const y = gaussian() * 0.6;
+      write(b, i, x, y, z, COLORS.dust, 1, 1.2 + random() * 1.4);
+    }
+    return b;
+  }
+
+  // Nebula HII (merah muda) dan gugus bintang muda (biru) yang terang, berkelompok kecil
+  // di tepi luar jalur debu
+  function makeNebula(count) {
+    const b = createBuffers('nebula', count);
+    let i = 0;
+    while (i < count) {
+      const arm = pickArm();
+      const r = sampleRadius(arm.rStart, arm.rEnd, 260);
+      const theta = armTheta(arm, r);
+      const center = r - armSpread(r, arm.width) * 0.2 + gaussian() * 3;
+      const cx = center * Math.cos(theta);
+      const cz = center * Math.sin(theta);
+      const hii = random() < 0.65;
+      const members = 10 + Math.floor(random() * 30);
+      const radius = 0.5 + random() * 1.4;
+      for (let j = 0; j < members && i < count; j++, i++) {
+        write(
+          b,
+          i,
+          cx + gaussian() * radius,
+          gaussian() * 0.5,
+          cz + gaussian() * radius,
+          hii ? COLORS.hii : COLORS.cluster,
+          1.6 + random() * 1.6,
+          0.35 + random() * 0.4
+        );
+      }
+    }
+    return b;
+  }
+
+  // Gumpalan gas besar dan sangat redup di sepanjang lengan, kesan awan gas yang lembut
+  function makeGlow(count) {
+    const b = createBuffers('glow', count);
+    for (let i = 0; i < count; i++) {
+      const arm = pickArm();
+      const r = sampleRadius(arm.rStart, arm.rEnd, 260);
+      const theta = armTheta(arm, r) + gaussian() * 0.02;
+      const x = r * Math.cos(theta) + gaussian() * 4;
+      const z = r * Math.sin(theta) + gaussian() * 4;
+      const base = random() < 0.6 ? COLORS.gasPink : COLORS.gasBlue;
+      write(b, i, x, gaussian() * 1, z, base, 0.5 + random() * 0.5, 14 + random() * 26);
+    }
+    return b;
+  }
+
+  // Halo: bintang tua sangat jarang berbentuk bola. Jarak berdistribusi log rata
+  // (kepadatan turun kira kira 1/r^3), dari 50 sampai 700 unit
+  function makeHalo(count) {
+    const b = createBuffers('halo', count);
+    for (let i = 0; i < count; i++) {
+      const r = 50 * Math.exp(random() * Math.log(14));
+      const cosPhi = 2 * random() - 1;
+      const sinPhi = Math.sqrt(1 - cosPhi * cosPhi);
+      const theta = random() * Math.PI * 2;
+      write(
+        b,
+        i,
+        r * sinPhi * Math.cos(theta),
+        r * cosPhi,
+        r * sinPhi * Math.sin(theta),
+        COLORS.old,
+        0.5 + random() * 0.5,
+        sizeOf(0.5)
+      );
+    }
+    return b;
+  }
+
+  const count = (share) => Math.round(total * share);
   return [
-    makeBulge(Math.round(total * SHARE.bulge)),
-    makeBar(Math.round(total * SHARE.bar)),
-    makeArms(Math.round(total * SHARE.arms)),
-    makeDisk(Math.round(total * SHARE.disk))
+    makeBulge(count(SHARE.bulge)),
+    makeBar(count(SHARE.bar)),
+    makeArms(count(SHARE.arms)),
+    makeDisk(count(SHARE.disk)),
+    makeHalo(count(SHARE.halo)),
+    makeNebula(count(SHARE.nebula)),
+    makeGlow(total >= 300_000 ? GLOW_COUNT.full : GLOW_COUNT.small),
+    makeDust(count(SHARE.dust))
   ];
 }
 
