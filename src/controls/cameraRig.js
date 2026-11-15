@@ -33,7 +33,7 @@ const NEAR_RATIO = 0.01;
 const NEAR_MIN = 0.0005;
 const NEAR_MAX = 0.1;
 
-const FLY_DURATION = 1.8;
+export const FLY_DURATION = 1.8;
 const FLY_EASE = 'power3.inOut';
 // Jarak kamera fokus. Minimal 6x radius benda, dan cukup jauh supaya bounding sphere-nya
 // (termasuk cincin Saturnus / atmosfer Bumi) cuma ngisi FOCUS_FILL dari setengah area layar
@@ -413,11 +413,19 @@ export function createVirtualZoom({ camera, controls, domElement, isAllowed, max
     syncControls();
   }
 
+  // Tween offset dari tombol / pencarian / tur (animateTo). Scroll atau pinch user selalu menang
+  let tween = null;
+  function stopAnimation() {
+    tween?.kill();
+    tween = null;
+  }
+
   // amount dalam dekade zoomLevel, positif = keluar. Mulai zoom virtual cuma kalau kamera
   // sudah mentok dan arahnya keluar. Balikin true kalau gerakan ini dipakai zoom virtual
   function apply(amount) {
     if (!isAllowed()) return false;
     if (target <= 0 && !(amount > 0 && atLimit())) return false;
+    stopAnimation();
     setTarget(target + amount);
     return true;
   }
@@ -481,12 +489,42 @@ export function createVirtualZoom({ camera, controls, domElement, isAllowed, max
   return {
     // Balik ke tata surya (offset 0) secara halus, dipakai sebelum terbang ke benda / ganti skala / tur
     reset() {
+      stopAnimation();
       setTarget(0);
     },
     // Set offset langsung tanpa damping (dipakai waktu ukuran layar berubah, biar zoomLevel gak melorot)
     setOffset(value) {
       setTarget(value);
       offset = target;
+    },
+    // Tween offset ke `to` (angka, atau fungsi yang dihitung sekali waktu tween mulai, setelah delay,
+    // jadi bisa nunggu kamera selesai terbang dulu). Offset ditulis langsung tiap frame tanpa damping,
+    // karena damping eksponensial bikin akhir tween molor. zoomLevel = log10 jarak, jadi tween linier
+    // di offset terasa sebagai kecepatan zoom yang rata di semua skala
+    animateTo({ to, duration, delay = 0, ease = 'power2.inOut', onComplete }) {
+      stopAnimation();
+      const state = { t: 0, from: 0, to: 0 };
+      tween = gsap.to(state, {
+        t: 1,
+        duration,
+        delay,
+        ease,
+        onStart() {
+          state.from = offset;
+          state.to = typeof to === 'function' ? to() : to;
+        },
+        onUpdate() {
+          setTarget(state.from + (state.to - state.from) * state.t);
+          offset = target;
+        },
+        onComplete() {
+          tween = null;
+          onComplete?.();
+        }
+      });
+    },
+    get animating() {
+      return tween !== null;
     },
     // Dipanggil di awal tiap frame
     update(delta) {

@@ -19,7 +19,7 @@ Built with Three.js, GSAP, and Vite, no UI framework.
 - **Guided tour.** From the Sun out to Neptune with a short narration at each stop. It stops on its own as soon as you take over the camera
 - **True scale.** A 2.5 second transition from the "pretty" scale to real proportions (1 AU = 400 units) and back
 - **Time controls.** Pause, 4 speed presets (1 day to 1 year per second), and a simulation date that starts today
-- **Search.** Press `/` or `Ctrl+K`, type a planet or moon name (English spellings work too), press Enter to fly there. There is one hidden object that shows up if you type its name
+- **Search.** Press `/` or `Ctrl+K`, type a planet, moon, or nearby star name (English spellings work too), press Enter to fly there. Typing "Milky Way" or "galaksi" zooms all the way out to the galaxy. There is one hidden object that shows up if you type its name
 - **9 moons.** The Moon, Phobos, Deimos, and Jupiter's 4 Galilean moons, all clickable
 - **Mobile friendly.** Swipe-to-close bottom sheet, compact toolbar, and graphics quality that drops automatically on slower devices
 - **Accessible.** Every button has a label and tooltip, and everything works from the keyboard

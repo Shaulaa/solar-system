@@ -60,6 +60,9 @@ const WORLD_UP = new THREE.Vector3(0, 1, 0);
 // karena di sana kamera baru sekitar 16 unit dari Matahari sedangkan pusat galaksi 260 unit
 const CENTER_FOLLOW = 0.25;
 
+// Kotak cadangan levelForStar (NDC), dipakai kalau kotak yang diminta gak ketemu
+const LOOSE_STAR_BOX = { xMin: -0.88, xMax: 0.88, yMin: -0.85, yMax: 0.85 };
+
 export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) {
   const youAreHere = createYouAreHere({ pixelRatio });
   const scene = new THREE.Scene();
@@ -126,6 +129,14 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
   const lookMatrix = new THREE.Matrix4();
   const partialTurn = new THREE.Quaternion();
 
+  // Jarak kamera galaksi ke titik yang dilihatnya (unit galaksi), dipakai penggaris skala
+  let viewDistance = 0;
+
+  // Kamera bayangan buat nyari zoomLevel yang pas untuk satu bintang tetangga (levelForStar)
+  const probe = new THREE.PerspectiveCamera(50, 1, NEAR_MIN, FAR_MARGIN);
+  const probeStar = new THREE.Vector3();
+  const probeNdc = new THREE.Vector3();
+
   // Arah kamera tampilan atas (world), dari sudut kamera tata surya terhadap titik yang dilihatnya
   function computeTopDirection(mainCamera, mainTarget) {
     spherical.setFromVector3(offset.subVectors(mainCamera.position, mainTarget));
@@ -161,6 +172,40 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
       youAreHere.setPixelRatio(ratio);
       nearbyStars.setPixelRatio(ratio);
     },
+    get viewDistance() {
+      return viewDistance;
+    },
+    // zoomLevel terkecil di [from, to] yang menaruh bintang tetangga ke-index di dalam layar
+    // (di dalam kotak NDC `box`, dihitung sebelum geseran framing panel) dengan arah kamera tata surya sekarang. Rentangnya
+    // di tahap bintang tetangga selama bintangnya masih bisa diklik (di 6,8 opacity-nya masih sekitar
+    // 0,74, lihat nearbyStarsOut). Jalur kamera galaksi di sana baru belok sekitar 3% (galaxyTilt),
+    // jadi posisi kamera galaksi dianggap cuma fungsi dari zoomLevel (cabang tilt = 0 di update). box dari main.js, tergantung panel info nutupin sisi mana layar.
+    // Kalau gak ada yang pas, dicoba sekali lagi dengan kotak longgar (bintangnya mungkin ketutup
+    // sebagian panel, tapi tetap di layar), baru menyerah di `to`
+    levelForStar(index, mainCamera, fit, box, { from = 4.8, to = 6.8, step = 0.05 } = {}) {
+      nearbyStars.getWorldPosition(index, probeStar);
+      solarDirection.copy(mainCamera.position);
+      if (solarDirection.lengthSq() < 1e-12) solarDirection.set(0, 0, 1);
+      solarDirection.normalize();
+      probe.fov = mainCamera.fov;
+      probe.aspect = mainCamera.aspect;
+      probe.quaternion.copy(mainCamera.quaternion);
+      for (const { xMin, xMax, yMin, yMax } of [box, LOOSE_STAR_BOX]) {
+        for (let level = from; level < to; level += step) {
+          const distance = auToGalaxyUnits(zoomLevelToAU(level, fit));
+          probe.near = THREE.MathUtils.clamp(distance * NEAR_RATIO, NEAR_MIN, NEAR_MAX);
+          probe.far = distance + FAR_MARGIN;
+          probe.updateProjectionMatrix();
+          probe.position.copy(solarDirection).multiplyScalar(distance).add(sunPosition);
+          probe.updateMatrixWorld();
+          probeNdc.copy(probeStar).project(probe);
+          if (probeNdc.z > -1 && probeNdc.z < 1 && probeNdc.x > xMin && probeNdc.x < xMax && probeNdc.y > yMin && probeNdc.y < yMax) {
+            return level;
+          }
+        }
+      }
+      return to;
+    },
     // Kamera galaksi. Jaraknya dari zoomLevel (sudah termasuk zoom virtual), dikonversi ke satuan galaksi
     //   sebelum galaxyTilt   arah dan orientasi sama persis dengan kamera tata surya, berpusat di
     //                        Matahari, jadi Matahari di dua scene jatuh di titik layar yang sama
@@ -179,6 +224,7 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
       // Sepanjang jalur pindah halus (geometris) ke faktor bingkai galaksi dari sisi layar terpendek
       const viewFit = Math.pow(fit, 1 - tilt) * Math.pow(galaxyViewFit(mainCamera.aspect, mainCamera.fov), tilt);
       const distance = auToGalaxyUnits(zoomLevelToAU(zoomLevel, viewFit));
+      viewDistance = distance;
       content.getWorldPosition(center);
       const follow = tilt === 0 ? 0 : Math.min((CENTER_FOLLOW * distance) / center.distanceTo(sunPosition), 1);
       const centering = follow * follow * (3 - 2 * follow);

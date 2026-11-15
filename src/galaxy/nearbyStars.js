@@ -203,6 +203,11 @@ export function createNearbyStars({ pixelRatio = 1, sunLocal }) {
     setLabelEnabled(value) {
       labelEnabled = value;
     },
+    // Posisi dunia bintang ke-index di galaxyScene (ikut putaran galaksi)
+    getWorldPosition(index, target) {
+      points.updateWorldMatrix(true, false);
+      return target.fromArray(positions, index * 3).applyMatrix4(points.matrixWorld);
+    },
     setSelected(id) {
       selectedIndex = id ? nearbyStars.findIndex((s) => s.id === id) : -1;
       material.uniforms.uSelected.value = selectedIndex;

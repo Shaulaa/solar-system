@@ -3,7 +3,11 @@
 // Pola combobox ARIA: fokus keyboard tetap di input, hasil yang lagi dipilih ditandai
 // lewat aria-activedescendant + aria-selected. Panah atas bawah pindah pilihan, Enter terbang.
 // Pencarian gak peka huruf besar kecil dan aksen, dan ikut nyocokin id + aliases
-// (jadi "earth" ketemu Bumi, "phobos" ketemu Fobos)
+// (jadi "earth" ketemu Bumi, "phobos" ketemu Fobos, "milky way" ketemu Bima Sakti)
+//
+// Isinya bukan cuma benda tata surya: main.js ngasih daftar gabungan (benda tata surya, galaksi,
+// bintang tetangga). Tiap item minimal punya id, name, kind, data (aliases, subtitle), dan boleh
+// punya visible = false (easter egg Pluto). Hasil yang dipilih dioper utuh ke onSelect
 
 const MAX_RESULTS = 8;
 
@@ -14,13 +18,16 @@ const normalize = (text) =>
     .replace(/[̀-ͯ]/g, '')
     .trim();
 
-function describe(body) {
-  if (body.data.subtitle) return body.data.subtitle;
-  if (body.kind === 'planet') return `Planet ke ${body.index + 1} dari Matahari`;
+const distanceFormat = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 });
+
+function describe(item) {
+  if (item.kind === 'nearby-star') return `Bintang tetangga · ${distanceFormat.format(item.data.distanceLy)} tahun cahaya`;
+  if (item.data.subtitle) return item.data.subtitle;
+  if (item.kind === 'planet') return `Planet ke ${item.index + 1} dari Matahari`;
   return '';
 }
 
-export function createSearch({ bodies, onSelect, onSecret }) {
+export function createSearch({ items, onSelect, onSecret }) {
   const root = document.getElementById('search');
   const box = root.querySelector('.search-box');
   const input = document.getElementById('search-input');
@@ -31,15 +38,15 @@ export function createSearch({ bodies, onSelect, onSecret }) {
   let active = 0;
   let returnFocus = null;
 
-  function keywords(body) {
-    return [body.name, body.id, ...(body.data.aliases ?? [])].map(normalize);
+  function keywords(entry) {
+    return [entry.name, entry.id, ...(entry.data.aliases ?? [])].map(normalize);
   }
 
   // Skor sederhana: cocok di awal kata lebih tinggi dari cocok di tengah
-  function score(body, query) {
+  function score(entry, query) {
     if (!query) return 1;
     let best = 0;
-    for (const word of keywords(body)) {
+    for (const word of keywords(entry)) {
       if (word.startsWith(query)) best = Math.max(best, 3);
       else if (word.includes(query)) best = Math.max(best, 1);
     }
@@ -51,13 +58,13 @@ export function createSearch({ bodies, onSelect, onSecret }) {
     // Easter egg: ketik kata rahasia (misal "pluto") buat munculin benda tersembunyi
     if (query) onSecret?.(query);
 
-    results = bodies.list
-      .filter((body) => body.visible)
-      .map((body) => ({ body, score: score(body, query) }))
+    results = items
+      .filter((entry) => entry.visible !== false)
+      .map((entry) => ({ entry, score: score(entry, query) }))
       .filter((r) => r.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, MAX_RESULTS)
-      .map((r) => r.body);
+      .map((r) => r.entry);
 
     active = 0;
     render();
@@ -65,20 +72,20 @@ export function createSearch({ bodies, onSelect, onSecret }) {
 
   function render() {
     list.replaceChildren(
-      ...results.map((body, i) => {
+      ...results.map((entry, i) => {
         const item = document.createElement('li');
-        item.id = `search-option-${body.id}`;
+        item.id = `search-option-${entry.id}`;
         item.className = 'search-option';
         item.setAttribute('role', 'option');
         item.setAttribute('aria-selected', String(i === active));
-        item.dataset.id = body.id;
+        item.dataset.id = entry.id;
 
         const name = document.createElement('span');
         name.className = 'search-name';
-        name.textContent = body.name;
+        name.textContent = entry.name;
         const meta = document.createElement('span');
         meta.className = 'search-meta';
-        meta.textContent = describe(body);
+        meta.textContent = describe(entry);
 
         item.append(name, meta);
         return item;
@@ -88,7 +95,7 @@ export function createSearch({ bodies, onSelect, onSecret }) {
     if (results.length === 0) {
       const empty = document.createElement('li');
       empty.className = 'search-empty';
-      empty.textContent = 'Gak ketemu. Coba nama planet atau bulan lain';
+      empty.textContent = 'Gak ketemu. Coba nama planet, bulan, atau bintang lain';
       list.append(empty);
       input.removeAttribute('aria-activedescendant');
     } else {
@@ -103,10 +110,10 @@ export function createSearch({ bodies, onSelect, onSecret }) {
     render();
   }
 
-  function choose(body) {
-    if (!body) return;
+  function choose(item) {
+    if (!item) return;
     close();
-    onSelect?.(body.id);
+    onSelect?.(item);
   }
 
   function show() {
@@ -162,7 +169,7 @@ export function createSearch({ bodies, onSelect, onSecret }) {
 
   list.addEventListener('click', (event) => {
     const id = event.target.closest('[data-id]')?.dataset.id;
-    choose(results.find((body) => body.id === id));
+    choose(results.find((entry) => entry.id === id));
   });
 
   // Klik di luar kotak = tutup

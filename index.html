@@ -89,7 +89,7 @@
 
       <span class="tb-sep" aria-hidden="true"></span>
 
-      <button class="tb-btn" type="button" data-action="search" aria-label="Cari planet atau bulan" data-tooltip="Cari (/ atau Ctrl+K)">
+      <button class="tb-btn" type="button" data-action="search" aria-label="Cari planet, bulan, atau bintang" data-tooltip="Cari (/ atau Ctrl+K)">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 5 5" /></svg>
       </button>
       <button class="tb-btn" type="button" data-action="about" aria-label="Tentang project ini" data-tooltip="Tentang (?)">
@@ -116,7 +116,7 @@
           aria-expanded="true"
           aria-controls="search-results"
           aria-autocomplete="list"
-          placeholder="Cari planet atau bulan"
+          placeholder="Cari planet, bulan, atau bintang"
           autocomplete="off"
           spellcheck="false"
         />
@@ -171,6 +171,24 @@
         Lihat kode di GitHub
       </a>
     </dialog>
+
+    <!-- UI zoom keluar (G6). Penggaris skala dan nama tahap diatur ui/scaleBar.js dan ui/stageName.js,
+         tombol kembali ui/zoomBack.js. Ketiganya disembunyikan lewat class, bukan atribut hidden,
+         biar bisa fade -->
+    <div class="scale-bar" id="scale-bar" aria-hidden="true">
+      <span class="scale-bar-label"></span>
+      <span class="scale-bar-line"></span>
+    </div>
+
+    <div class="stage-name" id="stage-name" role="status" aria-live="polite" hidden>
+      <p class="stage-name-title"></p>
+      <p class="stage-name-note"></p>
+    </div>
+
+    <button class="zoom-back" id="zoom-back" type="button">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>
+      Kembali ke Tata Surya
+    </button>
 
     <!-- Muncul kalau partikel galaksi belum selesai dibuat waktu user sudah zoom keluar jauh -->
     <p class="galaxy-status" id="galaxy-status" role="status" aria-live="polite" hidden></p>

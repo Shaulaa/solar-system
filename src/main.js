@@ -24,14 +24,17 @@ import {
   overviewPositionAt
 } from './scene/scaleMode.js';
 import { createPicker } from './controls/picker.js';
-import { createCameraRig, createVirtualZoom } from './controls/cameraRig.js';
+import { createCameraRig, createVirtualZoom, FLY_DURATION } from './controls/cameraRig.js';
 import { createGalaxyScene } from './galaxy/galaxyScene.js';
 import {
   zoomLevelAt,
   fadeBetween,
   STAGES,
   MAX_ZOOM_LEVEL,
-  GALAXY_GENERATE_AT
+  GALAXY_GENERATE_AT,
+  SOLAR_CONTROLS_UNTIL,
+  AU_PER_GALAXY_UNIT,
+  createStageTracker
 } from './galaxy/zoomLevels.js';
 import { createTour } from './controls/tour.js';
 import { createLabels } from './ui/labels.js';
@@ -39,6 +42,9 @@ import { createInfoPanel } from './ui/infoPanel.js';
 import { createToolbar, SPEED_PRESETS } from './ui/toolbar.js';
 import { createLoadingScreen } from './ui/loader.js';
 import { createSearch } from './ui/search.js';
+import { createScaleBar } from './ui/scaleBar.js';
+import { createStageName } from './ui/stageName.js';
+import { createZoomBack } from './ui/zoomBack.js';
 import { loadingManager } from './utils/loader.js';
 import { isMobile } from './utils/device.js';
 import { createPerformanceMonitor } from './utils/performance.js';
@@ -306,7 +312,7 @@ function setScaleNote(show) {
 }
 
 function toggleScaleMode() {
-  if (phase !== 'ready') return;
+  if (phase !== 'ready' || !toolbar.solarControlsEnabled) return;
   tour.stop();
   const next = scaleMode.mode === 'pretty' ? 'real' : 'pretty';
   const target = cameraSettings(next, fit);
@@ -381,11 +387,30 @@ function hideNarration() {
   });
 }
 
+// Galaksi Bima Sakti sebagai "benda" yang bisa dicari dan jadi pemberhentian terakhir tur.
+// Memilihnya = zoom keluar sampai galaksi utuh (zoomToGalaxy)
+const GALAXY_ZOOM_SECONDS = 4;
+const galaxyEntry = {
+  id: 'milky-way',
+  name: 'Bima Sakti',
+  kind: 'galaxy',
+  index: null,
+  data: {
+    subtitle: 'Galaksi tempat tata surya berada',
+    aliases: ['Galaksi Bima Sakti', 'galaksi', 'Milky Way'],
+    narration:
+      'Dari sejauh ini Matahari tinggal satu titik di lengan Orion, sekitar 26.000 tahun cahaya dari pusat Bima Sakti. Galaksi kita berisi 100 sampai 400 miliar bintang.'
+  },
+  // Terbang balik dari Neptunus ke overview, zoom keluar, lalu diam cukup lama buat baca narasinya
+  tourSeconds: FLY_DURATION + GALAXY_ZOOM_SECONDS + 7
+};
+
 const tour = createTour({
-  stops: bodies.sequence,
-  onVisit: (body, index, total) => {
-    focusBody(body.id, { fromTour: true });
-    showNarration(body, index, total);
+  stops: [...bodies.sequence, galaxyEntry],
+  onVisit: (stop, index, total) => {
+    if (stop.kind === 'galaxy') zoomToGalaxy({ fromTour: true });
+    else focusBody(stop.id, { fromTour: true });
+    showNarration(stop, index, total);
   },
   onFinish: () => {
     hideNarration();
@@ -487,10 +512,107 @@ const SECRETS = {
 };
 
 const search = createSearch({
-  bodies,
-  onSelect: (id) => focusBody(id),
+  items: [...bodies.list, galaxyEntry, ...starBodies],
+  onSelect: selectSearchResult,
   onSecret: (query) => SECRETS[query]?.()
 });
+
+function selectSearchResult(item) {
+  if (item.kind === 'galaxy') zoomToGalaxy();
+  else if (item.kind === 'nearby-star') zoomToStar(item.id);
+  else focusBody(item.id);
+}
+
+// Zoom ke skala lain lewat tombol, pencarian, atau tur (G6). zoomLevel di-tween lewat offset zoom
+// virtual. Kalau kamera lagi fokus ke benda, balik ke overview dulu (zoom virtual cuma jalan dari
+// overview), tween-nya mulai setelah terbang selesai dan tujuannya dihitung saat itu juga
+const STAR_ZOOM_SECONDS = 3;
+const RETURN_SECONDS = 2.5;
+
+function leaveFocusForZoom() {
+  if (!rig.focusedId) return 0;
+  rig.overview();
+  clearFocus();
+  return FLY_DURATION;
+}
+
+function zoomToGalaxy({ fromTour = false } = {}) {
+  if (!canInteract()) return;
+  if (!fromTour) tour.stop();
+  closeStar();
+  // Partikel mulai dibuat sekarang, jangan nunggu zoomLevel lewat GALAXY_GENERATE_AT,
+  // biar galaksinya sudah siap waktu tween sampai
+  if (galaxy.particles.state === 'idle') galaxy.prepare(galaxyParticleCount());
+  virtualZoom.animateTo({
+    to: () => MAX_ZOOM_LEVEL - solarZoomLevel(),
+    duration: GALAXY_ZOOM_SECONDS,
+    delay: leaveFocusForZoom()
+  });
+}
+
+// Bagian layar yang aman dari panel info, dalam NDC SEBELUM framing digeser (rig.setViewShift).
+//   HP       bottom sheet nutupin sekitar 55% bawah, framing naik 0,2 tinggi layar. Area kelihatan
+//            (y 80 sampai 340 px di 390x844, di bawah HUD dan di atas tepi sheet) = y NDC -0,2 sampai 0,4
+//   desktop  panel nutupin kanan, framing geser kiri setengah lebar panel, jadi kotaknya simetris
+const BOTTOM_SHEET_QUERY = window.matchMedia('(max-width: 767px)');
+const starBox = () =>
+  BOTTOM_SHEET_QUERY.matches
+    ? { xMin: -0.8, xMax: 0.8, yMin: -0.2, yMax: 0.4 }
+    : { xMin: -0.6, xMax: 0.6, yMin: -0.8, yMax: 0.8 };
+
+// Zoom ke tahap bintang tetangga sampai bintangnya masuk layar, lalu panel infonya dibuka
+function zoomToStar(id) {
+  const index = starBodies.findIndex((body) => body.id === id);
+  if (index < 0 || !canInteract()) return;
+  tour.stop();
+  virtualZoom.animateTo({
+    to: () => galaxy.levelForStar(index, camera, fit, starBox()) - solarZoomLevel(),
+    duration: STAR_ZOOM_SECONDS,
+    delay: leaveFocusForZoom(),
+    onComplete: () => selectStar(id)
+  });
+}
+
+// Tombol "Kembali ke Tata Surya": zoomLevel di-tween balik, kamera tata surya ikut terbang ke
+// posisi overview dengan durasi yang sama (dua duanya turun terus, jadi zoomLevel gak bolak balik)
+function returnToSolar() {
+  if (!canInteract() || !virtualZoom.active) return;
+  tour.stop();
+  closeStar();
+  virtualZoom.animateTo({ to: 0, duration: RETURN_SECONDS });
+  rig.overview({ duration: RETURN_SECONDS, force: true });
+}
+
+// UI pendukung zoom keluar (G6): penggaris skala, nama tahap, tombol kembali
+const scaleBar = createScaleBar();
+const stageName = createStageName();
+const zoomBack = createZoomBack({ onClick: returnToSolar });
+// Kontrol khusus tata surya di toolbar dimatikan di atas SOLAR_CONTROLS_UNTIL (pakai hysteresis)
+const solarControlsTracker = createStageTracker([SOLAR_CONTROLS_UNTIL], 0.1);
+
+function updateZoomUi() {
+  const ready = phase === 'ready';
+  stageName.update(zoomLevel, { enabled: ready });
+  zoomBack.update(zoomLevel, { enabled: ready });
+
+  const solarControls = solarControlsTracker.update(zoomLevel) === 0;
+  if (solarControls !== toolbar.solarControlsEnabled) {
+    toolbar.setSolarControlsEnabled(solarControls);
+    // Catatan skala nyata cuma relevan selama tata surya kelihatan
+    if (scaleMode.mode === 'real') setScaleNote(solarControls);
+  }
+
+  // Skala di kedalaman titik pandang kamera galaksi, dalam AU per piksel CSS.
+  // Disembunyikan waktu fokus ke benda. Di mode Enak Dilihat jarak di dalam tata surya dikompres,
+  // jadi penggaris baru tampil setelah zoomLevel 2 (di luar itu jarak dihitung linier, lihat zoomLevels.js)
+  const viewHeightAU =
+    2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * galaxy.viewDistance * AU_PER_GALAXY_UNIT;
+  const meaningful = (scaleMode.mode === 'real' && !scaleMode.transitioning) || zoomLevel >= 2;
+  scaleBar.update({
+    auPerPixel: viewHeightAU / window.innerHeight,
+    show: ready && !rig.focusedId && meaningful
+  });
+}
 
 function openSearch() {
   if (phase !== 'ready') return;
@@ -593,9 +715,10 @@ window.addEventListener('keydown', (e) => {
   } else if (isTypingField(e.target)) {
     // Huruf dan angka di bawah ini gak boleh nyolong ketikan di kolom isian
   } else if (key >= '1' && key <= String(SPEED_PRESETS.length)) {
-    setSpeed(Number(key) - 1);
+    // Kontrol khusus tata surya mati di skala galaksi, shortcut-nya juga
+    if (toolbar.solarControlsEnabled) setSpeed(Number(key) - 1);
   } else if (key === 'o') {
-    setOrbitsVisible(!view.orbits);
+    if (toolbar.solarControlsEnabled) setOrbitsVisible(!view.orbits);
   } else if (key === 'l') {
     setLabelsVisible(!view.labels);
   } else if (key === 's') {
@@ -832,6 +955,7 @@ function tick(now) {
   });
   updateGalaxyGeneration();
   updateGalaxyCredit();
+  updateZoomUi();
   // Zoom keluar / masuk sampai bintang tetangga memudar: panel bintangnya ikut ditutup
   if (selectedStar && !nearbyStars.interactive) closeStar();
   updateBloom();

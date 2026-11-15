@@ -39,6 +39,16 @@ export function createToolbar({
   const speedLabel = document.getElementById('speed-label');
   const dateElement = document.getElementById('sim-date');
 
+  // Kontrol yang cuma berarti di tata surya. Di skala galaksi dimatikan (PRD-GALAXY bagian 4),
+  // tooltip-nya ditambah keterangan biar jelas kenapa gak bisa dipencet
+  const speedGroup = element.querySelector('.tb-speed');
+  const solarOnly = [
+    { control: speedInput, tooltipHost: speedGroup },
+    { control: orbitsButton, tooltipHost: orbitsButton },
+    { control: scaleButton, tooltipHost: scaleButton }
+  ].map((item) => ({ ...item, tooltip: item.tooltipHost.dataset.tooltip }));
+  let solarControlsEnabled = true;
+
   // Tanggal simulasi mulai dari hari ini, lalu maju sesuai simDays (lihat utils/time.js)
   let shownDay = null;
 
@@ -92,6 +102,20 @@ export function createToolbar({
       setPressed(tourButton, active);
       tourButton.setAttribute('aria-label', active ? 'Hentikan tur otomatis' : 'Tur otomatis');
       tourButton.dataset.tooltip = active ? 'Hentikan tur (T)' : 'Tur otomatis (T)';
+    },
+
+    setSolarControlsEnabled(enabled) {
+      if (enabled === solarControlsEnabled) return;
+      solarControlsEnabled = enabled;
+      element.classList.toggle('is-zoomed-out', !enabled);
+      for (const { control, tooltipHost, tooltip } of solarOnly) {
+        control.disabled = !enabled;
+        tooltipHost.dataset.tooltip = enabled ? tooltip : `${tooltip.replace(/ \(.*\)$/, '')} · cuma di tata surya`;
+      }
+    },
+
+    get solarControlsEnabled() {
+      return solarControlsEnabled;
     },
 
     // Dipanggil tiap frame. Teks cuma diganti kalau harinya berubah

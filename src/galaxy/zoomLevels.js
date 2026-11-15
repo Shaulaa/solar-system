@@ -21,7 +21,7 @@ export const MAX_ZOOM_LEVEL = 10;
 // Satuan galaxyScene: 1 unit = 100 tahun cahaya, galaksi berdiameter sekitar 1.000 unit
 export const AU_PER_LIGHT_YEAR = 63_241;
 export const LIGHT_YEARS_PER_UNIT = 100;
-const AU_PER_GALAXY_UNIT = AU_PER_LIGHT_YEAR * LIGHT_YEARS_PER_UNIT;
+export const AU_PER_GALAXY_UNIT = AU_PER_LIGHT_YEAR * LIGHT_YEARS_PER_UNIT;
 
 // Rentang [start, end] tiap transisi. Opacity dihitung pakai fadeBetween(zoomLevel, start, end)
 export const STAGES = {
@@ -70,6 +70,40 @@ export const GALAXY_GENERATE_AT = 3;
 // Dibutuhkannya baru di sekitar 8,9. Kalau dimuat bareng partikel, alokasi teksturnya jatuh di frame
 // yang sama dengan frame pertama partikel digambar dan satu frame macet sekitar 65 ms (terukur)
 export const GALAXY_TEXTURE_LOAD_AT = 6;
+
+// Nama tahap yang ditampilkan ke user (ui/stageName.js). Batasnya dipilih dari apa yang kelihatan:
+// bintang tetangga baru jelas sekitar 4,3 (nearbyStarsIn), dan bentuk galaksi mulai terbaca waktu
+// bintang tetangga memudar (nearbyStarsOut)
+export const ZOOM_STAGES = [
+  { id: 'solar', name: 'Tata Surya', note: 'Satu bintang, delapan planet' },
+  { id: 'neighbors', name: 'Lingkungan Bintang Terdekat', note: 'Bintang dalam radius sekitar 40 tahun cahaya', from: 4.3 },
+  { id: 'galaxy', name: 'Galaksi Bima Sakti', note: '100 sampai 400 miliar bintang', from: 7 }
+];
+
+// Tombol "Kembali ke Tata Surya" muncul di atas angka ini (PRD-GALAXY bagian 4)
+export const BACK_BUTTON_AT = 2.5;
+// Di atas angka ini kontrol khusus tata surya (kecepatan waktu, orbit, mode skala) dimatikan.
+// Di zoomLevel 3 planet dan orbit sudah setengah memudar (solarFade)
+export const SOLAR_CONTROLS_UNTIL = 3;
+// Lebar pita hysteresis di sekitar tiap batas, biar UI gak kedip waktu zoom bolak balik di batasnya
+export const STAGE_HYSTERESIS = 0.15;
+
+// Penentu "sekarang di sisi mana dari tiap batas" dengan hysteresis: pindah naik baru setelah
+// zoomLevel lewat batas + band, pindah turun baru setelah di bawah batas - band.
+// boundaries harus urut naik. update() balikin indeks 0 sampai boundaries.length
+export function createStageTracker(boundaries, band = STAGE_HYSTERESIS) {
+  let index = 0;
+  return {
+    update(zoomLevel) {
+      while (index < boundaries.length && zoomLevel >= boundaries[index] + band) index++;
+      while (index > 0 && zoomLevel < boundaries[index - 1] - band) index--;
+      return index;
+    },
+    get index() {
+      return index;
+    }
+  };
+}
 
 // 0 di bawah start, 1 di atas end, di antaranya smoothstep biar awal dan akhirnya halus
 export function fadeBetween(zoomLevel, start, end) {

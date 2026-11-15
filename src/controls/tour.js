@@ -1,6 +1,7 @@
 import gsap from 'gsap';
 
-// Tur otomatis: Matahari lalu Merkurius sampai Neptunus, berhenti sekitar 6 detik di tiap objek
+// Tur otomatis: Matahari lalu Merkurius sampai Neptunus, berhenti sekitar 6 detik di tiap objek,
+// lalu ditutup dengan zoom keluar ke galaksi Bima Sakti (main.js)
 //
 // Dibangun pakai GSAP timeline, jadi gampang di-pause / lanjut (misal waktu tab disembunyikan)
 // dan dihentikan kapan saja. Modul ini cuma ngatur urutan dan waktunya. Terbang ke benda,
@@ -25,9 +26,11 @@ export function createTour({ stops, onVisit, onFinish, onStop, onChange }) {
     if (timeline) return;
     timeline = gsap.timeline({ onComplete: () => finish(true) });
 
-    stops.forEach((body, index) => {
-      timeline.call(() => onVisit(body, index, stops.length));
-      timeline.to({}, { duration: FLY_SECONDS + STAY_SECONDS });
+    // Pemberhentian boleh punya lama sendiri (tourSeconds), misal galaksi yang perlu waktu
+    // terbang balik ke overview dulu lalu zoom keluar sebelum narasinya bisa dinikmati
+    stops.forEach((stop, index) => {
+      timeline.call(() => onVisit(stop, index, stops.length));
+      timeline.to({}, { duration: stop.tourSeconds ?? FLY_SECONDS + STAY_SECONDS });
     });
 
     onChange?.(true);
