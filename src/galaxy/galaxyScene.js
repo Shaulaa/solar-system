@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { galacticOrientation } from '../scene/milkyWay.js';
-import { auToGalaxyUnits, zoomLevelToAU, fadeBetween, STAGES } from './zoomLevels.js';
+import { auToGalaxyUnits, zoomLevelToAU, fadeBetween, STAGES, GALAXY_TEXTURE_LOAD_AT } from './zoomLevels.js';
 import { createGalaxyParticles } from './galaxyParticles.js';
 import { createGalaxyTexture } from './galaxyTexture.js';
 
@@ -32,7 +32,7 @@ const FAR_MARGIN = 3000;
 // jadi lengan yang melengkung ke arah theta mengecil (workers/galaxyWorker.js) "tertinggal" (trailing)
 const ROTATION_PERIOD = 30 * 60;
 
-export function createGalaxyScene({ renderer, pixelRatio = 1, mobile = false, anisotropy = 1 }) {
+export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) {
   const scene = new THREE.Scene();
   scene.name = 'galaxy-scene';
   // Latar hitam pindah ke sini, scene tata surya dirender tanpa latar di atasnya
@@ -60,7 +60,7 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, mobile = false, an
   content.name = 'galaxy-content';
   galaxy.add(content);
 
-  const texture = createGalaxyTexture({ renderer, mobile, anisotropy });
+  const texture = createGalaxyTexture({ renderer, anisotropy });
   content.add(texture.mesh);
 
   const particles = createGalaxyParticles({ pixelRatio });
@@ -87,10 +87,9 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, mobile = false, an
     particles,
     texture,
     sunPosition,
-    // Partikel dibuat di worker dan tekstur mulai dimuat, sekali saja
+    // Partikel dibuat di worker, sekali saja. Tekstur dimuat belakangan (lihat update)
     prepare(total) {
       particles.generate(total);
-      texture.load();
     },
     // Kamera galaksi ikut orientasi kamera utama. Posisinya di arah yang sama dari Matahari (yang ikut
     // berputar bersama galaksi)
@@ -100,7 +99,8 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, mobile = false, an
     update(mainCamera, zoomLevel, fit, { delta, elapsed, viewportHeight }) {
       rotate(elapsed);
       particles.setOpacity(fadeBetween(zoomLevel, STAGES.galaxyIn.start, STAGES.galaxyIn.end));
-      texture.update(fadeBetween(zoomLevel, STAGES.galaxyTexture.start, STAGES.galaxyTexture.end));
+      if (particles.state === 'ready' && zoomLevel >= GALAXY_TEXTURE_LOAD_AT) texture.load();
+      texture.update(fadeBetween(zoomLevel, STAGES.galaxyTexture.start, STAGES.galaxyTexture.end), delta);
 
       const distance = auToGalaxyUnits(zoomLevelToAU(zoomLevel, fit));
       direction.copy(mainCamera.position);

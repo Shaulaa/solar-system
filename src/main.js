@@ -63,7 +63,6 @@ const scene = new THREE.Scene();
 const galaxy = createGalaxyScene({
   renderer,
   pixelRatio: renderer.getPixelRatio(),
-  mobile: isMobile,
   anisotropy: Math.min(renderer.capabilities.getMaxAnisotropy(), 8)
 });
 

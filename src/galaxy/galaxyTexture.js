@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 
 // Lapisan cahaya lembut di bawah partikel galaksi: ilustrasi Bima Sakti NASA/JPL-Caltech (R. Hurt),
-// public/textures/milky_way_top.webp (crop persegi, pusat galaksi di tengah, 4096 px).
+// public/textures/milky_way_top.webp (crop persegi, pusat galaksi di tengah, 2048 px).
+// Sumber: https://photojournal.jpl.nasa.gov/catalog/PIA10748
 // Kredit wajib tampil selama lapisan ini dipakai (lihat main.js dan modal Tentang).
 // Kalau filenya gak ada, lapisan ini dilewati dan galaksi tetap utuh dari partikel saja
 //
@@ -18,16 +19,19 @@ const SIZE = 1260;
 const BAR_ALIGN = 7.4 * (Math.PI / 180);
 // Cuma lapisan cahaya, opacity rendah. Partikel yang bikin detail tajamnya
 const OPACITY = 0.3;
-// Ukuran tekstur di GPU. Di HP diperkecil waktu di-decode: 4096x4096 plus mipmap butuh sekitar
-// 89 MB memori GPU, 2048 cuma sekitar 22 MB
-const TEXTURE_SIZE = { desktop: 4096, mobile: 2048 };
-// Diupload ke GPU satu tile tiap TILE_INTERVAL frame (1024 px = 4 MB per tile)
+// Ukuran tekstur (px), sama dengan filenya. 2048 cukup karena lapisan ini cuma tampil dari jauh
+// (lihat STAGES.galaxyTexture). Plus mipmap butuh sekitar 22 MB memori GPU. Versi 4096 (89 MB)
+// bikin satu frame macet 50 sampai 83 ms waktu ANGLE mengisi nol memori tekstur barunya
+const TEXTURE_SIZE = 2048;
+// Diupload ke GPU satu tile tiap TILE_INTERVAL frame (1024 px = 4 MB per tile, 4 tile)
 const TILE_SIZE = 1024;
 const TILE_INTERVAL = 2;
-// Jeda (frame) antara alokasi tekstur dan tile pertama. ANGLE (Chrome di Windows) mengisi nol
-// memori tekstur baru (sekitar 89 MB termasuk mipmap). Kalau tile pertama langsung dikirim,
-// main thread nunggu pengisian itu sekitar 50 ms. Dikasih jeda biar selesai di belakang
+// Jeda (frame) antara alokasi tekstur dan tile pertama, biar pengisian nol memori tekstur baru
+// (ANGLE, Chrome di Windows) selesai di belakang dan tile pertama gak nunggu
 const ALLOCATE_SETTLE_FRAMES = 20;
+// Kalau user scroll cepat dan tekstur baru siap waktu sudah di tahap galaksi, munculnya pelan
+// pelan segini detik (bukan langsung nongol)
+const APPEAR_SECONDS = 0.8;
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -56,7 +60,7 @@ const fragmentShader = /* glsl */ `
   }
 `;
 
-export function createGalaxyTexture({ renderer, mobile = false, anisotropy = 1 }) {
+export function createGalaxyTexture({ renderer, anisotropy = 1 }) {
   const geometry = new THREE.PlaneGeometry(SIZE, SIZE);
   geometry.rotateX(-Math.PI / 2);
   geometry.rotateY(-Math.PI / 2 + BAR_ALIGN);
@@ -86,6 +90,7 @@ export function createGalaxyTexture({ renderer, mobile = false, anisotropy = 1 }
   let texture = null;
   let pendingTiles = [];
   let waitFrames = 0;
+  let appear = 0;
   const tilePosition = new THREE.Vector2();
   const stats = { decodeMs: null, tiles: 0, maxTileMs: 0, allocateMs: null, tileMs: [] };
 
@@ -146,8 +151,7 @@ export function createGalaxyTexture({ renderer, mobile = false, anisotropy = 1 }
       worker.terminate();
       state = 'missing';
     };
-    const size = mobile ? TEXTURE_SIZE.mobile : TEXTURE_SIZE.desktop;
-    worker.postMessage({ url: TEXTURE_URL, size, tile: Math.min(TILE_SIZE, size) });
+    worker.postMessage({ url: TEXTURE_URL, size: TEXTURE_SIZE, tile: TILE_SIZE });
   }
 
   const normal = new THREE.Vector3();
@@ -163,8 +167,8 @@ export function createGalaxyTexture({ renderer, mobile = false, anisotropy = 1 }
     get visible() {
       return mesh.visible;
     },
-    // alpha 0 sampai 1 dari zoomLevel
-    update(alpha) {
+    // alpha 0 sampai 1 dari zoomLevel, delta detik sejak frame sebelumnya
+    update(alpha, delta) {
       if (state === 'uploading') {
         if (waitFrames > 0) waitFrames--;
         else {
@@ -172,7 +176,8 @@ export function createGalaxyTexture({ renderer, mobile = false, anisotropy = 1 }
           waitFrames = TILE_INTERVAL - 1;
         }
       }
-      const opacity = state === 'ready' ? alpha : 0;
+      if (state === 'ready') appear = Math.min(appear + delta / APPEAR_SECONDS, 1);
+      const opacity = alpha * appear * appear * (3 - 2 * appear);
       material.uniforms.uOpacity.value = opacity * OPACITY;
       mesh.visible = opacity > 0;
       if (mesh.visible) {

@@ -8,6 +8,12 @@ import { createParticleMaterial, setMaterialPixelRatio } from './galaxyShaders.j
 // piringan, halo, nebula) berbagi satu material, gumpalan gas dan debu punya material sendiri
 //
 // Urutan gambar: bintang dulu, lalu gas, lalu debu (NormalBlending) yang menutupi cahaya di bawahnya
+//
+// Setelah data datang ada fase pemanasan: satu komponen digambar per frame dengan opacity 0.
+// Kalau semua digambar pertama kali di frame yang sama, kompilasi shader plus upload sekitar 16 MB
+// data partikel ke GPU bikin satu frame macet sekitar 50 ms (terukur, 2 dari 11 run). Opacity 0
+// gak mengubah layar (additive nambah 0, debu alpha 0), dan selama pemanasan frustum culling
+// dimatikan biar komponen di luar pandangan tetap ke-upload
 
 // Kecerahan dasar. Dikalibrasi dari tampilan atas galaksi utuh di 1366x768 dengan REFERENCE_TOTAL
 // partikel. Kalau partikelnya lebih sedikit (HP, desktop low), tiap partikel mewakili lebih banyak
@@ -39,8 +45,9 @@ export function createGalaxyParticles({ pixelRatio }) {
   const materialList = Object.values(materials);
   const geometries = [];
 
-  // idle -> generating -> ready (atau error)
+  // idle -> generating -> warming -> ready (atau error)
   let state = 'idle';
+  let warmIndex = 0;
   let appear = 0;
   let opacity = 0;
   // Angka buat laporan / debug: lama generate di worker, total sampai data diterima, dan
@@ -90,7 +97,12 @@ export function createGalaxyParticles({ pixelRatio }) {
       stats.roundTripMs = performance.now() - start;
       build(data.components, total);
       worker.terminate();
-      state = 'ready';
+      for (const points of group.children) {
+        points.visible = false;
+        points.frustumCulled = false;
+      }
+      warmIndex = 0;
+      state = 'warming';
     };
     worker.onerror = (event) => {
       event.preventDefault();
@@ -110,7 +122,7 @@ export function createGalaxyParticles({ pixelRatio }) {
     get state() {
       return state;
     },
-    // 0 sampai 1 dari zoomLevel. Dikali transisi muncul setelah data siap
+    // 0 sampai 1 dari zoomLevel. Dikali transisi muncul setelah data siap dan pemanasan selesai
     setOpacity(alpha) {
       opacity = alpha;
     },
@@ -122,9 +134,21 @@ export function createGalaxyParticles({ pixelRatio }) {
     update(delta, camera, viewportHeight) {
       group.updateWorldMatrix(true, false);
       group.worldToLocal(cameraLocal.copy(camera.position));
-      if (state === 'ready') appear = Math.min(appear + delta / APPEAR_SECONDS, 1);
-      const alpha = opacity * appear * appear * (3 - 2 * appear);
-      group.visible = alpha > 0;
+      let alpha = 0;
+      if (state === 'warming' && warmIndex >= group.children.length) {
+        // Semua komponen sudah digambar sekali (frame sebelumnya), culling dinyalakan lagi
+        for (const points of group.children) points.frustumCulled = true;
+        state = 'ready';
+      }
+      if (state === 'warming') {
+        group.children[warmIndex].visible = true;
+        warmIndex++;
+        group.visible = true;
+      } else {
+        if (state === 'ready') appear = Math.min(appear + delta / APPEAR_SECONDS, 1);
+        alpha = opacity * appear * appear * (3 - 2 * appear);
+        group.visible = alpha > 0;
+      }
       const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
       const pixelScale = viewportHeight / (2 * tanHalfFov);
       for (const material of materialList) {

@@ -37,17 +37,21 @@ export const STAGES = {
   // Partikel galaksi muncul, gantian dengan latar lama yang memudar.
   // Dari dalam piringan galaksi partikelnya kelihatan sebagai pita Bima Sakti di langit
   galaxyIn: { start: 3, end: 4 },
-  // Lapisan tekstur ilustrasi galaksi. Satu texel-nya sekitar 0,31 unit (31 tahun cahaya), jadi baru
-  // boleh kelihatan kalau satu texel di layar sekitar 2 px atau kurang (kamera minimal sekitar 127 unit
-  // dari Matahari, zoomLevel sekitar 8,9). Lebih dekat dari itu teksturnya jadi kabut buram dan
-  // detail tajamnya diurus partikel
-  galaxyTexture: { start: 8.6, end: 9.3 },
+  // Lapisan tekstur ilustrasi galaksi (2048 px). Satu texel-nya sekitar 0,62 unit (62 tahun cahaya),
+  // jadi baru boleh kelihatan kalau satu texel di layar sekitar 2 px atau kurang (kamera minimal
+  // sekitar 253 unit dari Matahari, zoomLevel sekitar 9,2). Lebih dekat dari itu teksturnya jadi kabut
+  // buram dan detail tajamnya diurus partikel
+  galaxyTexture: { start: 8.9, end: 9.5 },
   // Bloom pindah dari setelan tata surya (glow Matahari) ke setelan galaksi
   galaxyBloom: { start: 4, end: 6.5 }
 };
 
 // Partikel galaksi baru di-generate (di worker) waktu zoomLevel pertama kali lewat angka ini
 export const GALAXY_GENERATE_AT = 3;
+// Lapisan tekstur galaksi baru dimuat setelah partikel siap DAN zoomLevel lewat angka ini.
+// Dibutuhkannya baru di sekitar 8,9. Kalau dimuat bareng partikel, alokasi teksturnya jatuh di frame
+// yang sama dengan frame pertama partikel digambar dan satu frame macet sekitar 65 ms (terukur)
+export const GALAXY_TEXTURE_LOAD_AT = 6;
 
 // 0 di bawah start, 1 di atas end, di antaranya smoothstep biar awal dan akhirnya halus
 export function fadeBetween(zoomLevel, start, end) {
