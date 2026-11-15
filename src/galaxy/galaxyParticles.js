@@ -114,7 +114,21 @@ export function createGalaxyParticles({ pixelRatio }) {
 
   const cameraLocal = new THREE.Vector3();
 
+  // Objek dummy satu vertex untuk tiap material, atributnya sama dengan partikel asli.
+  // Dipakai buat ngompilasi shader duluan (renderer.compileAsync), sebelum partikelnya ada
+  function createWarmupObjects() {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0], 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute([1, 1, 1], 3));
+    geometry.setAttribute('size', new THREE.Float32BufferAttribute([1], 1));
+    geometry.setAttribute('seed', new THREE.Float32BufferAttribute([0], 1));
+    const warmup = new THREE.Group();
+    for (const material of materialList) warmup.add(new THREE.Points(geometry, material));
+    return { group: warmup, dispose: () => geometry.dispose() };
+  }
+
   return {
+    createWarmupObjects,
     group,
     generate,
     stats,

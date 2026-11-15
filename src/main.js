@@ -270,6 +270,7 @@ function setOrbitsVisible(visible) {
 function setLabelsVisible(visible) {
   view.labels = visible;
   labels.setEnabled(visible);
+  galaxy.youAreHere.setLabelEnabled(visible);
   toolbar.setLabelsVisible(visible);
 }
 
@@ -452,6 +453,7 @@ loadingScreen.ready.then(() => {
     onReveal: revealHud,
     onDone: () => {
       phase = 'ready';
+      setTimeout(precompileZoomOutShaders, SHADER_PRECOMPILE_DELAY);
     }
   });
 });
@@ -564,7 +566,7 @@ function setPixelRatio(ratio) {
   composer.setPixelRatio(ratio);
   stars.setPixelRatio(ratio);
   sun.setPixelRatio(ratio);
-  galaxy.particles.setPixelRatio(ratio);
+  galaxy.setPixelRatio(ratio);
 }
 
 const performanceMonitor = createPerformanceMonitor({
@@ -593,6 +595,27 @@ document.addEventListener('visibilitychange', () => {
     frameId = requestAnimationFrame(tick);
   }
 });
+
+// Shader yang baru dipakai waktu zoom keluar (titik bintang Matahari, partikel galaksi, debu,
+// lapisan tekstur, penanda "Kamu di sini") dikompilasi duluan setelah intro, lewat compileAsync
+// (KHR_parallel_shader_compile, gak ngeblok). Tanpa ini, waktu cache shader GPU masih kosong
+// (pengunjung pertama), frame setelah shader baru dipakai macet 33 sampai 67 ms (terukur di 1920x1080).
+// Render target composer diaktifkan dulu, karena program three.js ikut ditentukan tone mapping dan
+// color space render target. Kalau dikompilasi ke layar, programnya beda dan gak kepakai ulang
+const SHADER_PRECOMPILE_DELAY = 1500;
+
+function precompileZoomOutShaders() {
+  const previousTarget = renderer.getRenderTarget();
+  renderer.setRenderTarget(composer.readBuffer);
+  const warmup = galaxy.particles.createWarmupObjects();
+  const tasks = [
+    renderer.compileAsync(warmup.group, galaxy.camera, galaxy.scene),
+    renderer.compileAsync(galaxy.scene, galaxy.camera),
+    renderer.compileAsync(sun.group, camera, scene)
+  ];
+  renderer.setRenderTarget(previousTarget);
+  Promise.all(tasks).then(warmup.dispose, warmup.dispose);
+}
 
 // Partikel galaksi dibuat sekali, waktu zoomLevel pertama kali lewat GALAXY_GENERATE_AT.
 // Jumlahnya bertingkat: HP 100 ribu, desktop yang sudah diturunkan kualitasnya 200 ribu, desktop 500 ribu
@@ -712,7 +735,10 @@ function tick(now) {
   galaxy.update(camera, zoomLevel, fit, {
     delta,
     elapsed,
-    viewportHeight: renderer.domElement.height
+    viewportHeight: renderer.domElement.height,
+    cssWidth: window.innerWidth,
+    cssHeight: window.innerHeight,
+    mainTarget: controls.target
   });
   updateGalaxyGeneration();
   updateGalaxyCredit();

@@ -14,7 +14,9 @@ import { scaleDistance, unscaleDistance, blendScale } from '../utils/scale.js';
 // secara virtual (offset, lihat createVirtualZoom di controls/cameraRig.js): kamera diam,
 // isi tata surya yang mengecil. Jadi zoomLevel = zoom dari jarak kamera asli + offset
 
-export const MAX_ZOOM_LEVEL = 9.8;
+// 10 (sekitar 1580 unit galaksi dari pusat pandang) biar galaksi utuh di tengah layar 16:9 waktu dilihat
+// dari atas. Di 9,8 kamera cuma sekitar 1000 unit dan piringan selebar 1040 unit kepotong atas bawah
+export const MAX_ZOOM_LEVEL = 10;
 
 // Satuan galaxyScene: 1 unit = 100 tahun cahaya, galaksi berdiameter sekitar 1.000 unit
 export const AU_PER_LIGHT_YEAR = 63_241;
@@ -31,9 +33,11 @@ export const STAGES = {
   // Enak Dilihat tinggal sekitar 3 px (zoomLevel 2,66 di layar 1080 px), bolanya memudar sesudahnya
   sunStarIn: { start: 2.3, end: 2.9 },
   sunBodyOut: { start: 2.5, end: 3.1 },
-  // Titik bintang Matahari 6 px kebesaran buat skala galaksi. Sementara dipudarkan di tahap galaksi,
-  // penggantinya penanda "Kamu di sini" (tahap G4)
-  sunStarOut: { start: 6.5, end: 7.5 },
+  // Titik bintang Matahari (scene tata surya) diganti penanda "Kamu di sini" (galaxyScene).
+  // Selesai memudar di 6,5, sebelum jalur kamera galaksi mulai belok (galaxyTilt), karena setelah itu
+  // kamera galaksi gak lagi sejajar dengan kamera tata surya
+  sunStarOut: { start: 5.8, end: 6.5 },
+  youAreHere: { start: 5.8, end: 6.6 },
   // Partikel galaksi muncul, gantian dengan latar lama yang memudar.
   // Dari dalam piringan galaksi partikelnya kelihatan sebagai pita Bima Sakti di langit
   galaxyIn: { start: 3, end: 4 },
@@ -43,7 +47,12 @@ export const STAGES = {
   // buram dan detail tajamnya diurus partikel
   galaxyTexture: { start: 8.9, end: 9.5 },
   // Bloom pindah dari setelan tata surya (glow Matahari) ke setelan galaksi
-  galaxyBloom: { start: 4, end: 6.5 }
+  galaxyBloom: { start: 4, end: 6.5 },
+  // Jalur kamera galaksi waktu zoom keluar (zoom masuk membalik jalurnya, karena semuanya fungsi
+  // dari zoomLevel): arah kamera pelan pelan naik ke tampilan atas yang sedikit serong.
+  // Perpindahan pusat pandang dari Matahari ke pusat galaksi diatur dari jarak kamera, lihat
+  // CENTER_FOLLOW di galaxy/galaxyScene.js
+  galaxyTilt: { start: 6.5, end: 9.3 }
 };
 
 // Partikel galaksi baru di-generate (di worker) waktu zoomLevel pertama kali lewat angka ini

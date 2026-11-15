@@ -69,6 +69,28 @@ body {
   opacity: 0.85;
 }
 
+/* Label penanda "Kamu di sini" di tampilan galaksi. Posisinya diatur galaxy/youAreHere.js tiap frame */
+.you-are-here-label {
+  position: fixed;
+  z-index: 1;
+  left: 0;
+  top: 0;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent-warm);
+  white-space: nowrap;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  user-select: none;
+  will-change: transform;
+}
+
+.you-are-here-label[hidden] {
+  display: none;
+}
+
 /* Kredit ilustrasi galaksi, baris kedua di bawah kredit tekstur */
 .credit-galaxy {
   display: block;

@@ -3,6 +3,8 @@ import { galacticOrientation } from '../scene/milkyWay.js';
 import { auToGalaxyUnits, zoomLevelToAU, fadeBetween, STAGES, GALAXY_TEXTURE_LOAD_AT } from './zoomLevels.js';
 import { createGalaxyParticles } from './galaxyParticles.js';
 import { createGalaxyTexture } from './galaxyTexture.js';
+import { createYouAreHere } from './youAreHere.js';
+import { OVERVIEW_POSITION } from '../controls/cameraRig.js';
 
 // Scene galaksi, dirender di lapisan bawah sebelum tata surya (render berlapis)
 //
@@ -32,7 +34,26 @@ const FAR_MARGIN = 3000;
 // jadi lengan yang melengkung ke arah theta mengecil (workers/galaxyWorker.js) "tertinggal" (trailing)
 const ROTATION_PERIOD = 30 * 60;
 
+// Tampilan atas galaksi di akhir jalur kamera: elevasi 65 derajat dari bidang galaksi (25 derajat dari
+// tegak lurus), dari sisi Matahari, jadi Matahari ada di bawah pusat seperti ilustrasi NASA.
+// Di zoom maksimal user tetap bisa muter: geser kiri kanan memutar galaksi di sumbu kutubnya,
+// geser atas bawah mengubah kemiringan. Dua duanya diturunkan dari sudut kamera tata surya relatif
+// ke posisi overview default, jadi posisi default tepat menghasilkan kemiringan 25 derajat
+const DEG = Math.PI / 180;
+const TOP_ELEVATION = 65 * DEG;
+const ELEVATION_RANGE = [15 * DEG, 88 * DEG];
+const OVERVIEW_SPHERICAL = new THREE.Spherical().setFromVector3(OVERVIEW_POSITION);
+const WORLD_UP = new THREE.Vector3(0, 1, 0);
+// Pusat pandang pindah dari Matahari ke pusat galaksi sejauh paling banyak CENTER_FOLLOW kali jarak
+// kamera (dihaluskan smoothstep), jadi Matahari selalu tetap di dalam layar selama perpindahan.
+// Pusat galaksi penuh di tengah layar mulai sekitar 1040 unit (zoomLevel sekitar 9,82). Dengan 0,3
+// Matahari sempat turun sampai dekat toolbar (y 655 dari 768) di zoomLevel 9,5
+// Versi yang diatur dari zoomLevel (7,8 sampai 9,6) melempar Matahari keluar layar di zoomLevel 8,
+// karena di sana kamera baru sekitar 16 unit dari Matahari sedangkan pusat galaksi 260 unit
+const CENTER_FOLLOW = 0.25;
+
 export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) {
+  const youAreHere = createYouAreHere({ pixelRatio });
   const scene = new THREE.Scene();
   scene.name = 'galaxy-scene';
   // Latar hitam pindah ke sini, scene tata surya dirender tanpa latar di atasnya
@@ -76,8 +97,39 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
     content.localToWorld(sunPosition.copy(sunLocal));
   }
   rotate(0);
+  scene.add(youAreHere.points);
 
+  // Vektor kerja jalur kamera, dibuat sekali
+  const solarDirection = new THREE.Vector3();
+  const topDirection = new THREE.Vector3();
   const direction = new THREE.Vector3();
+  const lookTarget = new THREE.Vector3();
+  const center = new THREE.Vector3();
+  const north = new THREE.Vector3();
+  const up = new THREE.Vector3();
+  const offset = new THREE.Vector3();
+  const sunInGalaxy = new THREE.Vector3();
+  const spherical = new THREE.Spherical();
+  const turn = new THREE.Quaternion();
+  const lookQuaternion = new THREE.Quaternion();
+  const lookMatrix = new THREE.Matrix4();
+  const partialTurn = new THREE.Quaternion();
+
+  // Arah kamera tampilan atas (world), dari sudut kamera tata surya terhadap titik yang dilihatnya
+  function computeTopDirection(mainCamera, mainTarget) {
+    spherical.setFromVector3(offset.subVectors(mainCamera.position, mainTarget));
+    // Sudut Matahari di bidang galaksi, dihitung di koordinat grup galaxy (sebelum rotasi isi)
+    galaxy.worldToLocal(sunInGalaxy.copy(sunPosition));
+    const azimuth = Math.atan2(sunInGalaxy.z, sunInGalaxy.x) + (spherical.theta - OVERVIEW_SPHERICAL.theta);
+    const elevation = THREE.MathUtils.clamp(
+      TOP_ELEVATION + (OVERVIEW_SPHERICAL.phi - spherical.phi),
+      ELEVATION_RANGE[0],
+      ELEVATION_RANGE[1]
+    );
+    topDirection
+      .set(Math.cos(elevation) * Math.cos(azimuth), Math.sin(elevation), Math.cos(elevation) * Math.sin(azimuth))
+      .applyQuaternion(galaxy.quaternion);
+  }
 
   return {
     scene,
@@ -86,27 +138,59 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
     content,
     particles,
     texture,
+    youAreHere,
     sunPosition,
     // Partikel dibuat di worker, sekali saja. Tekstur dimuat belakangan (lihat update)
     prepare(total) {
       particles.generate(total);
     },
-    // Kamera galaksi ikut orientasi kamera utama. Posisinya di arah yang sama dari Matahari (yang ikut
-    // berputar bersama galaksi)
-    // dengan jarak dari zoomLevel (sudah termasuk zoom virtual), dikonversi ke satuan galaksi.
-    // Jadi Matahari di kedua scene selalu jatuh di titik layar yang sama.
-    // frame = { delta, elapsed, viewportHeight (piksel device) }
-    update(mainCamera, zoomLevel, fit, { delta, elapsed, viewportHeight }) {
+    setPixelRatio(ratio) {
+      particles.setPixelRatio(ratio);
+      youAreHere.setPixelRatio(ratio);
+    },
+    // Kamera galaksi. Jaraknya dari zoomLevel (sudah termasuk zoom virtual), dikonversi ke satuan galaksi
+    //   sebelum galaxyTilt   arah dan orientasi sama persis dengan kamera tata surya, berpusat di
+    //                        Matahari, jadi Matahari di dua scene jatuh di titik layar yang sama
+    //   galaxyTilt           arah kamera berputar halus ke tampilan atas serong, "atas" layar ikut
+    //                        pindah ke kutub utara galaksi
+    //   galaxyCenter         titik yang dilihat pindah dari Matahari ke pusat galaksi
+    // frame = { delta, elapsed, viewportHeight (piksel device), cssWidth, cssHeight, mainTarget }
+    update(mainCamera, zoomLevel, fit, { delta, elapsed, viewportHeight, cssWidth, cssHeight, mainTarget }) {
       rotate(elapsed);
       particles.setOpacity(fadeBetween(zoomLevel, STAGES.galaxyIn.start, STAGES.galaxyIn.end));
       if (particles.state === 'ready' && zoomLevel >= GALAXY_TEXTURE_LOAD_AT) texture.load();
       texture.update(fadeBetween(zoomLevel, STAGES.galaxyTexture.start, STAGES.galaxyTexture.end), delta);
 
       const distance = auToGalaxyUnits(zoomLevelToAU(zoomLevel, fit));
-      direction.copy(mainCamera.position);
-      if (direction.lengthSq() < 1e-12) direction.set(0, 0, 1);
-      camera.position.copy(direction.normalize()).multiplyScalar(distance).add(sunPosition);
-      camera.quaternion.copy(mainCamera.quaternion);
+      const tilt = fadeBetween(zoomLevel, STAGES.galaxyTilt.start, STAGES.galaxyTilt.end);
+      content.getWorldPosition(center);
+      const follow = tilt === 0 ? 0 : Math.min((CENTER_FOLLOW * distance) / center.distanceTo(sunPosition), 1);
+      const centering = follow * follow * (3 - 2 * follow);
+
+      solarDirection.copy(mainCamera.position);
+      if (solarDirection.lengthSq() < 1e-12) solarDirection.set(0, 0, 1);
+      solarDirection.normalize();
+
+      if (tilt === 0 && centering === 0) {
+        camera.position.copy(solarDirection).multiplyScalar(distance).add(sunPosition);
+        camera.quaternion.copy(mainCamera.quaternion);
+      } else {
+        computeTopDirection(mainCamera, mainTarget);
+        // Putaran halus (slerp) dari arah kamera tata surya ke arah tampilan atas
+        turn.setFromUnitVectors(solarDirection, topDirection);
+        direction.copy(solarDirection).applyQuaternion(partialTurn.identity().slerp(turn, tilt));
+        lookTarget.lerpVectors(sunPosition, center, centering);
+        camera.position.copy(direction).multiplyScalar(distance).add(lookTarget);
+
+        north.set(0, 1, 0).applyQuaternion(galaxy.quaternion);
+        up.copy(WORLD_UP).lerp(north, tilt).normalize();
+        lookMatrix.lookAt(camera.position, lookTarget, up);
+        lookQuaternion.setFromRotationMatrix(lookMatrix);
+        // Serah terima orientasi dari kamera tata surya dibikin halus di awal jalur, biar gak
+        // loncat kalau kamera tata surya lagi melihat titik selain Matahari (misal habis digeser)
+        const handoff = fadeBetween(zoomLevel, STAGES.galaxyTilt.start, STAGES.galaxyTilt.start + 0.4);
+        camera.quaternion.copy(mainCamera.quaternion).slerp(lookQuaternion, handoff);
+      }
 
       // Proyeksi disamakan, termasuk geseran framing panel info (setViewOffset)
       camera.fov = mainCamera.fov;
@@ -120,7 +204,16 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
         camera.clearViewOffset();
       }
       camera.updateProjectionMatrix();
+      camera.updateMatrixWorld();
       particles.update(delta, camera, viewportHeight);
+      youAreHere.update({
+        position: sunPosition,
+        camera,
+        opacity: fadeBetween(zoomLevel, STAGES.youAreHere.start, STAGES.youAreHere.end),
+        elapsed,
+        width: cssWidth,
+        height: cssHeight
+      });
     }
   };
 }
