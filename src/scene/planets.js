@@ -136,7 +136,7 @@ function createPlanet(data, index) {
       orbit.positionAt(START_DAYS_SINCE_J2000 + simDays, helio);
       place();
       body.update((simDays / data.rotationPeriod) * Math.PI * 2 * ROTATION_SCALE);
-      ring?.update(planet.radius);
+      ring?.update();
     }
   };
 

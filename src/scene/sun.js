@@ -62,7 +62,9 @@ const surfaceMaterial = () =>
       uTime: { value: 0 },
       // Tekstur matahari opsional, uMapMix tetap 0 sampai teksturnya beneran ada
       uMap: { value: null },
-      uMapMix: { value: 0 }
+      uMapMix: { value: 0 },
+      // Turun ke 0 waktu zoom keluar tata surya, bola Matahari diganti titik bintang
+      uOpacity: { value: 1 }
     },
     vertexShader: /* glsl */ `
       varying vec2 vUv;
@@ -82,6 +84,7 @@ const surfaceMaterial = () =>
       uniform float uTime;
       uniform sampler2D uMap;
       uniform float uMapMix;
+      uniform float uOpacity;
       varying vec2 vUv;
       varying vec3 vPos;
       varying vec3 vNormal;
@@ -120,7 +123,7 @@ const surfaceMaterial = () =>
         float rim = 1.0 - max(dot(vNormal, vView), 0.0);
         col += vec3(1.0, 0.45, 0.08) * pow(rim, 2.5);
 
-        gl_FragColor = vec4(col, 1.0);
+        gl_FragColor = vec4(col, uOpacity);
       }
     `
   });
@@ -128,6 +131,9 @@ const surfaceMaterial = () =>
 // Halo tipis di sekitar matahari, ditambah bloom jadinya keliatan menyala
 const glowMaterial = () =>
   new THREE.ShaderMaterial({
+    uniforms: {
+      uOpacity: { value: 1 }
+    },
     transparent: true,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
@@ -143,11 +149,55 @@ const glowMaterial = () =>
       }
     `,
     fragmentShader: /* glsl */ `
+      uniform float uOpacity;
       varying vec3 vNormal;
       varying vec3 vView;
       void main() {
         float i = pow(max(dot(vNormal, vView), 0.0), 3.0);
-        gl_FragColor = vec4(vec3(1.0, 0.5, 0.12) * i * 0.6, i * 0.6);
+        gl_FragColor = vec4(vec3(1.0, 0.5, 0.12) * i * 0.6, i * 0.6 * uOpacity);
+      }
+    `
+  });
+
+// Matahari dilihat dari jauh (zoom keluar tata surya): titik bintang yang ukurannya di layar tetap.
+// Kotak titiknya STAR_SIZE px, inti terangnya (gaussian) selebar sekitar 6 px, sisanya pendar tipis.
+// Intinya sedikit lebih terang dari 1 biar tetap kena bloom seperti bola Matahari
+const STAR_SIZE = 28;
+
+const starMaterial = () =>
+  new THREE.ShaderMaterial({
+    uniforms: {
+      uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
+      uOpacity: { value: 0 }
+    },
+    transparent: true,
+    depthWrite: false,
+    // Titiknya ada di pusat bola Matahari. Kalau depth test nyala, titiknya ketutup bola itu sendiri
+    depthTest: false,
+    blending: THREE.AdditiveBlending,
+    vertexShader: /* glsl */ `
+      uniform float uPixelRatio;
+      void main() {
+        gl_PointSize = ${STAR_SIZE.toFixed(1)} * uPixelRatio;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uOpacity;
+      void main() {
+        // Jarak dari tengah titik dalam piksel CSS
+        vec2 p = (gl_PointCoord - 0.5) * ${STAR_SIZE.toFixed(1)};
+        float r2 = dot(p, p);
+        // Sigma 2,5 px, lebar setengah terangnya sekitar 6 px
+        float r = sqrt(r2);
+        float core = exp(-r2 / 12.5);
+        // Pendar dipaksa habis sebelum tepi kotak. Sisa 1 persen pun setelah dikonversi ke sRGB
+        // kelihatan sebagai bujur sangkar samar di latar hitam
+        float halo = exp(-r / 3.0) * 0.16 * (1.0 - smoothstep(6.0, 13.0, r));
+        // Puncak inti cuma sedikit di atas threshold bloom (0,9). Kalau jauh lebih terang,
+        // kernel blur UnrealBloomPass yang terpotong bikin pendar bloom-nya berbentuk kotak
+        vec3 color = vec3(1.0, 0.86, 0.62) * (core * 1.1 + halo);
+        gl_FragColor = vec4(color, uOpacity);
       }
     `
   });
@@ -162,6 +212,15 @@ export function createSun() {
 
   const glow = new THREE.Mesh(new THREE.SphereGeometry(SUN_RADIUS * 1.25, 64, 64), glowMaterial());
   group.add(glow);
+
+  const starGeometry = new THREE.BufferGeometry();
+  starGeometry.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0], 3));
+  const star = new THREE.Points(starGeometry, starMaterial());
+  star.name = 'sun-star';
+  star.visible = false;
+  // Digambar setelah bola Matahari dan glow-nya
+  star.renderOrder = 1;
+  group.add(star);
 
   // Cahaya utama tata surya, decay 0 biar planet jauh tetep kebagian terang
   const light = new THREE.PointLight(0xfff1dd, 3.2, 0, 0);
@@ -184,6 +243,28 @@ export function createSun() {
     applyScale(k) {
       sun.radius = blendScale(sunRadius('pretty'), sunRadius('real'), k);
       group.scale.setScalar(sun.radius / SUN_RADIUS);
+    },
+    // Waktu zoom keluar tata surya: body = opacity bola Matahari + glow, star = opacity titik bintang
+    setFade({ body, star: starAlpha }) {
+      const surfaceMaterial = surface.material;
+      surfaceMaterial.uniforms.uOpacity.value = body;
+      glow.material.uniforms.uOpacity.value = body;
+      // Bola Matahari aslinya opaque. Baru dijadikan transparan selama memudar,
+      // biar urutan gambar di tampilan normal gak berubah
+      const transparent = body < 1;
+      if (surfaceMaterial.transparent !== transparent) {
+        surfaceMaterial.transparent = transparent;
+        surfaceMaterial.needsUpdate = true;
+      }
+      surface.visible = body > 0;
+      glow.visible = body > 0;
+
+      star.material.uniforms.uOpacity.value = starAlpha;
+      star.visible = starAlpha > 0;
+    },
+    // Ukuran titik bintang dalam piksel layar, jadi ikut pixel ratio
+    setPixelRatio(ratio) {
+      star.material.uniforms.uPixelRatio.value = ratio;
     },
     update(elapsed) {
       surface.material.uniforms.uTime.value = elapsed;

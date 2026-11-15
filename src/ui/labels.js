@@ -116,6 +116,12 @@ export function createLabels({ bodies }) {
   }
 
   let enabled = true;
+  // Waktu zoom keluar tata surya seluruh layer label memudar (fade) dan tata suryanya mengecil
+  // (worldScale). Posisi benda sudah ikut mengecil lewat getPosition, jarak label di atas
+  // permukaan juga harus ikut, kalau nggak labelnya melayang jauh di atas planet yang mengecil
+  let fade = 1;
+  let appliedFade = 1;
+  let worldScale = 1;
   let hoveredId = null;
   let focusedId = null;
   const position = new THREE.Vector3();
@@ -131,6 +137,17 @@ export function createLabels({ bodies }) {
     group,
     setEnabled(value) {
       enabled = value;
+    },
+    setFade(alpha) {
+      fade = alpha;
+      // Opacity layer cuma ditulis kalau berubah berarti, biar gak nyentuh DOM tiap frame
+      if (Math.abs(alpha - appliedFade) > 0.005 || (alpha !== appliedFade && (alpha === 0 || alpha === 1))) {
+        appliedFade = alpha;
+        renderer.domElement.style.opacity = alpha === 1 ? '' : String(alpha);
+      }
+    },
+    setWorldScale(scale) {
+      worldScale = scale;
     },
     setHovered(id) {
       hoveredId = id;
@@ -156,10 +173,11 @@ export function createLabels({ bodies }) {
         body.getPosition(position);
         const distance = position.distanceTo(camera.position);
         object.position.copy(position);
-        object.position.y += body.radius * LABEL_LIFT;
+        object.position.y += body.radius * LABEL_LIFT * worldScale;
 
         item.visible =
           enabled &&
+          fade > 0 &&
           body.visible &&
           distance <= MAX_DISTANCE[body.kind] &&
           isRelated(body, focus);

@@ -72,8 +72,9 @@ function softenTexture(texture) {
 }
 
 // Putar sphere: sumbu Y lokal (kutub tekstur) jadi normal bidang galaksi,
-// sumbu X lokal (tengah tekstur = pusat galaksi) diarahkan sedekat mungkin ke OVERVIEW_DIRECTION
-function galacticOrientation() {
+// sumbu X lokal (tengah tekstur = pusat galaksi) diarahkan sedekat mungkin ke OVERVIEW_DIRECTION.
+// Dipakai juga galaxy/galaxyScene.js, biar galaksi partikel nanti sejajar dengan pita di latar ini
+export function galacticOrientation() {
   const normal = new THREE.Vector3(
     Math.sin(GALACTIC_TILT) * Math.cos(GALACTIC_AZIMUTH),
     Math.cos(GALACTIC_TILT),
@@ -113,5 +114,13 @@ export function createMilkyWay() {
     mesh.visible = true;
   });
 
-  return { mesh };
+  return {
+    mesh,
+    // 0 sampai 1, dipakai waktu zoom keluar tata surya (scene/solarFade.js).
+    // material.visible dipakai (bukan mesh.visible) karena mesh.visible nunggu tekstur siap
+    setOpacity(alpha) {
+      material.opacity = OPACITY * alpha;
+      material.visible = alpha > 0;
+    }
+  };
 }

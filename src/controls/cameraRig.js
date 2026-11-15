@@ -355,3 +355,146 @@ export function createCameraRig({ camera, controls }) {
     }
   };
 }
+
+// Zoom virtual, lanjutan scroll / pinch setelah kamera tata surya mentok di maxDistance
+//
+// Kamera tata surya gak pernah mundur lebih jauh dari maxDistance (sekitar 3x orbit Neptunus).
+// Scroll keluar setelah mentok gak lagi menggerakkan kamera, tapi nambah offset zoomLevel.
+// Offset itu yang bikin isi tata surya mengecil (main.js) dan kamera galaksi mundur
+// (galaxy/galaxyScene.js). Kamera tata surya tetap di tempatnya, jadi zoom balik masuk
+// otomatis nyampe lagi di posisi kamera terakhir
+//
+// Selama offset > 0, zoom dan pan OrbitControls dimatikan (scroll masuk harus ngurangin offset dulu,
+// dan pan bakal geser pusat mengecilnya). Muter kamera tetap boleh
+
+// Per satu notch scroll (deltaY 100). Di dekat batas pakai langkah zoom OrbitControls
+// (0,95 per notch = 0,022 dekade), lalu naik pelan ke 0,08 selama dekade pertama.
+// Jadi pindah dari zoom kamera ke zoom virtual gak terasa tiba tiba ngebut
+const SOLAR_ZOOM_STEP = -Math.log10(0.95);
+const VIRTUAL_ZOOM_STEP = 0.08;
+const STEP_RAMP = 1;
+// Wheel event bisa datang dengan delta besar (trackpad pinch, mode baris / halaman), dibatasi segini notch
+const MAX_NOTCHES = 3;
+// Offset dikejar pelan pelan tiap frame (damping eksponensial, gak tergantung fps)
+const VIRTUAL_DAMPING = 6;
+// Pinch: dekade zoom per dekade perubahan jarak dua jari. 2,5 berarti mencubit sampai setengah jarak
+// menambah sekitar 0,75 dekade
+const PINCH_GAIN = 2.5;
+// Kamera dianggap sudah mentok kalau jaraknya segini dari maxDistance
+const LIMIT_RATIO = 0.995;
+
+export function createVirtualZoom({ camera, controls, domElement, isAllowed, maxOffset }) {
+  let target = 0;
+  let offset = 0;
+
+  // Pointer sentuh yang lagi nempel, buat ngitung jarak pinch
+  const touches = new Map();
+  let pinchDistance = 0;
+
+  const atLimit = () =>
+    camera.position.distanceTo(controls.target) >= controls.maxDistance * LIMIT_RATIO;
+
+  // OrbitControls nyimpan titik awal pinch / pan waktu gesture dimulai. Kalau zoom dan pan-nya
+  // dinyalakan lagi di tengah pinch, gerakan pertamanya dihitung dari titik awal yang sudah basi
+  // dan kamera loncat. Makanya nyala lagi baru setelah jari dilepas
+  function syncControls() {
+    const free = target <= 0;
+    if (!free) {
+      controls.enableZoom = false;
+      controls.enablePan = false;
+    } else if (touches.size < 2) {
+      controls.enableZoom = true;
+      controls.enablePan = true;
+    }
+  }
+
+  function setTarget(value) {
+    target = THREE.MathUtils.clamp(value, 0, Math.max(maxOffset(), 0));
+    syncControls();
+  }
+
+  // amount dalam dekade zoomLevel, positif = keluar. Mulai zoom virtual cuma kalau kamera
+  // sudah mentok dan arahnya keluar. Balikin true kalau gerakan ini dipakai zoom virtual
+  function apply(amount) {
+    if (!isAllowed()) return false;
+    if (target <= 0 && !(amount > 0 && atLimit())) return false;
+    setTarget(target + amount);
+    return true;
+  }
+
+  function stepSize() {
+    const t = Math.min(target / STEP_RAMP, 1);
+    return THREE.MathUtils.lerp(SOLAR_ZOOM_STEP, VIRTUAL_ZOOM_STEP, t * t * (3 - 2 * t));
+  }
+
+  // Normalisasi delta disamakan dengan OrbitControls, biar satu notch di dua sistem setara
+  function wheelNotches(event) {
+    let delta = event.deltaY;
+    if (event.deltaMode === 1) delta *= 16;
+    else if (event.deltaMode === 2) delta *= 100;
+    // Pinch di trackpad dikirim browser sebagai wheel + ctrlKey dengan delta kecil
+    if (event.ctrlKey) delta *= 10;
+    return THREE.MathUtils.clamp(delta / 100, -MAX_NOTCHES, MAX_NOTCHES);
+  }
+
+  function handleWheel(event) {
+    if (apply(wheelNotches(event) * stepSize())) event.preventDefault();
+  }
+
+  const pinchSpan = () => {
+    const [a, b] = touches.values();
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
+
+  function handlePointerDown(event) {
+    if (event.pointerType !== 'touch') return;
+    touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    pinchDistance = touches.size === 2 ? pinchSpan() : 0;
+  }
+
+  function handlePointerMove(event) {
+    const touch = touches.get(event.pointerId);
+    if (!touch) return;
+    touch.x = event.clientX;
+    touch.y = event.clientY;
+    if (touches.size !== 2) return;
+    const distance = pinchSpan();
+    // Jari mendekat = zoom keluar
+    if (pinchDistance > 0 && distance > 0) apply(Math.log10(pinchDistance / distance) * PINCH_GAIN);
+    pinchDistance = distance;
+  }
+
+  function handlePointerUp(event) {
+    if (!touches.delete(event.pointerId)) return;
+    pinchDistance = touches.size === 2 ? pinchSpan() : 0;
+    syncControls();
+  }
+
+  // Listener OrbitControls sudah terpasang duluan (waktu controls dibuat), jadi selalu jalan
+  // lebih dulu. Waktu kamera mentok, scroll keluar dia abaikan sendiri karena sudah di maxDistance
+  domElement.addEventListener('wheel', handleWheel, { passive: false });
+  domElement.addEventListener('pointerdown', handlePointerDown);
+  domElement.addEventListener('pointermove', handlePointerMove);
+  domElement.addEventListener('pointerup', handlePointerUp);
+  domElement.addEventListener('pointercancel', handlePointerUp);
+
+  return {
+    // Balik ke tata surya (offset 0) secara halus, dipakai sebelum terbang ke benda / ganti skala / tur
+    reset() {
+      setTarget(0);
+    },
+    // Dipanggil di awal tiap frame
+    update(delta) {
+      offset += (target - offset) * (1 - Math.exp(-delta * VIRTUAL_DAMPING));
+      if (Math.abs(target - offset) < 1e-4) offset = target;
+    },
+    // Offset zoomLevel yang sedang dipakai (sudah di-damp)
+    get offset() {
+      return offset;
+    },
+    // true selama masih ada sisa zoom virtual, termasuk waktu sedang balik
+    get active() {
+      return offset > 0 || target > 0;
+    }
+  };
+}

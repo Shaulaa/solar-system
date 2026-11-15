@@ -1,5 +1,6 @@
 uniform vec3 uSunDirection;
 uniform vec3 uAtmosphereColor;
+uniform float uOpacity;
 
 varying vec3 vNormalW;
 varying vec3 vPositionW;
@@ -18,8 +19,8 @@ void main() {
   float sunFactor = smoothstep(-0.3, 0.45, dot(normal, uSunDirection));
   intensity *= sunFactor;
 
-  // Alpha 1 karena AdditiveBlending (SRC_ALPHA, ONE), jadi terangnya murni dari rgb
-  gl_FragColor = vec4(uAtmosphereColor * intensity, 1.0);
+  // AdditiveBlending (SRC_ALPHA, ONE): alpha cuma jadi pengali terang, dipakai buat memudar
+  gl_FragColor = vec4(uAtmosphereColor * intensity, uOpacity);
 
   #include <tonemapping_fragment>
   #include <colorspace_fragment>

@@ -15,6 +15,7 @@ import { createMilkyWay } from './scene/milkyWay.js';
 import { createMoons } from './scene/moons.js';
 import { createAsteroidBelt } from './scene/asteroidBelt.js';
 import { createBodyRegistry } from './scene/bodies.js';
+import { createSolarFade } from './scene/solarFade.js';
 import {
   createScaleMode,
   cameraSettings,
@@ -23,7 +24,9 @@ import {
   overviewPositionAt
 } from './scene/scaleMode.js';
 import { createPicker } from './controls/picker.js';
-import { createCameraRig } from './controls/cameraRig.js';
+import { createCameraRig, createVirtualZoom } from './controls/cameraRig.js';
+import { createGalaxyScene } from './galaxy/galaxyScene.js';
+import { zoomLevelAt, MAX_ZOOM_LEVEL } from './galaxy/zoomLevels.js';
 import { createTour } from './controls/tour.js';
 import { createLabels } from './ui/labels.js';
 import { createInfoPanel } from './ui/infoPanel.js';
@@ -48,8 +51,10 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
+// Render berlapis: galaxyScene (punya latar hitam) digambar dulu, baru scene tata surya di atasnya.
+// Makanya scene tata surya gak punya background, kalau punya galaksinya ketimpa
 const scene = new THREE.Scene();
-scene.background = new THREE.Color('#010104');
+const galaxy = createGalaxyScene();
 
 // Seberapa jauh kamera overview mundur di layar sempit (1 di layar lebar), lihat scene/scaleMode.js
 let fit = overviewFit(window.innerWidth / window.innerHeight);
@@ -74,21 +79,26 @@ controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
 // Ambient tipis biar sisi gelap planet gak item pekat banget
 scene.add(new THREE.AmbientLight(0x404a66, 0.25));
 
-// Isi tata surya
+// Isi tata surya. Semua benda dan orbit ditaruh di satu grup, waktu zoom keluar lewat batas kamera
+// grup ini yang mengecil (di sekitar Matahari), kamera tata surya-nya diam
+const solarRoot = new THREE.Group();
+solarRoot.name = 'solar-system';
+scene.add(solarRoot);
+
 const sun = createSun();
-scene.add(sun.group);
+solarRoot.add(sun.group);
 
 const planets = createPlanets();
-scene.add(planets.group);
+solarRoot.add(planets.group);
 
 // Bulan ditempel ke anchor planet masing masing, jadi gak perlu di-add ke scene lagi
 const moons = createMoons(planets.list);
 
 const asteroidBelt = createAsteroidBelt({ mobile: isMobile });
-scene.add(asteroidBelt.mesh);
+solarRoot.add(asteroidBelt.mesh);
 
 const orbits = createOrbits(planets.list);
-scene.add(orbits.group);
+solarRoot.add(orbits.group);
 
 // Bima Sakti di paling belakang, bintang kelap kelip di depannya.
 // Dua duanya ngikutin posisi kamera (kayak skybox), jadi selalu ada di "tak terhingga"
@@ -105,9 +115,15 @@ loadingScreen.checkNothingToLoad();
 
 const scaleMode = createScaleMode({ sun, planets, moons, asteroidBelt, orbits });
 
-// Post processing buat glow matahari
+// Post processing buat glow matahari.
+// Dua RenderPass ke buffer yang sama: galaksi dulu, lalu depth dikosongkan dan tata surya
+// digambar di atasnya tanpa menghapus warna. Bloom jalan sekali buat gabungan keduanya
 const composer = new EffectComposer(renderer);
-composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new RenderPass(galaxy.scene, galaxy.camera));
+const solarPass = new RenderPass(scene, camera);
+solarPass.clear = false;
+solarPass.clearDepth = true;
+composer.addPass(solarPass);
 const bloom = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
   isMobile ? 0.6 : 0.9, // strength
@@ -125,6 +141,23 @@ rig.setOverview({ position: overviewPositionAt(0, fit, overviewTarget) });
 const labels = createLabels({ bodies });
 scene.add(labels.group);
 labels.setSize(window.innerWidth, window.innerHeight);
+
+// Zoom keluar lewat batas kamera tata surya (lihat galaxy/zoomLevels.js).
+// zoomLevel dihitung ulang tiap frame setelah posisi kamera final
+let zoomLevel = 0;
+const solarZoomLevel = () =>
+  zoomLevelAt({ distance: camera.position.length(), k: scaleMode.k, fit });
+
+const virtualZoom = createVirtualZoom({
+  camera,
+  controls,
+  domElement: canvas,
+  // Cuma dari tampilan overview. Waktu fokus, kamera nempel ke planet dan target-nya ikut planet
+  isAllowed: () => phase === 'ready' && rig.mode === 'overview' && !scaleMode.transitioning,
+  maxOffset: () => MAX_ZOOM_LEVEL - solarZoomLevel()
+});
+
+const solarFade = createSolarFade({ sun, planets, asteroidBelt, orbits, labels, stars, milkyWay });
 
 const infoPanel = createInfoPanel({
   onBack: goOverview,
@@ -152,6 +185,8 @@ function focusBody(id, { fromTour = false } = {}) {
   const body = bodies.get(id);
   if (!body || !body.visible || !canInteract()) return;
   if (!fromTour) tour.stop();
+  // Dipilih dari pencarian / tur waktu lagi zoom keluar: tata surya dibalikin bareng terbangnya
+  virtualZoom.reset();
   rig.focus(body);
   labels.setFocus(id);
   infoPanel.show(body, { prev: bodies.neighbor(id, -1), next: bodies.neighbor(id, 1) });
@@ -257,8 +292,10 @@ function toggleScaleMode() {
   const next = scaleMode.mode === 'pretty' ? 'real' : 'pretty';
   const target = cameraSettings(next, fit);
 
-  // Keluar dari fokus dulu, kamera balik ke overview mode tujuan bareng transisi skalanya
+  // Keluar dari fokus (atau dari zoom keluar) dulu, kamera balik ke overview mode tujuan
+  // bareng transisi skalanya
   clearFocus();
+  virtualZoom.reset();
 
   // Batas jarak dan far plane dilonggarkan dulu ke yang paling besar dari dua mode,
   // kalau nggak OrbitControls nahan kamera di tengah jalan. Baru diketatkan setelah sampai
@@ -405,7 +442,6 @@ loadingScreen.ready.then(() => {
     onReveal: revealHud,
     onDone: () => {
       phase = 'ready';
-      picker.setEnabled(true);
     }
   });
 });
@@ -517,6 +553,7 @@ function setPixelRatio(ratio) {
   renderer.setPixelRatio(ratio);
   composer.setPixelRatio(ratio);
   stars.setPixelRatio(ratio);
+  sun.setPixelRatio(ratio);
 }
 
 const performanceMonitor = createPerformanceMonitor({
@@ -546,9 +583,24 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+// Klik / hover benda cuma jalan setelah intro dan selama tata surya gak lagi dikecilkan
+// (planetnya memudar, yang kelihatan cuma titik)
+let pickerEnabled = false;
+function syncPicker() {
+  const enabled = phase === 'ready' && !virtualZoom.active;
+  if (enabled === pickerEnabled) return;
+  pickerEnabled = enabled;
+  picker.setEnabled(enabled);
+}
+
 function tick(now) {
   const delta = Math.min(clock.getDelta(), 0.1);
   const elapsed = clock.elapsedTime;
+
+  // Zoom virtual duluan, semua posisi dunia di bawah ini sudah ikut tata surya yang mengecil
+  virtualZoom.update(delta);
+  const worldScale = Math.pow(10, -virtualZoom.offset);
+  solarRoot.scale.setScalar(worldScale);
 
   // Waktu simulasi baru jalan setelah intro selesai, biar tanggal yang pertama kelihatan
   // di toolbar benar benar tanggal hari ini (intro tetap hidup lewat kamera, matahari, dan bintang)
@@ -572,7 +624,19 @@ function tick(now) {
   stars.points.position.copy(camera.position);
   milkyWay.mesh.position.copy(camera.position);
 
+  // Semua transisi tata surya ke galaksi dihitung dari satu angka ini
+  zoomLevel = zoomLevelAt({
+    distance: camera.position.length(),
+    k: scaleMode.k,
+    fit,
+    offset: virtualZoom.offset
+  });
+  solarFade.update(zoomLevel);
+  labels.setWorldScale(worldScale);
+  galaxy.update(camera, zoomLevel, fit);
+
   // Hover, label, dan UI dihitung dari posisi kamera yang sudah final
+  syncPicker();
   picker.update();
   labels.update(camera);
   toolbar.setDays(time.simDays);
@@ -599,6 +663,11 @@ window.solar = {
   scene,
   camera,
   controls,
+  galaxy,
+  virtualZoom,
+  get zoomLevel() {
+    return zoomLevel;
+  },
   planets,
   moons,
   asteroidBelt,

@@ -39,7 +39,8 @@ export function createStars(count = 9000) {
   const material = new THREE.ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
-      uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) }
+      uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
+      uOpacity: { value: 1 }
     },
     transparent: true,
     depthWrite: false,
@@ -59,11 +60,12 @@ export function createStars(count = 9000) {
       }
     `,
     fragmentShader: /* glsl */ `
+      uniform float uOpacity;
       varying vec3 vColor;
       varying float vTwinkle;
       void main() {
         float d = length(gl_PointCoord - 0.5);
-        float a = smoothstep(0.5, 0.0, d);
+        float a = smoothstep(0.5, 0.0, d) * uOpacity;
         gl_FragColor = vec4(vColor * vTwinkle, a);
       }
     `
@@ -77,6 +79,11 @@ export function createStars(count = 9000) {
     // Ukuran titik bintang ikut pixel ratio, jadi harus di-update kalau pixel ratio diturunin
     setPixelRatio(ratio) {
       material.uniforms.uPixelRatio.value = ratio;
+    },
+    // 0 sampai 1, dipakai waktu zoom keluar tata surya (scene/solarFade.js)
+    setOpacity(alpha) {
+      material.uniforms.uOpacity.value = alpha;
+      points.visible = alpha > 0;
     },
     update(elapsed) {
       material.uniforms.uTime.value = elapsed;

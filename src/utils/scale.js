@@ -44,6 +44,18 @@ export function scaleDistance(au, mode = 'pretty') {
   return MODES[mode].distance(au);
 }
 
+// Kebalikan scaleDistance: jarak dari Matahari dalam unit scene ke AU.
+// Di mode pretty jarak di bawah 14 unit (permukaan Matahari + 8) gak punya pasangan AU,
+// hasilnya dibulatkan ke 0
+const INVERSE = {
+  pretty: (units) => Math.pow(Math.max(units - PRETTY_SUN_RADIUS - 8, 0) / 22, 1 / 0.55),
+  real: (units) => units / REAL_UNITS_PER_AU
+};
+
+export function unscaleDistance(units, mode = 'pretty') {
+  return INVERSE[mode](units);
+}
+
 export function scaleRadius(earthRadius, mode = 'pretty') {
   return MODES[mode].radius(earthRadius);
 }

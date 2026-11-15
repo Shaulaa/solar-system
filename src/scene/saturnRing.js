@@ -99,13 +99,16 @@ export function createSaturnRing(ring, planetRadius) {
     mesh.visible = true;
   });
 
+  const worldScale = new THREE.Vector3();
+
   return {
     mesh,
-    // radius = radius planet sekarang (berubah waktu transisi mode skala)
-    update(radius) {
+    update() {
       // Posisi planet = pusat cincin, karena cincin nempel di tiltGroup planet
       mesh.getWorldPosition(uniforms.uPlanetPosition.value);
-      uniforms.uPlanetRadius.value = radius;
+      // Radius planet di world space. Skala dunia cincin sudah mencakup mode skala (tiltGroup)
+      // dan tata surya yang mengecil waktu zoom keluar, jadi bayangannya tetap pas dengan planetnya
+      uniforms.uPlanetRadius.value = planetRadius * mesh.getWorldScale(worldScale).x;
     }
   };
 }

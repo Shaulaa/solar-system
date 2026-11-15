@@ -49,7 +49,8 @@ export function createEarth(data, radius, seed) {
       uSpecularStrength: { value: SPECULAR_STRENGTH },
       uSunDirection: { value: sunDirection },
       uSunColor: { value: SUN_COLOR },
-      uAtmosphereColor: { value: atmosphereColor }
+      uAtmosphereColor: { value: atmosphereColor },
+      uOpacity: { value: 1 }
     },
     vertexShader: earthVertex,
     fragmentShader: earthFragment
@@ -83,7 +84,8 @@ export function createEarth(data, radius, seed) {
     new THREE.ShaderMaterial({
       uniforms: {
         uSunDirection: { value: sunDirection },
-        uAtmosphereColor: { value: atmosphereColor }
+        uAtmosphereColor: { value: atmosphereColor },
+        uOpacity: { value: 1 }
       },
       vertexShader: atmosphereVertex,
       fragmentShader: atmosphereFragment,

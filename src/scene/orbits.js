@@ -8,6 +8,7 @@ import { scaleDistanceAt } from './planets.js';
 // (jarak tiap titik ke Matahari di-scale, arahnya tetap, sama persis seperti planetnya).
 // Gak ada geometry baru yang dibuat, jadi gak ada yang perlu di-dispose
 const SEGMENTS = 256;
+const OPACITY = 0.18;
 
 export function createOrbits(planetList) {
   const group = new THREE.Group();
@@ -16,7 +17,7 @@ export function createOrbits(planetList) {
   const material = new THREE.LineBasicMaterial({
     color: 0x8fa3c7,
     transparent: true,
-    opacity: 0.18,
+    opacity: OPACITY,
     depthWrite: false
   });
 
@@ -52,6 +53,12 @@ export function createOrbits(planetList) {
     group,
     // Dipanggil scene/scaleMode.js tiap frame selama transisi mode skala
     applyScale,
+    // 0 sampai 1, dipakai waktu zoom keluar tata surya (scene/solarFade.js).
+    // Lewat material, bukan group.visible, karena group.visible punya tombol orbit di toolbar
+    setOpacity(alpha) {
+      material.opacity = OPACITY * alpha;
+      material.visible = alpha > 0;
+    },
     // Ikutin visibilitas planet (Pluto baru kelihatan setelah ketemu)
     update() {
       for (const { line, planet } of lines) line.visible = planet.visible;
