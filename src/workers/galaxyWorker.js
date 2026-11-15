@@ -66,9 +66,6 @@ const GLOW_COUNT = { full: 180, small: 70 };
 const COLORS = {
   bulge: [1.0, 0.78, 0.5],
   bar: [1.0, 0.82, 0.56],
-  young: [0.62, 0.76, 1.0],
-  white: [1.0, 0.96, 0.9],
-  old: [1.0, 0.86, 0.66],
   hii: [1.0, 0.32, 0.5],
   cluster: [0.55, 0.75, 1.0],
   gasPink: [1.0, 0.45, 0.62],
@@ -76,6 +73,18 @@ const COLORS = {
   // Debu cokelat gelap. Dipakai dengan NormalBlending, jadi warnanya yang menimpa cahaya di belakangnya
   dust: [0.05, 0.035, 0.025]
 };
+
+// Kelas spektral bintang: warna (linear RGB), pengali kecerahan, dan peluangnya di populasi muda
+// (lengan) dan tua (piringan, halo). Bintang merah dan oranye paling banyak tapi redup, bintang biru
+// sedikit tapi terang. Versi G3 cuma punya tiga warna, dari dekat kelihatan seragam kayak salju
+const STAR_TYPES = [
+  { color: [0.55, 0.7, 1.0], boost: 1.7, young: 0.2, old: 0.0 }, // O B
+  { color: [0.76, 0.85, 1.0], boost: 1.3, young: 0.22, old: 0.04 }, // A
+  { color: [1.0, 0.97, 0.92], boost: 1.1, young: 0.2, old: 0.12 }, // F
+  { color: [1.0, 0.9, 0.72], boost: 1.0, young: 0.16, old: 0.25 }, // G
+  { color: [1.0, 0.76, 0.5], boost: 0.85, young: 0.12, old: 0.3 }, // K
+  { color: [1.0, 0.6, 0.42], boost: 0.7, young: 0.1, old: 0.29 } // M
+];
 
 // RNG ber-seed (mulberry32): galaksinya sama persis tiap kali dibuka
 function createRandom(seed) {
@@ -119,8 +128,28 @@ export function generateGalaxy({ total, seed = 1 }) {
     buffers.seed[i] = random();
   }
 
-  // Ukuran partikel (unit galaksi) divariasikan, sebagian kecil jauh lebih besar (gugus terang)
-  const sizeOf = (base) => base * (0.6 + random()) * (random() < 0.03 ? 2.2 : 1);
+  // Ukuran partikel (unit galaksi): kebanyakan kecil, sedikit yang besar.
+  // Dari jauh cahaya partikel sebanding luasnya (energi dijaga di shader), dari dekat partikel mentok
+  // di ukuran maksimal layar dengan kecerahan puncak yang sama. Jadi ukuran dasar lengan, piringan,
+  // dan halo yang lebih besar (0,95 dan 0,85) bikin galaksi dari jauh lebih terang tanpa bikin
+  // bintang dari dekat jadi lebih terang. Dengan itu lapisan ilustrasi NASA cukup jadi semburat
+  const sizeOf = (base) => base * (0.5 + 1.1 * random() * random());
+
+  // Bintang acak dari populasi 'young' atau 'old'. Kecerahannya pangkat 4: mayoritas redup,
+  // segelintir terang, dikali pengali kelas spektralnya
+  function pickStar(population) {
+    let pick = random();
+    let type = STAR_TYPES[STAR_TYPES.length - 1];
+    for (const t of STAR_TYPES) {
+      pick -= t[population];
+      if (pick <= 0) {
+        type = t;
+        break;
+      }
+    }
+    const u = random();
+    return { color: type.color, brightness: (0.15 + 2.2 * u * u * u * u) * type.boost };
+  }
 
   // r dengan kepadatan menurun eksponensial ke luar, dipotong di [rStart, rEnd]
   function sampleRadius(rStart, rEnd, scale) {
@@ -158,14 +187,56 @@ export function generateGalaxy({ total, seed = 1 }) {
     return b;
   }
 
-  // Bintang muda di lengan: kebanyakan biru putih, sebagian putih dan kuning
-  function armColor() {
-    const pick = random();
-    return pick < 0.6 ? COLORS.young : pick < 0.85 ? COLORS.white : COLORS.old;
-  }
-
   // Lebar sebaran lengan di jarak r
   const armSpread = (r, width) => (5 + r * 0.035) * width;
+
+  // Ketidakteraturan lengan. Tiap lengan punya dua fungsi acak (jumlah beberapa sinus dengan fase
+  // ber-seed) sepanjang lengan, dengan parameter s = ln r:
+  //   lebar      0,55 sampai 1,45 kali lebar dasar
+  //   kepadatan  0,05 sampai 1, bagian yang rendah jadi lengan yang putus putus
+  // Versi G3 lebar dan kepadatannya rata sepanjang lengan, dari atas kelihatan kayak cincin konsentris
+  const WAVES = [
+    { freq: 9, amp: 0.5 },
+    { freq: 17, amp: 0.3 },
+    { freq: 31, amp: 0.2 },
+    { freq: 53, amp: 0.12 }
+  ];
+  const WAVE_TOTAL = WAVES.reduce((sum, w) => sum + w.amp, 0);
+  const makeWave = () => WAVES.map(() => random() * Math.PI * 2);
+  const armShape = new Map(ARMS.map((arm) => [arm, { width: makeWave(), density: makeWave() }]));
+  const wave = (phases, r) => {
+    const s = Math.log(r);
+    let sum = 0;
+    WAVES.forEach((w, i) => {
+      sum += w.amp * Math.sin(w.freq * s + phases[i]);
+    });
+    return sum / WAVE_TOTAL;
+  };
+  const armWidthAt = (arm, r) => arm.width * (1 + 0.45 * wave(armShape.get(arm).width, r));
+  const armDensityAt = (arm, r) => clamp(0.5 + 0.75 * wave(armShape.get(arm).density, r), 0.05, 1);
+
+  // Jarak r di lengan, bagian yang kepadatannya rendah lebih jarang terpilih (lengan putus putus)
+  function sampleArmRadius(arm, scale = 220) {
+    for (let tries = 0; tries < 12; tries++) {
+      const r = sampleRadius(arm.rStart, arm.rEnd, scale);
+      if (random() < armDensityAt(arm, r)) return r;
+    }
+    return sampleRadius(arm.rStart, arm.rEnd, scale);
+  }
+
+  // Jarak radial titik (r, theta) ke garis tengah lengan terdekat. Di koordinat spiral
+  // u = ln(r / rRef) + K (theta - PI) lengan ada di u = 0, berulang tiap 2 PI K
+  const ARM_PERIOD = 2 * Math.PI * K;
+  function distanceToArm(r, theta) {
+    let best = Infinity;
+    for (const arm of ARMS) {
+      if (r < arm.rStart * 0.85 || r > arm.rEnd * 1.08) continue;
+      let u = Math.log(r / arm.rRef) + K * (theta - Math.PI);
+      u -= ARM_PERIOD * Math.round(u / ARM_PERIOD);
+      best = Math.min(best, Math.abs(u) * r);
+    }
+    return best;
+  }
 
   // Satu titik di lengan pada jarak r: sudut dari rumus spiral, lalu disebar tegak lurus lengan.
   // Seperlima partikel ngumpul di gugus sepanjang lengan, biar lengannya bertekstur.
@@ -184,8 +255,31 @@ export function generateGalaxy({ total, seed = 1 }) {
       z = r * Math.sin(theta) + gaussian() * spread;
     }
     const y = gaussian() * 1.6;
-    const bright = random() < 0.02 ? 2.2 : 0.6 + random() * 0.8;
-    write(b, i, x, y, z, armColor(), bright, sizeOf(0.4));
+    const star = pickStar('young');
+    write(b, i, x, y, z, star.color, star.brightness, sizeOf(0.95));
+  }
+
+  // Cabang (spur) pendek: keluar dari sisi luar lengan dengan sudut pitch lebih terbuka (35 derajat),
+  // makin ke ujung makin tipis. Gak tumbuh dari 40 unit terakhir lengan (di sana cabangnya
+  // nongol ke ruang kosong dan kelihatan kayak garis lurus), dan cukup lebar biar gak jadi goresan
+  const SPUR_K = Math.tan(35 * DEG);
+  function makeSpurs(arm, count) {
+    return Array.from({ length: count }, () => {
+      let base = sampleArmRadius(arm);
+      while (base > arm.rEnd - 40) base = sampleArmRadius(arm);
+      const r0 = base + armSpread(base, arm.width) * 0.5;
+      return { r0, theta0: armTheta(arm, r0), length: 10 + random() * 20 };
+    });
+  }
+  function placeOnSpur(b, i, spur) {
+    const t = random();
+    const r = spur.r0 + t * spur.length;
+    const theta = spur.theta0 - Math.log(r / spur.r0) / SPUR_K;
+    const spread = (2.5 + random() * 3) * (1 - 0.5 * t);
+    const x = r * Math.cos(theta) + gaussian() * spread;
+    const z = r * Math.sin(theta) + gaussian() * spread;
+    const star = pickStar('young');
+    write(b, i, x, gaussian() * 1.4, z, star.color, star.brightness, sizeOf(0.95));
   }
 
   // Titik acak sepanjang semua lengan, dengan bobot tiap lengan. Dipakai komponen yang
@@ -209,18 +303,25 @@ export function generateGalaxy({ total, seed = 1 }) {
       const n = Math.round((count * arm.weight) / totalWeight);
       // Gugus bintang muda: titik pusat acak sepanjang lengan
       const clumps = Array.from({ length: Math.max(8, Math.round(n / 250)) }, () => {
-        const r = sampleRadius(arm.rStart, arm.rEnd, 220);
+        const r = sampleArmRadius(arm);
         const theta = armTheta(arm, r);
-        const spread = (4 + r * 0.03) * arm.width;
+        const spread = (4 + r * 0.03) * armWidthAt(arm, r);
         return {
           x: r * Math.cos(theta) + gaussian() * spread,
           z: r * Math.sin(theta) + gaussian() * spread,
           radius: 2 + random() * random() * 7
         };
       });
+      // 10 persen partikel lengan ini jadi cabang
+      const spurs = makeSpurs(arm, Math.max(4, Math.round(n / 2500)));
+      const spurCount = Math.round(n * 0.1);
       for (let j = 0; j < n && i < count; j++, i++) {
-        const r = sampleRadius(arm.rStart, arm.rEnd, 220);
-        placeOnArm(b, i, armTheta(arm, r), r, arm.width, clumps);
+        if (j < spurCount) {
+          placeOnSpur(b, i, spurs[Math.floor(random() * spurs.length)]);
+          continue;
+        }
+        const r = sampleArmRadius(arm);
+        placeOnArm(b, i, armTheta(arm, r), r, armWidthAt(arm, r), clumps);
       }
     }
 
@@ -234,16 +335,29 @@ export function generateGalaxy({ total, seed = 1 }) {
     return b;
   }
 
-  // Piringan: bintang tua tersebar rata di sekitar lengan, kepadatan turun eksponensial ke luar,
-  // makin ke luar sedikit makin tebal (flaring)
+  // Piringan: bintang tua, kepadatan turun eksponensial ke luar, makin ke luar sedikit makin tebal
+  // (flaring). Bintang tua juga ngumpul di sekitar lengan (gelombang kepadatan): titik yang jauh
+  // dari lengan lebih sering ditolak, jadi celah antar lengan jauh lebih gelap. Di dalam radius 120
+  // (daerah batang, belum ada lengan) piringannya tetap cukup rata
+  const DISK_GAP_FLOOR = 0.18;
+  function diskAcceptance(r, theta) {
+    if (r < 120) return 0.7;
+    const d = distanceToArm(r, theta) / (armSpread(r, 1) * 1.8);
+    return DISK_GAP_FLOOR + (1 - DISK_GAP_FLOOR) * Math.exp(-d * d);
+  }
   function makeDisk(count) {
     const b = createBuffers('disk', count);
     for (let i = 0; i < count; i++) {
-      const r = sampleRadius(18, DISK_RADIUS, 130);
-      const theta = random() * Math.PI * 2;
+      let r = 0;
+      let theta = 0;
+      for (let tries = 0; tries < 20; tries++) {
+        r = sampleRadius(18, DISK_RADIUS, 130);
+        theta = random() * Math.PI * 2;
+        if (random() < diskAcceptance(r, theta)) break;
+      }
       const y = gaussian() * (2.6 + r * 0.004);
-      const base = random() < 0.7 ? COLORS.old : COLORS.white;
-      write(b, i, r * Math.cos(theta), y, r * Math.sin(theta), base, 0.35 + random() * 0.45, sizeOf(0.45));
+      const star = pickStar('old');
+      write(b, i, r * Math.cos(theta), y, r * Math.sin(theta), star.color, star.brightness * 0.6, sizeOf(0.85));
     }
     return b;
   }
@@ -280,7 +394,7 @@ export function generateGalaxy({ total, seed = 1 }) {
         z = along * sin + across * cos;
       } else {
         const arm = pickArm();
-        const r = sampleRadius(arm.rStart, arm.rEnd, 240);
+        const r = sampleArmRadius(arm, 240);
         const strand = Math.floor(random() * 3);
         // Ke arah pusat dari garis tengah lengan, tiap untaian sedikit beda jarak
         const inner = r - armSpread(r, arm.width) * (0.55 + strand * 0.25);
@@ -302,7 +416,7 @@ export function generateGalaxy({ total, seed = 1 }) {
     let i = 0;
     while (i < count) {
       const arm = pickArm();
-      const r = sampleRadius(arm.rStart, arm.rEnd, 260);
+      const r = sampleArmRadius(arm, 260);
       const theta = armTheta(arm, r);
       const center = r - armSpread(r, arm.width) * 0.2 + gaussian() * 3;
       const cx = center * Math.cos(theta);
@@ -331,7 +445,7 @@ export function generateGalaxy({ total, seed = 1 }) {
     const b = createBuffers('glow', count);
     for (let i = 0; i < count; i++) {
       const arm = pickArm();
-      const r = sampleRadius(arm.rStart, arm.rEnd, 260);
+      const r = sampleArmRadius(arm, 260);
       const theta = armTheta(arm, r) + gaussian() * 0.02;
       const x = r * Math.cos(theta) + gaussian() * 4;
       const z = r * Math.sin(theta) + gaussian() * 4;
@@ -350,15 +464,16 @@ export function generateGalaxy({ total, seed = 1 }) {
       const cosPhi = 2 * random() - 1;
       const sinPhi = Math.sqrt(1 - cosPhi * cosPhi);
       const theta = random() * Math.PI * 2;
+      const star = pickStar('old');
       write(
         b,
         i,
         r * sinPhi * Math.cos(theta),
         r * cosPhi,
         r * sinPhi * Math.sin(theta),
-        COLORS.old,
-        0.5 + random() * 0.5,
-        sizeOf(0.5)
+        star.color,
+        star.brightness * 0.7,
+        sizeOf(0.85)
       );
     }
     return b;

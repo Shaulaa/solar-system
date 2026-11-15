@@ -131,7 +131,8 @@ const DUST_ALPHA = 0.55;
 //   glow   gumpalan gas, boleh besar dan lembut
 //   dust   debu gelap, NormalBlending (menutupi cahaya di belakangnya)
 const KINDS = {
-  star: { minSize: 2, maxSize: 8, blending: THREE.AdditiveBlending, dust: false },
+  // Maksimal 4 px: versi 8 px dari dekat (zoomLevel 7 sampai 8,5) kelihatan kayak salju
+  star: { minSize: 2, maxSize: 4, blending: THREE.AdditiveBlending, dust: false },
   glow: { minSize: 2, maxSize: 320, blending: THREE.AdditiveBlending, dust: false },
   dust: { minSize: 2, maxSize: 24, blending: THREE.NormalBlending, dust: true }
 };

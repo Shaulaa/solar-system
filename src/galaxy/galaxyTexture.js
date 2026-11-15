@@ -17,8 +17,10 @@ const TEXTURE_URL = new URL(`${import.meta.env.BASE_URL}textures/milky_way_top.w
 // sekitar 2300 px dari 5580 px crop) disamakan dengan tepi piringan partikel (520 unit)
 const SIZE = 1260;
 const BAR_ALIGN = 7.4 * (Math.PI / 180);
-// Cuma lapisan cahaya, opacity rendah. Partikel yang bikin detail tajamnya
-const OPACITY = 0.3;
+// Cuma semburat cahaya, opacity rendah. Struktur lengan dan detail tajamnya dari partikel.
+// Dengan 0,3 ilustrasi ini menyumbang sekitar 80 persen cahaya tampilan atas, dan karena lengannya
+// gak berimpit dengan lengan partikel, celah partikel keisi dan lengannya kelihatan kayak cincin
+const OPACITY = 0.12;
 // Ukuran tekstur (px), sama dengan filenya. 2048 cukup karena lapisan ini cuma tampil dari jauh
 // (lihat STAGES.galaxyTexture). Plus mipmap butuh sekitar 22 MB memori GPU. Versi 4096 (89 MB)
 // bikin satu frame macet 50 sampai 83 ms waktu ANGLE mengisi nol memori tekstur barunya
