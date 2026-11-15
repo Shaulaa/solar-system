@@ -38,6 +38,11 @@ export const STAGES = {
   // kamera galaksi gak lagi sejajar dengan kamera tata surya
   sunStarOut: { start: 5.8, end: 6.5 },
   youAreHere: { start: 5.8, end: 6.6 },
+  // Cincin dan label "Kamu di sini" baru muncul waktu piringan galaksi sudah kelihatan mengelilingi
+  // Matahari (dicek dari jalur kamera default 1366x768: di 8,2 piringannya masih pita di pojok dan
+  // penandanya mengambang, di 8,7 bintang piringan sudah ke segala arah). Sebelumnya cuma titik
+  // Matahari yang tampil, jadi posisi "rumah" tetap kelihatan tanpa penanda besar di ruang kosong
+  youAreHereRing: { start: 8.6, end: 9.0 },
   // Partikel galaksi muncul, gantian dengan latar lama yang memudar.
   // Dari dalam piringan galaksi partikelnya kelihatan sebagai pita Bima Sakti di langit
   galaxyIn: { start: 3, end: 4 },
@@ -102,4 +107,20 @@ export function zoomLevelToAU(zoomLevel, fit = 1) {
 
 export function auToGalaxyUnits(au) {
   return au / AU_PER_GALAXY_UNIT;
+}
+
+// Jari jari bingkai galaksi utuh (unit galaksi): piringan sekitar 540 plus ruang di tepi
+const GALAXY_FRAME_RADIUS = 600;
+
+// Faktor jarak kamera galaksi di zoom maksimal, dihitung dari sisi layar terpendek supaya galaksi
+// utuh muat. Di layar lebar (16:9) yang membatasi tinggi layar, dan jarak di zoomLevel maksimal
+// (sekitar 1580 unit) sudah cukup, jadi faktornya 1. Di portrait yang membatasi lebar layar
+// (sudut pandang horizontalnya sempit), jadi kamera mundur sebanding.
+// Faktor fit tata surya (scene/scaleMode.js) gak dipakai di sini: rumusnya dibuat buat orbit
+// Neptunus, di 390x844 bikin galaksi terlalu kecil (kamera sekitar 4900 unit)
+export function galaxyViewFit(aspect, fov) {
+  const tanHalf = Math.tan((fov * Math.PI) / 360) * Math.min(aspect, 1);
+  const needed = GALAXY_FRAME_RADIUS / tanHalf;
+  const atMax = auToGalaxyUnits(zoomLevelToAU(MAX_ZOOM_LEVEL));
+  return Math.max(1, needed / atMax);
 }

@@ -483,6 +483,11 @@ export function createVirtualZoom({ camera, controls, domElement, isAllowed, max
     reset() {
       setTarget(0);
     },
+    // Set offset langsung tanpa damping (dipakai waktu ukuran layar berubah, biar zoomLevel gak melorot)
+    setOffset(value) {
+      setTarget(value);
+      offset = target;
+    },
     // Dipanggil di awal tiap frame
     update(delta) {
       offset += (target - offset) * (1 - Math.exp(-delta * VIRTUAL_DAMPING));

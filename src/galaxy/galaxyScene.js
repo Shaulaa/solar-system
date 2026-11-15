@@ -1,6 +1,13 @@
 import * as THREE from 'three';
 import { galacticOrientation } from '../scene/milkyWay.js';
-import { auToGalaxyUnits, zoomLevelToAU, fadeBetween, STAGES, GALAXY_TEXTURE_LOAD_AT } from './zoomLevels.js';
+import {
+  auToGalaxyUnits,
+  zoomLevelToAU,
+  fadeBetween,
+  galaxyViewFit,
+  STAGES,
+  GALAXY_TEXTURE_LOAD_AT
+} from './zoomLevels.js';
 import { createGalaxyParticles } from './galaxyParticles.js';
 import { createGalaxyTexture } from './galaxyTexture.js';
 import { createYouAreHere } from './youAreHere.js';
@@ -161,8 +168,11 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
       if (particles.state === 'ready' && zoomLevel >= GALAXY_TEXTURE_LOAD_AT) texture.load();
       texture.update(fadeBetween(zoomLevel, STAGES.galaxyTexture.start, STAGES.galaxyTexture.end), delta);
 
-      const distance = auToGalaxyUnits(zoomLevelToAU(zoomLevel, fit));
       const tilt = fadeBetween(zoomLevel, STAGES.galaxyTilt.start, STAGES.galaxyTilt.end);
+      // Sebelum jalur kamera belok, jaraknya pakai fit tata surya (biar Matahari tetap sejajar dua scene).
+      // Sepanjang jalur pindah halus (geometris) ke faktor bingkai galaksi dari sisi layar terpendek
+      const viewFit = Math.pow(fit, 1 - tilt) * Math.pow(galaxyViewFit(mainCamera.aspect, mainCamera.fov), tilt);
+      const distance = auToGalaxyUnits(zoomLevelToAU(zoomLevel, viewFit));
       content.getWorldPosition(center);
       const follow = tilt === 0 ? 0 : Math.min((CENTER_FOLLOW * distance) / center.distanceTo(sunPosition), 1);
       const centering = follow * follow * (3 - 2 * follow);
@@ -210,6 +220,7 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
         position: sunPosition,
         camera,
         opacity: fadeBetween(zoomLevel, STAGES.youAreHere.start, STAGES.youAreHere.end),
+        ringOpacity: fadeBetween(zoomLevel, STAGES.youAreHereRing.start, STAGES.youAreHereRing.end),
         elapsed,
         width: cssWidth,
         height: cssHeight

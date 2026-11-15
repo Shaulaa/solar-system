@@ -535,12 +535,21 @@ window.addEventListener('keydown', (e) => {
 function updateOverviewFit() {
   const next = overviewFit(camera.aspect);
   if (next === fit) return;
+  const levelBefore = zoomLevel;
   fit = next;
   rig.setOverview({ position: overviewPositionAt(scaleMode.k, fit, overviewTarget) });
   if (scaleMode.transitioning) return;
   const settings = cameraSettings(scaleMode.mode, fit);
   controls.maxDistance = settings.maxDistance;
   camera.far = settings.far;
+  // Lagi zoom keluar: offset virtual disesuaikan biar zoomLevel tetap. Tanpa ini, layar yang berubah ke
+  // portrait (HP diputar, mode perangkat di DevTools, bilah URL HP menyusut) bikin zoomLevel melorot
+  // sekitar 0,5 dan galaksi kepotong kiri kanan. Jarak kamera tata surya dibatasi maxDistance yang baru,
+  // karena OrbitControls bakal menariknya ke sana di frame berikutnya
+  if (virtualZoom.active) {
+    const distance = Math.min(camera.position.length(), settings.maxDistance);
+    virtualZoom.setOffset(levelBefore - zoomLevelAt({ distance, k: scaleMode.k, fit }));
+  }
 }
 
 // Resize
