@@ -16,6 +16,7 @@ const DAYS_PER_YEAR = 365.25;
 
 const number1 = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 });
 const number2 = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 });
+const number0 = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 });
 
 // Di bawah 2 tahun lebih kebayang kalau ditulis dalam hari
 function formatYear(days) {
@@ -39,6 +40,16 @@ function formatDistance(au) {
 function getStats(body) {
   const { data, kind } = body;
   const info = data.info ?? {};
+
+  // Bintang tetangga (data/nearbyStars.js) punya baris sendiri
+  if (kind === 'nearby-star') {
+    return [
+      ['Jarak dari Matahari', `${number2.format(data.distanceLy)} tahun cahaya`],
+      ['Kelas spektral', data.spectral],
+      ['Suhu permukaan', `${number0.format(data.temperature)} K`],
+      ['Rasi bintang', data.constellation]
+    ];
+  }
   // Planet katai ngorbit Matahari juga, jadi datanya ditampilkan sama kayak planet
   const isPlanet = kind === 'planet' || kind === 'dwarf';
 

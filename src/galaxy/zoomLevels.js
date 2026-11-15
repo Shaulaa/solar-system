@@ -43,6 +43,10 @@ export const STAGES = {
   // penandanya mengambang, di 8,7 bintang piringan sudah ke segala arah). Sebelumnya cuma titik
   // Matahari yang tampil, jadi posisi "rumah" tetap kelihatan tanpa penanda besar di ruang kosong
   youAreHereRing: { start: 8.6, end: 9.0 },
+  // Bintang tetangga (sampai sekitar 43 tahun cahaya). Mulai muncul waktu kamera sekitar 0,16 tahun
+  // cahaya dari Matahari, memudar waktu semuanya sudah numpuk jadi satu titik di dekat Matahari
+  nearbyStarsIn: { start: 4, end: 4.6 },
+  nearbyStarsOut: { start: 6.6, end: 7.2 },
   // Partikel galaksi muncul, gantian dengan latar lama yang memudar.
   // Dari dalam piringan galaksi partikelnya kelihatan sebagai pita Bima Sakti di langit
   galaxyIn: { start: 3, end: 4 },

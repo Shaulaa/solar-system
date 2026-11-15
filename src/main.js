@@ -169,11 +169,13 @@ const virtualZoom = createVirtualZoom({
 
 const solarFade = createSolarFade({ sun, planets, asteroidBelt, orbits, labels, stars, milkyWay });
 
+// Panel info dipakai bareng benda tata surya dan bintang tetangga (G5). Kalau yang terbuka bintang,
+// tombol Kembali / swipe nutup panelnya dan navigasi pindah antar bintang
 const infoPanel = createInfoPanel({
-  onBack: goOverview,
+  onBack: () => (selectedStar ? closeStar() : goOverview()),
   onPrev: () => stepFocus(-1),
   onNext: () => stepFocus(1),
-  onSwipeClose: goOverview
+  onSwipeClose: () => (selectedStar ? closeStar() : goOverview())
 });
 
 const picker = createPicker({
@@ -197,6 +199,7 @@ function focusBody(id, { fromTour = false } = {}) {
   if (!fromTour) tour.stop();
   // Dipilih dari pencarian / tur waktu lagi zoom keluar: tata surya dibalikin bareng terbangnya
   virtualZoom.reset();
+  clearStarSelection();
   rig.focus(body);
   labels.setFocus(id);
   infoPanel.show(body, { prev: bodies.neighbor(id, -1), next: bodies.neighbor(id, 1) });
@@ -218,6 +221,10 @@ function goOverview() {
 }
 
 function stepFocus(direction) {
+  if (selectedStar) {
+    stepStar(direction);
+    return;
+  }
   if (!rig.focusedId) return;
   focusBody(bodies.neighbor(rig.focusedId, direction).id);
 }
@@ -271,6 +278,7 @@ function setLabelsVisible(visible) {
   view.labels = visible;
   labels.setEnabled(visible);
   galaxy.youAreHere.setLabelEnabled(visible);
+  galaxy.nearbyStars.setLabelEnabled(visible);
   toolbar.setLabelsVisible(visible);
 }
 
@@ -399,6 +407,78 @@ narration.querySelector('[data-action="stop-tour"]').addEventListener('click', (
 
 // Tur berhenti kalau user ngambil alih kamera: drag, klik, atau scroll di canvas
 canvas.addEventListener('pointerdown', () => tour.stop());
+
+// Bintang tetangga (G5): klik bintang buka panel info, klik ruang kosong nutup panelnya.
+// Picker benda tata surya mati selama zoom keluar, jadi dua duanya gak rebutan klik
+const nearbyStars = galaxy.nearbyStars;
+const starBodies = nearbyStars.list.map((star, index) => ({
+  id: star.id,
+  name: star.name,
+  kind: 'nearby-star',
+  index,
+  data: star
+}));
+let selectedStar = null;
+let starPress = null;
+let starHover = false;
+
+function starNeighbor(index, step) {
+  return starBodies[(index + step + starBodies.length) % starBodies.length];
+}
+
+function selectStar(id) {
+  const body = starBodies.find((b) => b.id === id);
+  if (!body) return;
+  tour.stop();
+  selectedStar = body;
+  nearbyStars.setSelected(id);
+  infoPanel.show(body, { prev: starNeighbor(body.index, -1), next: starNeighbor(body.index, 1) });
+  // Framing digeser seperti waktu fokus planet (bottom sheet HP / panel desktop nutupin sebagian layar).
+  // Kamera galaksi ikut geseran kamera utama, jadi bintangnya gak ketutup panel
+  rig.setViewShift(infoPanel.viewShift);
+}
+
+// Lupakan bintang yang dipilih tanpa nutup panel (panelnya mau dipakai benda lain)
+function clearStarSelection() {
+  if (!selectedStar) return;
+  selectedStar = null;
+  nearbyStars.setSelected(null);
+}
+
+function closeStar() {
+  if (!selectedStar) return;
+  clearStarSelection();
+  infoPanel.hide();
+  rig.setViewShift({ x: 0, y: 0 });
+}
+
+function stepStar(direction) {
+  selectStar(starNeighbor(selectedStar.index, direction).id);
+}
+
+canvas.addEventListener('pointerdown', (event) => {
+  if (!event.isPrimary || event.button !== 0) return;
+  starPress = { id: event.pointerId, x: event.clientX, y: event.clientY };
+});
+
+canvas.addEventListener('pointerup', (event) => {
+  if (!starPress || event.pointerId !== starPress.id) return;
+  const moved = Math.hypot(event.clientX - starPress.x, event.clientY - starPress.y);
+  starPress = null;
+  // Sama seperti picker planet: gerak 5 px atau lebih berarti lagi muter kamera, bukan klik
+  if (moved >= 5 || phase !== 'ready' || !nearbyStars.interactive) return;
+  const star = nearbyStars.pick(event.clientX, event.clientY);
+  if (star) selectStar(star.id);
+  else closeStar();
+});
+
+canvas.addEventListener('pointermove', (event) => {
+  if (event.pointerType === 'touch') return;
+  const hover = nearbyStars.interactive && nearbyStars.pick(event.clientX, event.clientY) !== null;
+  if (hover === starHover) return;
+  starHover = hover;
+  canvas.style.cursor = hover ? 'pointer' : '';
+});
 canvas.addEventListener('wheel', () => tour.stop(), { passive: true });
 
 // Pencarian. Ngetik "pluto" munculin Pluto yang tadinya tersembunyi (easter egg)
@@ -504,7 +584,8 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     setPaused(!time.paused);
   } else if (key === 'escape') {
-    goOverview();
+    if (selectedStar) closeStar();
+    else goOverview();
   } else if (key === 'arrowleft' || key === 'arrowright') {
     if (isSlider(e.target) || isTypingField(e.target)) return;
     tour.stop();
@@ -751,6 +832,8 @@ function tick(now) {
   });
   updateGalaxyGeneration();
   updateGalaxyCredit();
+  // Zoom keluar / masuk sampai bintang tetangga memudar: panel bintangnya ikut ditutup
+  if (selectedStar && !nearbyStars.interactive) closeStar();
   updateBloom();
 
   // Hover, label, dan UI dihitung dari posisi kamera yang sudah final

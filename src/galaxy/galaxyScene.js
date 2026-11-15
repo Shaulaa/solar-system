@@ -11,6 +11,7 @@ import {
 import { createGalaxyParticles } from './galaxyParticles.js';
 import { createGalaxyTexture } from './galaxyTexture.js';
 import { createYouAreHere } from './youAreHere.js';
+import { createNearbyStars } from './nearbyStars.js';
 import { OVERVIEW_POSITION } from '../controls/cameraRig.js';
 
 // Scene galaksi, dirender di lapisan bawah sebelum tata surya (render berlapis)
@@ -106,6 +107,9 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
   rotate(0);
   scene.add(youAreHere.points);
 
+  const nearbyStars = createNearbyStars({ pixelRatio, sunLocal });
+  content.add(nearbyStars.points);
+
   // Vektor kerja jalur kamera, dibuat sekali
   const solarDirection = new THREE.Vector3();
   const topDirection = new THREE.Vector3();
@@ -146,6 +150,7 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
     particles,
     texture,
     youAreHere,
+    nearbyStars,
     sunPosition,
     // Partikel dibuat di worker, sekali saja. Tekstur dimuat belakangan (lihat update)
     prepare(total) {
@@ -154,6 +159,7 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
     setPixelRatio(ratio) {
       particles.setPixelRatio(ratio);
       youAreHere.setPixelRatio(ratio);
+      nearbyStars.setPixelRatio(ratio);
     },
     // Kamera galaksi. Jaraknya dari zoomLevel (sudah termasuk zoom virtual), dikonversi ke satuan galaksi
     //   sebelum galaxyTilt   arah dan orientasi sama persis dengan kamera tata surya, berpusat di
@@ -222,6 +228,14 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
         opacity: fadeBetween(zoomLevel, STAGES.youAreHere.start, STAGES.youAreHere.end),
         ringOpacity: fadeBetween(zoomLevel, STAGES.youAreHereRing.start, STAGES.youAreHereRing.end),
         elapsed,
+        width: cssWidth,
+        height: cssHeight
+      });
+      nearbyStars.update({
+        camera,
+        opacity:
+          fadeBetween(zoomLevel, STAGES.nearbyStarsIn.start, STAGES.nearbyStarsIn.end) *
+          (1 - fadeBetween(zoomLevel, STAGES.nearbyStarsOut.start, STAGES.nearbyStarsOut.end)),
         width: cssWidth,
         height: cssHeight
       });
