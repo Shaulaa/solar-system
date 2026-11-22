@@ -454,10 +454,31 @@ export function createVirtualZoom({ camera, controls, domElement, isAllowed, max
     return Math.hypot(a.x - b.x, a.y - b.y);
   };
 
+  // Cubit di layar sentuh harus zoom murni biar sudut kamera gak berubah. Default OrbitControls
+  // (DOLLY_PAN) ikut nge-pan dari geseran titik tengah dua jari, dan begitu satu jari diangkat duluan,
+  // jari sisanya langsung muterin kamera. Jadi selama gesture multi jari: pan mati, dua jari cuma
+  // zoom (atau gak ngapa ngapain di zoom virtual, di sana handler di bawah yang zoom), dan satu jari
+  // sisa gak muter sampai semua jari lepas
+  const defaultTouches = { ...controls.touches };
+
+  function lockPinch() {
+    controls.enablePan = false;
+    controls.touches.ONE = null;
+    controls.touches.TWO = target > 0 ? null : defaultTouches.TWO;
+  }
+
+  function unlockPinch() {
+    controls.touches.ONE = defaultTouches.ONE;
+    controls.touches.TWO = defaultTouches.TWO;
+  }
+
+  // Dipasang di fase capture biar jalan sebelum pointerdown OrbitControls, jadi waktu jari kedua
+  // nempel dia sudah baca setelan cubit yang dikunci
   function handlePointerDown(event) {
     if (event.pointerType !== 'touch') return;
     touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
     pinchDistance = touches.size === 2 ? pinchSpan() : 0;
+    if (touches.size >= 2) lockPinch();
   }
 
   function handlePointerMove(event) {
@@ -475,13 +496,14 @@ export function createVirtualZoom({ camera, controls, domElement, isAllowed, max
   function handlePointerUp(event) {
     if (!touches.delete(event.pointerId)) return;
     pinchDistance = touches.size === 2 ? pinchSpan() : 0;
+    if (touches.size === 0) unlockPinch();
     syncControls();
   }
 
   // Listener OrbitControls sudah terpasang duluan (waktu controls dibuat), jadi selalu jalan
   // lebih dulu. Waktu kamera mentok, scroll keluar dia abaikan sendiri karena sudah di maxDistance
   domElement.addEventListener('wheel', handleWheel, { passive: false });
-  domElement.addEventListener('pointerdown', handlePointerDown);
+  domElement.addEventListener('pointerdown', handlePointerDown, { capture: true });
   domElement.addEventListener('pointermove', handlePointerMove);
   domElement.addEventListener('pointerup', handlePointerUp);
   domElement.addEventListener('pointercancel', handlePointerUp);

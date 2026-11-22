@@ -93,8 +93,8 @@ controls.dampingFactor = 0.06;
 controls.minDistance = cameraSettings('pretty', fit).minDistance;
 controls.maxDistance = cameraSettings('pretty', fit).maxDistance;
 controls.enablePan = true;
-// Di layar sentuh: satu jari muter, dua jari cubit buat zoom (sekaligus geser).
-// Ini memang default OrbitControls, ditulis eksplisit biar jelas sengaja
+// Di layar sentuh: satu jari muter, dua jari cubit buat zoom. Pan dua jari-nya dimatikan selama
+// cubit (lihat createVirtualZoom di controls/cameraRig.js), biar sudut kamera gak ikut geser
 controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
 
 // Ambient tipis biar sisi gelap planet gak item pekat banget
