@@ -8,15 +8,20 @@ import { scaleDistance, unscaleDistance, blendScale } from '../utils/scale.js';
 //   0 sampai 2     tata surya
 //   2 sampai 4     orbit, label, dan planet memudar, Matahari jadi bintang
 //   4 sampai 6,5   bintang tetangga
-//   6,5 ke atas    galaksi Bima Sakti
+//   6,5 sampai 10  galaksi Bima Sakti
+//   10 ke atas     Grup Lokal (Andromeda, Triangulum, Awan Magellan)
 //
 // Kamera tata surya cuma bisa mundur sampai batas maxDistance. Lewat dari situ zoom ditambah
 // secara virtual (offset, lihat createVirtualZoom di controls/cameraRig.js): kamera diam,
 // isi tata surya yang mengecil. Jadi zoomLevel = zoom dari jarak kamera asli + offset
 
-// 10 (sekitar 1580 unit galaksi dari pusat pandang) biar galaksi utuh di tengah layar 16:9 waktu dilihat
-// dari atas. Di 9,8 kamera cuma sekitar 1000 unit dan piringan selebar 1040 unit kepotong atas bawah
-export const MAX_ZOOM_LEVEL = 10;
+// Tampilan Bima Sakti utuh: 10 (sekitar 1580 unit galaksi dari pusat pandang) biar galaksi utuh di
+// tengah layar 16:9 waktu dilihat dari atas. Di 9,8 kamera cuma sekitar 1000 unit dan piringan selebar
+// 1040 unit kepotong atas bawah. Tujuan zoom ke "Bima Sakti" (pencarian dan tur)
+export const GALAXY_VIEW_LEVEL = 10;
+// Zoom paling jauh: Grup Lokal utuh. Di 16:9 kamera sekitar 31.600 unit (3,2 juta tahun cahaya) dari
+// pusat Grup Lokal, pas buat bingkainya (bola sekitar 14.900 unit, galaxy/localGroup.js)
+export const MAX_ZOOM_LEVEL = 11.3;
 
 // Satuan galaxyScene: 1 unit = 100 tahun cahaya, galaksi berdiameter sekitar 1.000 unit
 export const AU_PER_LIGHT_YEAR = 63_241;
@@ -70,7 +75,18 @@ export const STAGES = {
   // dari zoomLevel): arah kamera pelan pelan naik ke tampilan atas yang sedikit serong.
   // Perpindahan pusat pandang dari Matahari ke pusat galaksi diatur dari jarak kamera, lihat
   // CENTER_FOLLOW di galaxy/galaxyScene.js
-  galaxyTilt: { start: 6.5, end: 9.3 }
+  galaxyTilt: { start: 6.5, end: 9.3 },
+  // Grup Lokal. Pusat pandang pindah dari pusat Bima Sakti ke pusat Grup Lokal sepanjang rentang ini
+  // (jalur kamera di galaxy/galaxyScene.js), bingkainya pindah dari galaksi utuh ke Grup Lokal utuh.
+  // Galaksinya sendiri sudah ada di scene sejak partikel siap: Awan Magellan kelihatan di tepi
+  // tampilan Bima Sakti, Andromeda jadi bercak kecil
+  localGroupView: { start: 10, end: 11.3 },
+  // Pendar lembut di tiap galaksi Grup Lokal, biar galaksi yang tinggal puluhan piksel tetap terbaca
+  localGroupHalo: { start: 10.2, end: 10.8 },
+  // Label dan klik galaksi Grup Lokal. Cincin dan label "Kamu di sini" memudar lebih dulu, digantikan
+  // label "Bima Sakti" (keduanya nunjuk ke tempat yang sama dan bakal tabrakan)
+  localGroupLabels: { start: 10.4, end: 10.9 },
+  youAreHereRingOut: { start: 10.15, end: 10.5 }
 };
 
 // Partikel galaksi baru di-generate (di worker) waktu zoomLevel pertama kali lewat angka ini
@@ -79,6 +95,9 @@ export const GALAXY_GENERATE_AT = 3;
 // Dibutuhkannya baru di sekitar 8,9. Kalau dimuat bareng partikel, alokasi teksturnya jatuh di frame
 // yang sama dengan frame pertama partikel digambar dan satu frame macet sekitar 65 ms (terukur)
 export const GALAXY_TEXTURE_LOAD_AT = 6;
+// Partikel Grup Lokal dibuat (worker kedua) setelah partikel Bima Sakti siap DAN zoomLevel lewat angka
+// ini. Awan Magellan baru kelihatan berarti sekitar zoomLevel 9 ke atas
+export const LOCAL_GROUP_GENERATE_AT = 7;
 
 // Nama tahap yang ditampilkan ke user (ui/stageName.js). Batasnya dipilih dari apa yang kelihatan:
 // bintang tetangga baru jelas sekitar 4,3 (nearbyStarsIn), dan bentuk galaksi mulai terbaca waktu
@@ -86,7 +105,8 @@ export const GALAXY_TEXTURE_LOAD_AT = 6;
 export const ZOOM_STAGES = [
   { id: 'solar', name: 'Tata Surya', note: 'Satu bintang, delapan planet' },
   { id: 'neighbors', name: 'Lingkungan Bintang Terdekat', note: 'Bintang dalam radius sekitar 40 tahun cahaya', from: 4.3 },
-  { id: 'galaxy', name: 'Galaksi Bima Sakti', note: '100 sampai 400 miliar bintang', from: 7 }
+  { id: 'galaxy', name: 'Galaksi Bima Sakti', note: '100 sampai 400 miliar bintang', from: 7 },
+  { id: 'local-group', name: 'Grup Lokal', note: 'Lebih dari 80 galaksi dalam radius sekitar 5 juta tahun cahaya', from: 10.7 }
 ];
 
 // Tombol "Kembali ke Tata Surya" muncul di atas angka ini (PRD-GALAXY bagian 4)
@@ -159,15 +179,25 @@ export function auToGalaxyUnits(au) {
 // Jari jari bingkai galaksi utuh (unit galaksi): piringan sekitar 540 plus ruang di tepi
 const GALAXY_FRAME_RADIUS = 600;
 
-// Faktor jarak kamera galaksi di zoom maksimal, dihitung dari sisi layar terpendek supaya galaksi
-// utuh muat. Di layar lebar (16:9) yang membatasi tinggi layar, dan jarak di zoomLevel maksimal
-// (sekitar 1580 unit) sudah cukup, jadi faktornya 1. Di portrait yang membatasi lebar layar
-// (sudut pandang horizontalnya sempit), jadi kamera mundur sebanding.
+// Faktor jarak kamera supaya bola berjari jari `radius` muat di layar pada zoomLevel `level`, dihitung
+// dari sisi layar terpendek. Di layar lebar (16:9) yang membatasi tinggi layar, dan jarak di level itu
+// sudah cukup, jadi faktornya 1. Di portrait yang membatasi lebar layar (sudut pandang horizontalnya
+// sempit), jadi kamera mundur sebanding.
 // Faktor fit tata surya (scene/scaleMode.js) gak dipakai di sini: rumusnya dibuat buat orbit
 // Neptunus, di 390x844 bikin galaksi terlalu kecil (kamera sekitar 4900 unit)
-export function galaxyViewFit(aspect, fov) {
+function viewFit(radius, level, aspect, fov) {
   const tanHalf = Math.tan((fov * Math.PI) / 360) * Math.min(aspect, 1);
-  const needed = GALAXY_FRAME_RADIUS / tanHalf;
-  const atMax = auToGalaxyUnits(zoomLevelToAU(MAX_ZOOM_LEVEL));
-  return Math.max(1, needed / atMax);
+  const needed = radius / tanHalf;
+  const atLevel = auToGalaxyUnits(zoomLevelToAU(level));
+  return Math.max(1, needed / atLevel);
+}
+
+// Bima Sakti utuh di GALAXY_VIEW_LEVEL
+export function galaxyViewFit(aspect, fov) {
+  return viewFit(GALAXY_FRAME_RADIUS, GALAXY_VIEW_LEVEL, aspect, fov);
+}
+
+// Grup Lokal utuh di MAX_ZOOM_LEVEL. radius = jari jari bingkainya (galaxy/localGroup.js)
+export function localGroupViewFit(aspect, fov, radius) {
+  return viewFit(radius, MAX_ZOOM_LEVEL, aspect, fov);
 }

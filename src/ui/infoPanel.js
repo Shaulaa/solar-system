@@ -32,6 +32,11 @@ function formatDay(days) {
   return days < 0 ? `${text}, berlawanan arah` : text;
 }
 
+// Jarak dalam tahun cahaya. Dari sejuta ke atas ditulis "x juta" biar gak kepanjangan
+function formatLightYears(ly) {
+  return ly >= 1e6 ? `${number2.format(ly / 1e6)} juta tahun cahaya` : `${number0.format(ly)} tahun cahaya`;
+}
+
 function formatDistance(au) {
   return `${number2.format(au)} AU · ${number1.format(au * KM_PER_AU_MILLION)} juta km`;
 }
@@ -49,6 +54,17 @@ function getStats(body) {
       ['Suhu permukaan', `${number0.format(data.temperature)} K`],
       ['Rasi bintang', data.constellation]
     ];
+  }
+  // Galaksi Grup Lokal (data/localGroup.js). Bima Sakti gak punya jarak, gantinya jarak Matahari ke pusatnya
+  if (kind === 'local-galaxy') {
+    return [
+      ['Jarak dari Matahari', data.distanceLy != null ? formatLightYears(data.distanceLy) : null],
+      ['Jarak Matahari ke pusatnya', data.sunDistanceLy != null ? formatLightYears(data.sunDistanceLy) : null],
+      ['Diameter', `Sekitar ${formatLightYears(data.diameterLy)}`],
+      ['Jenis', data.galaxyType],
+      ['Jumlah bintang', data.stars],
+      ['Rasi bintang', data.constellation]
+    ].filter((row) => row[1] != null);
   }
   // Planet katai ngorbit Matahari juga, jadi datanya ditampilkan sama kayak planet
   const isPlanet = kind === 'planet' || kind === 'dwarf';

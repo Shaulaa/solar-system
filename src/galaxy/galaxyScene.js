@@ -5,13 +5,16 @@ import {
   zoomLevelToAU,
   fadeBetween,
   galaxyViewFit,
+  localGroupViewFit,
   STAGES,
-  GALAXY_TEXTURE_LOAD_AT
+  GALAXY_TEXTURE_LOAD_AT,
+  MAX_ZOOM_LEVEL
 } from './zoomLevels.js';
 import { createGalaxyParticles } from './galaxyParticles.js';
 import { createGalaxyTexture } from './galaxyTexture.js';
 import { createYouAreHere } from './youAreHere.js';
 import { createNearbyStars } from './nearbyStars.js';
+import { createLocalGroup } from './localGroup.js';
 import { OVERVIEW_POSITION } from '../controls/cameraRig.js';
 
 // Scene galaksi, dirender di lapisan bawah sebelum tata surya (render berlapis)
@@ -116,6 +119,15 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
   const nearbyStars = createNearbyStars({ pixelRatio, sunLocal });
   content.add(nearbyStars.points);
 
+  // Galaksi Grup Lokal di grup `galaxy` (gak ikut berputar). Pusat bingkainya di world dihitung sekali,
+  // grup `galaxy` gak pernah bergerak
+  const localGroup = createLocalGroup({ pixelRatio, sunLocal });
+  galaxy.add(localGroup.group);
+  galaxy.updateMatrixWorld(true);
+  const localGroupCenter = galaxy.localToWorld(localGroup.center.clone());
+  // Sumbu panjang Grup Lokal (dari pusat Bima Sakti ke pusat bingkainya, kira kira ke arah Triangulum)
+  const localGroupAxis = localGroupCenter.clone().sub(galaxy.localToWorld(new THREE.Vector3())).normalize();
+
   // Vektor kerja jalur kamera, dibuat sekali
   const solarDirection = new THREE.Vector3();
   const topDirection = new THREE.Vector3();
@@ -131,6 +143,8 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
   const lookQuaternion = new THREE.Quaternion();
   const lookMatrix = new THREE.Matrix4();
   const partialTurn = new THREE.Quaternion();
+  const viewDirection = new THREE.Vector3();
+  const groupUp = new THREE.Vector3();
 
   // Jarak kamera galaksi ke titik yang dilihatnya (unit galaksi), dipakai penggaris skala
   let viewDistance = 0;
@@ -165,6 +179,7 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
     texture,
     youAreHere,
     nearbyStars,
+    localGroup,
     sunPosition,
     // Partikel dibuat di worker, sekali saja. Tekstur dimuat belakangan (lihat update)
     prepare(total) {
@@ -174,6 +189,7 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
       particles.setPixelRatio(ratio);
       youAreHere.setPixelRatio(ratio);
       nearbyStars.setPixelRatio(ratio);
+      localGroup.setPixelRatio(ratio);
     },
     get viewDistance() {
       return viewDistance;
@@ -215,32 +231,51 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
     //   galaxyTilt           arah kamera berputar halus ke tampilan atas serong, "atas" layar ikut
     //                        pindah ke kutub utara galaksi
     //   galaxyCenter         titik yang dilihat pindah dari Matahari ke pusat galaksi
+    //   localGroupView       titik yang dilihat pindah lagi ke pusat Grup Lokal, bingkainya melebar
+    //                        dari galaksi utuh ke Grup Lokal utuh
     // frame = { delta, elapsed, viewportHeight (piksel device), cssWidth, cssHeight, mainTarget }
     update(mainCamera, zoomLevel, fit, { delta, elapsed, viewportHeight, cssWidth, cssHeight, mainTarget }) {
       rotate(elapsed);
       const neighborhood = 1 - fadeBetween(zoomLevel, STAGES.neighborhoodOut.start, STAGES.neighborhoodOut.end);
-      particles.setOpacity(
-        fadeBetween(zoomLevel, STAGES.galaxyIn.start, STAGES.galaxyIn.end) * THREE.MathUtils.lerp(1, NEIGHBORHOOD_DIM, neighborhood)
-      );
+      // Dipakai juga galaksi Grup Lokal: Awan Magellan kelihatan di langit selama tahap bintang tetangga,
+      // jadi ikut diredupkan bareng partikel Bima Sakti
+      const galaxyOpacity =
+        fadeBetween(zoomLevel, STAGES.galaxyIn.start, STAGES.galaxyIn.end) * THREE.MathUtils.lerp(1, NEIGHBORHOOD_DIM, neighborhood);
+      particles.setOpacity(galaxyOpacity);
       particles.setLocalClearing(neighborhood);
       if (particles.state === 'ready' && zoomLevel >= GALAXY_TEXTURE_LOAD_AT) texture.load();
       texture.update(fadeBetween(zoomLevel, STAGES.galaxyTexture.start, STAGES.galaxyTexture.end), delta);
 
       const tilt = fadeBetween(zoomLevel, STAGES.galaxyTilt.start, STAGES.galaxyTilt.end);
       // Sebelum jalur kamera belok, jaraknya pakai fit tata surya (biar Matahari tetap sejajar dua scene).
-      // Sepanjang jalur pindah halus (geometris) ke faktor bingkai galaksi dari sisi layar terpendek
-      const viewFit = Math.pow(fit, 1 - tilt) * Math.pow(galaxyViewFit(mainCamera.aspect, mainCamera.fov), tilt);
+      // Sepanjang jalur pindah halus (geometris) ke faktor bingkai galaksi dari sisi layar terpendek,
+      // lalu di tahap Grup Lokal ke faktor bingkai Grup Lokal
+      const galaxyFit = Math.pow(fit, 1 - tilt) * Math.pow(galaxyViewFit(mainCamera.aspect, mainCamera.fov), tilt);
+      const groupFit = localGroupViewFit(mainCamera.aspect, mainCamera.fov, localGroup.frameRadius);
+      const { start: groupStart } = STAGES.localGroupView;
+      const groupBlend = fadeBetween(zoomLevel, groupStart, STAGES.localGroupView.end);
+      const viewFit = groupBlend > 0 ? Math.pow(galaxyFit, 1 - groupBlend) * Math.pow(groupFit, groupBlend) : galaxyFit;
       const distance = auToGalaxyUnits(zoomLevelToAU(zoomLevel, viewFit));
       viewDistance = distance;
       content.getWorldPosition(center);
       const follow = tilt === 0 ? 0 : Math.min((CENTER_FOLLOW * distance) / center.distanceTo(sunPosition), 1);
       const centering = follow * follow * (3 - 2 * follow);
+      // Pusat pandang ke pusat Grup Lokal sebanding pertambahan jarak kamera: 0 di tampilan galaksi utuh,
+      // 1 di zoom maksimal. Karena jaraknya naik 10x tiap dekade, pergeserannya selalu kecil dibanding
+      // lebar layar dan Bima Sakti gak pernah keluar layar di tengah jalan
+      let groupFollow = 0;
+      if (zoomLevel > groupStart) {
+        const fromDistance = auToGalaxyUnits(zoomLevelToAU(groupStart, viewFit));
+        const toDistance = auToGalaxyUnits(zoomLevelToAU(MAX_ZOOM_LEVEL, groupFit));
+        groupFollow = THREE.MathUtils.clamp((distance - fromDistance) / (toDistance - fromDistance), 0, 1);
+      }
 
       solarDirection.copy(mainCamera.position);
       if (solarDirection.lengthSq() < 1e-12) solarDirection.set(0, 0, 1);
       solarDirection.normalize();
 
       if (tilt === 0 && centering === 0) {
+        lookTarget.copy(sunPosition);
         camera.position.copy(solarDirection).multiplyScalar(distance).add(sunPosition);
         camera.quaternion.copy(mainCamera.quaternion);
       } else {
@@ -248,11 +283,24 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
         // Putaran halus (slerp) dari arah kamera tata surya ke arah tampilan atas
         turn.setFromUnitVectors(solarDirection, topDirection);
         direction.copy(solarDirection).applyQuaternion(partialTurn.identity().slerp(turn, tilt));
-        lookTarget.lerpVectors(sunPosition, center, centering);
+        lookTarget.lerpVectors(sunPosition, center, centering).lerp(localGroupCenter, groupFollow);
         camera.position.copy(direction).multiplyScalar(distance).add(lookTarget);
 
         north.set(0, 1, 0).applyQuaternion(galaxy.quaternion);
         up.copy(WORLD_UP).lerp(north, tilt).normalize();
+        // Di tahap Grup Lokal kamera diputar di sumbu pandangnya (roll) supaya sumbu panjang Grup Lokal
+        // sejajar sisi layar yang panjang: mendatar di landscape, tegak di portrait. Tanpa ini galaksinya
+        // bisa berjajar tegak di layar lebar dan Bima Sakti nempel ke judul di atas
+        if (groupBlend > 0) {
+          viewDirection.subVectors(lookTarget, camera.position).normalize();
+          groupUp.copy(localGroupAxis).addScaledVector(viewDirection, -localGroupAxis.dot(viewDirection));
+          if (groupUp.lengthSq() > 1e-6) {
+            groupUp.normalize();
+            if (mainCamera.aspect >= 1) groupUp.cross(viewDirection);
+            if (groupUp.dot(up) < 0) groupUp.negate();
+            up.lerp(groupUp, groupBlend).normalize();
+          }
+        }
         lookMatrix.lookAt(camera.position, lookTarget, up);
         lookQuaternion.setFromRotationMatrix(lookMatrix);
         // Serah terima orientasi dari kamera tata surya dibikin halus di awal jalur, biar gak
@@ -265,7 +313,9 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
       camera.fov = mainCamera.fov;
       camera.aspect = mainCamera.aspect;
       camera.near = THREE.MathUtils.clamp(distance * NEAR_RATIO, NEAR_MIN, NEAR_MAX);
-      camera.far = distance + FAR_MARGIN;
+      // Far plane selalu mencakup seluruh Grup Lokal (Andromeda kelihatan sebagai bercak kecil dari mana
+      // pun). Gak ada objek galaxyScene yang menulis depth, jadi rentang near / far yang lebar gak masalah
+      camera.far = distance + FAR_MARGIN + lookTarget.distanceTo(localGroupCenter) + localGroup.frameRadius;
       const view = mainCamera.view;
       if (view?.enabled) {
         camera.setViewOffset(view.fullWidth, view.fullHeight, view.offsetX, view.offsetY, view.width, view.height);
@@ -279,7 +329,9 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
         position: sunPosition,
         camera,
         opacity: fadeBetween(zoomLevel, STAGES.youAreHere.start, STAGES.youAreHere.end),
-        ringOpacity: fadeBetween(zoomLevel, STAGES.youAreHereRing.start, STAGES.youAreHereRing.end),
+        ringOpacity:
+          fadeBetween(zoomLevel, STAGES.youAreHereRing.start, STAGES.youAreHereRing.end) *
+          (1 - fadeBetween(zoomLevel, STAGES.youAreHereRingOut.start, STAGES.youAreHereRingOut.end)),
         elapsed,
         width: cssWidth,
         height: cssHeight
@@ -289,6 +341,18 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
         opacity:
           fadeBetween(zoomLevel, STAGES.nearbyStarsIn.start, STAGES.nearbyStarsIn.end) *
           (1 - fadeBetween(zoomLevel, STAGES.nearbyStarsOut.start, STAGES.nearbyStarsOut.end)),
+        width: cssWidth,
+        height: cssHeight
+      });
+      // Galaksi Grup Lokal muncul bareng partikel Bima Sakti (Awan Magellan dan Andromeda kelihatan juga
+      // dari dalam piringan), label dan kliknya baru di tahap Grup Lokal
+      localGroup.update({
+        camera,
+        opacity: galaxyOpacity,
+        halo: fadeBetween(zoomLevel, STAGES.localGroupHalo.start, STAGES.localGroupHalo.end),
+        labels: fadeBetween(zoomLevel, STAGES.localGroupLabels.start, STAGES.localGroupLabels.end),
+        delta,
+        viewportHeight,
         width: cssWidth,
         height: cssHeight
       });

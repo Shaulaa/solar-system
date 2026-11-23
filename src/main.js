@@ -31,7 +31,9 @@ import {
   fadeBetween,
   STAGES,
   MAX_ZOOM_LEVEL,
+  GALAXY_VIEW_LEVEL,
   GALAXY_GENERATE_AT,
+  LOCAL_GROUP_GENERATE_AT,
   SOLAR_CONTROLS_UNTIL,
   AU_PER_GALAXY_UNIT,
   createStageTracker
@@ -180,13 +182,13 @@ const virtualZoom = createVirtualZoom({
 
 const solarFade = createSolarFade({ sun, planets, asteroidBelt, orbits, labels, stars, milkyWay });
 
-// Panel info dipakai bareng benda tata surya dan bintang tetangga (G5). Kalau yang terbuka bintang,
-// tombol Kembali / swipe nutup panelnya dan navigasi pindah antar bintang
+// Panel info dipakai bareng benda tata surya, bintang tetangga (G5), dan galaksi Grup Lokal. Kalau yang
+// terbuka bintang / galaksi, tombol Kembali / swipe nutup panelnya dan navigasi pindah di daftarnya sendiri
 const infoPanel = createInfoPanel({
-  onBack: () => (selectedStar ? closeStar() : goOverview()),
+  onBack: () => (selectedSky ? closeSky() : goOverview()),
   onPrev: () => stepFocus(-1),
   onNext: () => stepFocus(1),
-  onSwipeClose: () => (selectedStar ? closeStar() : goOverview())
+  onSwipeClose: () => (selectedSky ? closeSky() : goOverview())
 });
 
 const picker = createPicker({
@@ -210,7 +212,7 @@ function focusBody(id, { fromTour = false } = {}) {
   if (!fromTour) tour.stop();
   // Dipilih dari pencarian / tur waktu lagi zoom keluar: tata surya dibalikin bareng terbangnya
   virtualZoom.reset();
-  clearStarSelection();
+  clearSkySelection();
   rig.focus(body);
   labels.setFocus(id);
   infoPanel.show(body, { prev: bodies.neighbor(id, -1), next: bodies.neighbor(id, 1) });
@@ -232,8 +234,8 @@ function goOverview() {
 }
 
 function stepFocus(direction) {
-  if (selectedStar) {
-    stepStar(direction);
+  if (selectedSky) {
+    stepSky(direction);
     return;
   }
   if (!rig.focusedId) return;
@@ -290,6 +292,7 @@ function setLabelsVisible(visible) {
   labels.setEnabled(visible);
   galaxy.youAreHere.setLabelEnabled(visible);
   galaxy.nearbyStars.setLabelEnabled(visible);
+  galaxy.localGroup.setLabelEnabled(visible);
   toolbar.setLabelsVisible(visible);
 }
 
@@ -410,10 +413,27 @@ const galaxyEntry = {
   tourSeconds: FLY_DURATION + GALAXY_ZOOM_SECONDS + 7
 };
 
+// Grup Lokal: pemberhentian terakhir tur dan hasil pencarian. Memilihnya = zoom keluar paling jauh
+const GROUP_ZOOM_SECONDS = 3.5;
+const localGroupEntry = {
+  id: 'local-group',
+  name: 'Grup Lokal',
+  kind: 'local-group',
+  index: null,
+  data: {
+    subtitle: 'Kumpulan galaksi tempat Bima Sakti berada',
+    aliases: ['Local Group', 'Grup Galaksi Lokal'],
+    narration:
+      'Bima Sakti cuma satu dari lebih 80 galaksi di Grup Lokal. Tetangga besar terdekatnya, Andromeda, jauhnya 2,5 juta tahun cahaya: cahayanya yang sampai malam ini berangkat waktu manusia purba pertama baru muncul.'
+  },
+  tourSeconds: GROUP_ZOOM_SECONDS + 7
+};
+
 const tour = createTour({
-  stops: [...bodies.sequence, galaxyEntry],
+  stops: [...bodies.sequence, galaxyEntry, localGroupEntry],
   onVisit: (stop, index, total) => {
     if (stop.kind === 'galaxy') zoomToGalaxy({ fromTour: true });
+    else if (stop.kind === 'local-group') zoomToLocalGroup(null, { fromTour: true });
     else focusBody(stop.id, { fromTour: true });
     showNarration(stop, index, total);
   },
@@ -438,75 +458,92 @@ narration.querySelector('[data-action="stop-tour"]').addEventListener('click', (
 // Tur berhenti kalau user ngambil alih kamera: drag, klik, atau scroll di canvas
 canvas.addEventListener('pointerdown', () => tour.stop());
 
-// Bintang tetangga (G5): klik bintang buka panel info, klik ruang kosong nutup panelnya.
-// Picker benda tata surya mati selama zoom keluar, jadi dua duanya gak rebutan klik
+// Bintang tetangga (G5) dan galaksi Grup Lokal: klik buka panel info, klik ruang kosong nutup panelnya.
+// Dua lapisan ini (sky layer) bentuknya sama: list, pick(x, y), interactive, setSelected(id). Picker benda
+// tata surya mati selama zoom keluar, dan dua lapisan ini gak pernah bisa diklik bareng (bintang tetangga
+// sampai zoomLevel sekitar 7, Grup Lokal mulai sekitar 10,4), jadi gak ada yang rebutan klik
 const nearbyStars = galaxy.nearbyStars;
-const starBodies = nearbyStars.list.map((star, index) => ({
-  id: star.id,
-  name: star.name,
-  kind: 'nearby-star',
-  index,
-  data: star
-}));
-let selectedStar = null;
-let starPress = null;
-let starHover = false;
+const localGroup = galaxy.localGroup;
+const skyLayers = [
+  { layer: nearbyStars, kind: 'nearby-star' },
+  { layer: localGroup, kind: 'local-galaxy' }
+].map(({ layer, kind }) => {
+  const sky = { layer, bodies: [] };
+  sky.bodies = layer.list.map((item, index) => ({ id: item.id, name: item.name, kind, index, data: item, sky }));
+  return sky;
+});
+const [starSky, groupSky] = skyLayers;
+const starBodies = starSky.bodies;
+// Bima Sakti di pencarian sudah diwakili galaxyEntry (zoom ke galaksi utuh)
+const groupBodies = groupSky.bodies.filter((body) => body.id !== galaxyEntry.id);
+let selectedSky = null;
+let skyPress = null;
+let skyHover = false;
 
-function starNeighbor(index, step) {
-  return starBodies[(index + step + starBodies.length) % starBodies.length];
+function skyNeighbor(body, step) {
+  const list = body.sky.bodies;
+  return list[(body.index + step + list.length) % list.length];
 }
 
-function selectStar(id) {
-  const body = starBodies.find((b) => b.id === id);
-  if (!body) return;
+function selectSky(body) {
   tour.stop();
-  selectedStar = body;
-  nearbyStars.setSelected(id);
-  infoPanel.show(body, { prev: starNeighbor(body.index, -1), next: starNeighbor(body.index, 1) });
+  if (selectedSky && selectedSky.sky !== body.sky) selectedSky.sky.layer.setSelected(null);
+  selectedSky = body;
+  body.sky.layer.setSelected(body.id);
+  infoPanel.show(body, { prev: skyNeighbor(body, -1), next: skyNeighbor(body, 1) });
   // Framing digeser seperti waktu fokus planet (bottom sheet HP / panel desktop nutupin sebagian layar).
-  // Kamera galaksi ikut geseran kamera utama, jadi bintangnya gak ketutup panel
+  // Kamera galaksi ikut geseran kamera utama, jadi bintang / galaksinya gak ketutup panel
   rig.setViewShift(infoPanel.viewShift);
 }
 
-// Lupakan bintang yang dipilih tanpa nutup panel (panelnya mau dipakai benda lain)
-function clearStarSelection() {
-  if (!selectedStar) return;
-  selectedStar = null;
-  nearbyStars.setSelected(null);
+// Lupakan pilihan tanpa nutup panel (panelnya mau dipakai benda lain)
+function clearSkySelection() {
+  if (!selectedSky) return;
+  selectedSky.sky.layer.setSelected(null);
+  selectedSky = null;
 }
 
-function closeStar() {
-  if (!selectedStar) return;
-  clearStarSelection();
+function closeSky() {
+  if (!selectedSky) return;
+  clearSkySelection();
   infoPanel.hide();
   rig.setViewShift({ x: 0, y: 0 });
 }
 
-function stepStar(direction) {
-  selectStar(starNeighbor(selectedStar.index, direction).id);
+function stepSky(direction) {
+  selectSky(skyNeighbor(selectedSky, direction));
+}
+
+// Lapisan yang sekarang bisa diklik, atau null
+const activeSky = () => skyLayers.find((sky) => sky.layer.interactive) ?? null;
+
+function pickSky(x, y) {
+  const sky = activeSky();
+  const item = sky?.layer.pick(x, y);
+  return item ? sky.bodies.find((body) => body.id === item.id) : null;
 }
 
 canvas.addEventListener('pointerdown', (event) => {
   if (!event.isPrimary || event.button !== 0) return;
-  starPress = { id: event.pointerId, x: event.clientX, y: event.clientY };
+  skyPress = { id: event.pointerId, x: event.clientX, y: event.clientY };
 });
 
 canvas.addEventListener('pointerup', (event) => {
-  if (!starPress || event.pointerId !== starPress.id) return;
-  const moved = Math.hypot(event.clientX - starPress.x, event.clientY - starPress.y);
-  starPress = null;
+  if (!skyPress || event.pointerId !== skyPress.id) return;
+  const moved = Math.hypot(event.clientX - skyPress.x, event.clientY - skyPress.y);
+  skyPress = null;
   // Sama seperti picker planet: gerak 5 px atau lebih berarti lagi muter kamera, bukan klik
-  if (moved >= 5 || phase !== 'ready' || !nearbyStars.interactive) return;
-  const star = nearbyStars.pick(event.clientX, event.clientY);
-  if (star) selectStar(star.id);
-  else closeStar();
+  if (moved >= 5 || phase !== 'ready' || !activeSky()) return;
+  const body = pickSky(event.clientX, event.clientY);
+  if (body) selectSky(body);
+  else closeSky();
 });
 
 canvas.addEventListener('pointermove', (event) => {
   if (event.pointerType === 'touch') return;
-  const hover = nearbyStars.interactive && nearbyStars.pick(event.clientX, event.clientY) !== null;
-  if (hover === starHover) return;
-  starHover = hover;
+  const hover = pickSky(event.clientX, event.clientY) !== null;
+  if (hover === skyHover) return;
+  skyHover = hover;
   canvas.style.cursor = hover ? 'pointer' : '';
 });
 canvas.addEventListener('wheel', () => tour.stop(), { passive: true });
@@ -517,13 +554,15 @@ const SECRETS = {
 };
 
 const search = createSearch({
-  items: [...bodies.list, galaxyEntry, ...starBodies],
+  items: [...bodies.list, galaxyEntry, localGroupEntry, ...groupBodies, ...starBodies],
   onSelect: selectSearchResult,
   onSecret: (query) => SECRETS[query]?.()
 });
 
 function selectSearchResult(item) {
   if (item.kind === 'galaxy') zoomToGalaxy();
+  else if (item.kind === 'local-group') zoomToLocalGroup();
+  else if (item.kind === 'local-galaxy') zoomToLocalGroup(item.id);
   else if (item.kind === 'nearby-star') zoomToStar(item.id);
   else focusBody(item.id);
 }
@@ -544,14 +583,31 @@ function leaveFocusForZoom() {
 function zoomToGalaxy({ fromTour = false } = {}) {
   if (!canInteract()) return;
   if (!fromTour) tour.stop();
-  closeStar();
+  closeSky();
   // Partikel mulai dibuat sekarang, jangan nunggu zoomLevel lewat GALAXY_GENERATE_AT,
   // biar galaksinya sudah siap waktu tween sampai
   if (galaxy.particles.state === 'idle') galaxy.prepare(galaxyParticleCount());
   virtualZoom.animateTo({
-    to: () => MAX_ZOOM_LEVEL - solarZoomLevel(),
+    to: () => GALAXY_VIEW_LEVEL - solarZoomLevel(),
     duration: GALAXY_ZOOM_SECONDS,
     delay: leaveFocusForZoom()
+  });
+}
+
+// Zoom keluar sampai Grup Lokal utuh. id = galaksi yang panel infonya dibuka setelah sampai (opsional).
+// Dari tampilan galaksi utuh (tur) cukup GROUP_ZOOM_SECONDS, dari tata surya ditambah lama zoom ke galaksi
+function zoomToLocalGroup(id = null, { fromTour = false } = {}) {
+  if (!canInteract()) return;
+  if (!fromTour) tour.stop();
+  closeSky();
+  if (galaxy.particles.state === 'idle') galaxy.prepare(galaxyParticleCount());
+  const fromGalaxy = zoomLevel >= GALAXY_VIEW_LEVEL - 0.5;
+  const body = id ? groupSky.bodies.find((item) => item.id === id) : null;
+  virtualZoom.animateTo({
+    to: () => MAX_ZOOM_LEVEL - solarZoomLevel(),
+    duration: fromGalaxy ? GROUP_ZOOM_SECONDS : GALAXY_ZOOM_SECONDS + GROUP_ZOOM_SECONDS,
+    delay: leaveFocusForZoom(),
+    onComplete: body ? () => selectSky(body) : undefined
   });
 }
 
@@ -574,7 +630,7 @@ function zoomToStar(id) {
     to: () => galaxy.levelForStar(index, camera, fit, starBox()) - solarZoomLevel(),
     duration: STAR_ZOOM_SECONDS,
     delay: leaveFocusForZoom(),
-    onComplete: () => selectStar(id)
+    onComplete: () => selectSky(starBodies[index])
   });
 }
 
@@ -583,7 +639,7 @@ function zoomToStar(id) {
 function returnToSolar() {
   if (!canInteract() || !virtualZoom.active) return;
   tour.stop();
-  closeStar();
+  closeSky();
   virtualZoom.animateTo({ to: 0, duration: RETURN_SECONDS });
   rig.overview({ duration: RETURN_SECONDS, force: true });
 }
@@ -711,7 +767,7 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     setPaused(!time.paused);
   } else if (key === 'escape') {
-    if (selectedStar) closeStar();
+    if (selectedSky) closeSky();
     else goOverview();
   } else if (key === 'arrowleft' || key === 'arrowright') {
     if (isSlider(e.target) || isTypingField(e.target)) return;
@@ -926,10 +982,23 @@ function galaxyParticleCount() {
   return performanceMonitor.level >= 1 ? GALAXY_PARTICLES.low : GALAXY_PARTICLES.desktop;
 }
 
+// Pengali jumlah partikel Grup Lokal (sekitar 100 ribu di desktop), bertingkat seperti Bima Sakti
+const LOCAL_GROUP_SCALE = { mobile: 0.35, low: 0.6, desktop: 1 };
+
+function localGroupScale() {
+  if (isMobile) return LOCAL_GROUP_SCALE.mobile;
+  return performanceMonitor.level >= 1 ? LOCAL_GROUP_SCALE.low : LOCAL_GROUP_SCALE.desktop;
+}
+
 function updateGalaxyGeneration() {
   const particles = galaxy.particles;
   if (particles.state === 'idle' && zoomLevel >= GALAXY_GENERATE_AT) {
     galaxy.prepare(galaxyParticleCount());
+  }
+  // Grup Lokal setelah Bima Sakti selesai (termasuk pemanasan GPU-nya), biar dua worker dan
+  // dua upload data gak jatuh di waktu yang sama
+  if (particles.state === 'ready' && localGroup.state === 'idle' && zoomLevel >= LOCAL_GROUP_GENERATE_AT) {
+    localGroup.generate(localGroupScale());
   }
   // Indikator cuma kalau user sudah di skala galaksi dan datanya belum siap (atau gagal)
   let next = '';
@@ -1041,8 +1110,8 @@ function tick(now) {
   updateGalaxyGeneration();
   updateGalaxyCredit();
   updateZoomUi();
-  // Zoom keluar / masuk sampai bintang tetangga memudar: panel bintangnya ikut ditutup
-  if (selectedStar && !nearbyStars.interactive) closeStar();
+  // Zoom keluar / masuk sampai bintang tetangga / galaksi Grup Lokal memudar: panelnya ikut ditutup
+  if (selectedSky && !selectedSky.sky.layer.interactive) closeSky();
   updateBloom();
 
   // Hover, label, dan UI dihitung dari posisi kamera yang sudah final

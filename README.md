@@ -2,7 +2,7 @@
 
 [![Demo: zooming out from the solar system, past the nearest stars, to a top view of the Milky Way](docs/demo.gif)](https://solarsystem-id.vercel.app)
 
-A 3D solar system you can explore right in the browser. Click a planet to fly there, sit back for a guided tour, switch to true scale and see how tiny the planets are compared to the distances between their orbits, or keep zooming out past the nearest stars until the whole Milky Way fits on screen.
+A 3D solar system you can explore right in the browser. Click a planet to fly there, sit back for a guided tour, switch to true scale and see how tiny the planets are compared to the distances between their orbits, or keep zooming out past the nearest stars and the whole Milky Way until Andromeda comes into view.
 
 Built with Three.js, GSAP, and Vite, no UI framework.
 
@@ -12,18 +12,19 @@ Built with Three.js, GSAP, and Vite, no UI framework.
 
 ## Features
 
-- **Cinematic visuals.** Sun from a plasma shader with bloom. Three-layer Earth with day and night city lights, surface relief, sun glint on the oceans, clouds, and atmosphere. Saturn's rings receive the planet's shadow, a 2,000-rock asteroid belt renders in a single draw call, and the Milky Way sits in the background
+- **Cinematic visuals.** Sun from a plasma shader with bloom. Three-layer Earth with day and night city lights, surface relief, sun glint on the oceans, clouds, and atmosphere. Saturn, Uranus, and Neptune have rings that receive the planet's shadow, a 2,000-rock asteroid belt renders in a single draw call, and the Milky Way sits in the background
 - **Real planet positions.** Elliptical, inclined orbits from JPL orbital elements. Each planet's position is solved with Kepler's equation for the simulated date, so the layout on screen matches the actual sky today
 - **Camera flights.** Click a planet, the Sun, or a moon and the camera flies there and locks onto the moving body without jitter, while you can still orbit around it freely
 - **Info panel.** Diameter, distance, length of year and day, temperature, number of moons, axial tilt, and a fun fact. Everything comes from a single data file
-- **Zoom out to the Milky Way.** Keep scrolling or pinching past Neptune and the view continues in one smooth zoom, from a few AU to about 160,000 light years. The galaxy is built from up to 500,000 particles (bulge, bar, spiral arms, disk, halo, gas, and dust) generated in a Web Worker, with the Sun at its real position about 26,000 light years from the center and a "you are here" marker
+- **Zoom out to the Milky Way and beyond.** Keep scrolling or pinching past Neptune and the view continues in one smooth zoom, from a few AU to about 3 million light years. The galaxy is built from up to 500,000 particles (bulge, bar, spiral arms, disk, halo, gas, and dust) generated in a Web Worker, with the Sun at its real position about 26,000 light years from the center and a "you are here" marker
+- **Local Group.** The last stage shows the Milky Way with its neighbors: Andromeda, Triangulum, and the Large and Small Magellanic Clouds, built from particles in a second Web Worker and placed at their real sky positions and distances, with Andromeda's disk tilted as we actually see it. 25 real dwarf galaxies (M32, M110, NGC 6822, Leo I, and more) show as faint smudges, so the two clusters around the Milky Way and Andromeda are visible. Every large galaxy is clickable and opens an info panel
 - **Nearest stars.** Between the solar system and the galaxy there is a stage with the 33 nearest and best-known stars (Alpha Centauri, Sirius, Vega, Arcturus, and more), colored by spectral class. Each one is clickable and opens an info panel
 - **Scale bar and stage names.** A scale bar with round numbers that switches from AU to light years, a short title whenever you enter a new stage (solar system, nearest stars, Milky Way), and a "Back to the solar system" button that zooms you home
-- **Guided tour.** From the Sun out to Neptune and then out to the whole galaxy, with a short narration at each stop. It stops on its own as soon as you take over the camera
+- **Guided tour.** From the Sun out to Neptune, then out to the whole galaxy and the Local Group, with a short narration at each stop. It stops on its own as soon as you take over the camera
 - **True scale.** A 2.5 second transition from the "pretty" scale to real proportions (1 AU = 400 units) and back
 - **Time controls.** Pause, 4 speed presets (1 day to 1 year per second), and a simulation date that starts today
-- **Search.** Press `/` or `Ctrl+K`, type a planet, moon, or nearby star name (English spellings work too), press Enter to fly there. Typing "Milky Way" or "galaksi" zooms all the way out to the galaxy. There is one hidden object that shows up if you type its name
-- **9 moons.** The Moon, Phobos, Deimos, and Jupiter's 4 Galilean moons, all clickable
+- **Search.** Press `/` or `Ctrl+K`, type a planet, moon, nearby star, or galaxy name (English spellings and catalog names like M31 work too), press Enter to fly there. Typing "Milky Way" or "galaksi" zooms out to the whole galaxy, "Local Group" or "Grup Lokal" all the way out. There is one hidden object that shows up if you type its name
+- **16 moons.** The Moon, Phobos, Deimos, Jupiter's 4 Galilean moons, Enceladus, Rhea, and Titan around Saturn, Miranda, Titania, and Oberon around Uranus, and Triton around Neptune, all clickable. Moons of the outer planets orbit in their planet's equatorial plane, so Uranus's moons are tipped over with it and Triton orbits backwards
 - **Mobile friendly.** Swipe-to-close bottom sheet, compact toolbar, and graphics quality that drops automatically on slower devices
 - **Accessible.** Every button has a label and tooltip, and everything works from the keyboard
 
@@ -128,6 +129,7 @@ src/
 ├── style.css
 ├── data/planets.js      planet, moon, and tour narration data (single source for all content)
 ├── data/nearbyStars.js  nearby star data (position, distance, spectral class, fun fact)
+├── data/localGroup.js   Local Group galaxies and dwarf galaxies (sky position, distance, disk tilt, shape)
 ├── controls/
 │   ├── picker.js        click / hover via raycasting, tells clicks apart from drags
 │   ├── cameraRig.js     intro, camera flights, following the focused body
@@ -148,9 +150,12 @@ src/
 │   ├── galaxyShaders.js particle shaders
 │   ├── galaxyTexture.js NASA/JPL-Caltech illustration layer, uploaded tile by tile
 │   ├── nearbyStars.js   clickable nearby stars
+│   ├── localGroup.js    Local Group galaxies (particles from the worker, glow, labels, clicks)
 │   └── youAreHere.js    "you are here" marker at the Sun
 ├── workers/
 │   ├── galaxyWorker.js  generates the galaxy particles
+│   ├── localGroupWorker.js  generates the Local Group galaxy particles
+│   ├── particleKit.js   seeded RNG and particle helpers shared by both workers
 │   └── imageWorker.js   decodes and tiles the galaxy illustration
 ├── scene/
 │   ├── bodies.js        registry of selectable bodies, shared by all interaction modules
@@ -159,7 +164,7 @@ src/
 │   ├── planets.js       planets and dwarf planets, elliptical orbits, rotation, axial tilt
 │   ├── earth.js         three-layer Earth (day and night, relief, ocean glint, clouds, atmosphere)
 │   ├── moons.js         moons orbiting their parent planets
-│   ├── saturnRing.js    ring with radial UVs and the planet's shadow
+│   ├── planetRing.js    rings of Saturn, Uranus, and Neptune (radial UVs, planet shadow)
 │   ├── asteroidBelt.js  asteroid belt (InstancedMesh, 1 draw call)
 │   ├── orbits.js        elliptical orbit lines (buffer rewritten on scale change)
 │   ├── stars.js         twinkling stars
@@ -168,6 +173,7 @@ src/
 └── utils/
     ├── scale.js         formulas for both scale modes
     ├── kepler.js        planet positions from orbital elements (Kepler's equation)
+    ├── sky.js           sky coordinates (RA, Dec) to galaxy scene coordinates, galaxy disk orientation
     ├── time.js          simulation date and days since J2000
     ├── loader.js        shared LoadingManager, WebP first then fallbacks
     ├── performance.js   FPS monitoring and automatic quality drop

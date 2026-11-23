@@ -1,11 +1,13 @@
+import { skyDirection } from '../utils/sky.js';
+
 // Bintang tetangga Matahari: semua bintang (dan sistem bintang) sampai sekitar 13 tahun cahaya,
 // ditambah beberapa bintang terang terkenal yang sedikit lebih jauh (Altair, Vega, Fomalhaut,
 // Pollux, Arcturus, Capella)
 //
 // Koordinat langit (J2000) dan jarak ditulis apa adanya biar gampang dicek ke katalog (HYG, SIMBAD).
 // Akurasinya "akurat secara populer" (PRD-GALAXY bagian 8). Posisi x y z dihitung di bawah:
-// koordinat ekuatorial -> koordinat galaktik (matriks rotasi standar J2000) -> koordinat galaksi
-// di galaxyScene (pusat galaksi +X, kutub utara galaksi +Y, arah putaran galaksi / bujur 90 derajat -Z,
+// koordinat ekuatorial -> koordinat galaksi di galaxyScene (utils/sky.js, matriks rotasi standar J2000)
+// (pusat galaksi +X, kutub utara galaksi +Y, arah putaran galaksi / bujur 90 derajat -Z,
 // lihat workers/galaxyWorker.js)
 //
 //   ra            asensio rekta (jam, desimal)
@@ -102,31 +104,13 @@ function genericFact(star, type) {
   return `Cahayanya butuh ${d} tahun untuk sampai ke Bumi.`;
 }
 
-// Matriks rotasi koordinat ekuatorial J2000 ke koordinat galaktik
-// (x ke pusat galaksi, y ke bujur 90 derajat, z ke kutub utara galaksi)
-const EQ_TO_GAL = [
-  [-0.0548755604, -0.8734370902, -0.4838350155],
-  [0.4941094279, -0.44482963, 0.7469822445],
-  [-0.867666149, -0.1980763734, 0.4559837762]
-];
-
-// Arah bintang dari Matahari di koordinat galaxyScene (vektor satuan)
-function directionOf(star) {
-  const ra = (star.ra / 24) * Math.PI * 2;
-  const dec = (star.dec * Math.PI) / 180;
-  const eq = [Math.cos(dec) * Math.cos(ra), Math.cos(dec) * Math.sin(ra), Math.sin(dec)];
-  const gal = EQ_TO_GAL.map((row) => row[0] * eq[0] + row[1] * eq[1] + row[2] * eq[2]);
-  // galaktik (x pusat, y bujur 90, z kutub utara) -> galaxyScene (x pusat, y kutub utara, -z bujur 90)
-  return [gal[0], gal[2], -gal[1]];
-}
-
 export const nearbyStars = STARS.map((star) => {
   const type = typeOf(star);
   return {
     ...star,
     type: type.letter,
     giant: type.giant,
-    direction: directionOf(star),
+    direction: skyDirection(star.ra, star.dec),
     subtitle: `${type.label} di rasi ${star.constellation}`,
     info: { fakta: star.fakta ?? genericFact(star, type) }
   };

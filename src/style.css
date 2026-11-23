@@ -127,6 +127,12 @@ body {
   display: none;
 }
 
+/* Nama galaksi Grup Lokal (galaxy/localGroup.js), sedikit lebih besar dari nama bintang */
+.local-group-label {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
 /* Kredit ilustrasi galaksi, baris kedua di bawah kredit tekstur */
 .credit-galaxy {
   display: block;

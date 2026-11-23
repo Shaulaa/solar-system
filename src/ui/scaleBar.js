@@ -31,7 +31,9 @@ export function pickScale(maxAU) {
   const maxLy = maxAU / AU_PER_LIGHT_YEAR;
   if (maxLy >= LIGHT_YEAR_FROM) {
     const value = niceFloor(maxLy);
-    return { value, unit: 'ly', label: `${formatter.format(value)} tahun cahaya`, au: value * AU_PER_LIGHT_YEAR };
+    // Dari sejuta ke atas (tahap Grup Lokal di layar portrait) ditulis "x juta" biar gak kepanjangan
+    const text = value >= 1e6 ? `${formatter.format(value / 1e6)} juta` : formatter.format(value);
+    return { value, unit: 'ly', label: `${text} tahun cahaya`, au: value * AU_PER_LIGHT_YEAR };
   }
   const value = niceFloor(maxAU);
   return { value, unit: 'au', label: `${formatter.format(value)} AU`, au: value };
