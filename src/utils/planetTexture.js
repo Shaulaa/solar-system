@@ -158,3 +158,40 @@ export function createRingTexture(seed = 7) {
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
 }
+
+// Tekstur cincin sempit (Uranus, Neptunus) dari daftar bands di data/planets.js.
+// ring = { inner, outer, color, bands: [{ at, width, alpha }] }, semua jarak kelipatan radius planet.
+// Tiap band digambar sebagai profil gaussian (setengah lebar di at ± width / 2), band yang tumpang
+// tindih digabung seperti lapisan tembus pandang: 1 - (1 - a)(1 - b)
+export function createBandedRingTexture(ring) {
+  const width = 1024;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = 1;
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(width, 1);
+  const base = hexToRgb(ring.color);
+  const span = ring.outer - ring.inner;
+
+  for (let px = 0; px < width; px++) {
+    const r = ring.inner + (px / (width - 1)) * span;
+    let clear = 1;
+    for (const band of ring.bands) {
+      const d = (r - band.at) / band.width;
+      clear *= 1 - band.alpha * Math.exp(-4 * d * d);
+    }
+    const density = 1 - clear;
+    const shade = 0.7 + 0.3 * density;
+    const i = px * 4;
+    img.data[i] = base[0] * shade;
+    img.data[i + 1] = base[1] * shade;
+    img.data[i + 2] = base[2] * shade;
+    img.data[i + 3] = density * 255;
+  }
+
+  ctx.putImageData(img, 0, 0);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}

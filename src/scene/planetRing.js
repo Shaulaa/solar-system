@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { loadTexture, assignTexture } from '../utils/loader.js';
-import { createRingTexture } from '../utils/planetTexture.js';
+import { createRingTexture, createBandedRingTexture } from '../utils/planetTexture.js';
 
-// Cincin planet (dipakai Saturnus)
-// ring = { texture, inner, outer } dari data/planets.js, inner dan outer dalam kelipatan radius planet
+// Cincin planet (Saturnus, Uranus, Neptunus)
+// ring = { texture, inner, outer } dari data/planets.js, inner dan outer dalam kelipatan radius planet.
+// Tanpa file tekstur, cincinnya digambar prosedural: dari bands kalau ada (cincin sempit Uranus dan
+// Neptunus), atau cincin lebar ala Saturnus kalau nggak
 
 // UV bawaan RingGeometry itu planar (kayak tekstur ditempel dari atas),
 // padahal tekstur cincin bentuknya strip: kiri tepi dalam, kanan tepi luar.
@@ -59,7 +61,7 @@ function addPlanetShadow(material, uniforms) {
   };
 }
 
-export function createSaturnRing(ring, planetRadius) {
+export function createPlanetRing(ring, planetRadius) {
   const innerRadius = ring.inner * planetRadius;
   const outerRadius = ring.outer * planetRadius;
 
@@ -85,7 +87,7 @@ export function createSaturnRing(ring, planetRadius) {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = 'ring';
   // RingGeometry aslinya tegak di bidang XY, direbahin ke bidang XZ (bidang ekuator planet).
-  // Kemiringan 26,7 derajat datang dari tiltGroup tempat mesh ini ditempel
+  // Kemiringannya (26,7 derajat di Saturnus) datang dari tiltGroup tempat mesh ini ditempel
   mesh.rotation.x = -Math.PI / 2;
   // Disembunyikan sampai tekstur siap, kalau nggak sempat kelihatan cakram putih solid
   mesh.visible = false;
@@ -94,7 +96,8 @@ export function createSaturnRing(ring, planetRadius) {
   // PNG cincin itu RGBA, transparansinya sudah ada di channel alpha dan langsung kebaca lewat map.
   // alphaMap three.js justru baca channel HIJAU, jadi kalau dipasang juga
   // transparansinya kepotong dua kali dan cincin jadi redup kecoklatan
-  loadTexture(ring.texture, { fallback: () => createRingTexture() }).then((texture) => {
+  const fallback = () => (ring.bands ? createBandedRingTexture(ring) : createRingTexture());
+  loadTexture(ring.texture, { fallback }).then((texture) => {
     assignTexture(material, 'map', texture);
     mesh.visible = true;
   });

@@ -5,8 +5,9 @@ import { createTexturedSphere } from './planets.js';
 // Bulan bulan planet, dibaca dari field moons di data/planets.js
 // Hierarki: anchor planet > pivot (muter = revolusi bulan) > mesh
 //
-// Ditempel ke anchor, BUKAN tiltGroup, supaya bidang orbit bulan gak ikut miring
-// sesuai kemiringan sumbu planet (23,4 derajat di Bumi).
+// Ditempel ke anchor (lewat bidang orbit, createOrbitFrame), BUKAN tiltGroup, supaya bidang orbit
+// bulan gak ikut skala dan rotasi harian planet. Kemiringannya diatur sendiri: Bulan Bumi di bidang
+// ekliptika, bulan Saturnus, Uranus, dan Neptunus di bidang ekuator planetnya (plane: 'equator').
 // Rotasi mesh gak di-update sendiri: karena mesh ikut pivot, sisi yang sama selalu
 // menghadap planet (tidal lock), persis kayak Bulan aslinya
 
@@ -28,6 +29,22 @@ const visualPeriod = (days) => Math.sqrt(days * days + MIN_VISUAL_PERIOD * MIN_V
 // Bulan Jupiter jauh di bawah batas ini, gak kena
 const MAX_PRETTY_SIZE = 0.27;
 
+const DEG = Math.PI / 180;
+
+// Bidang orbit bulan, ditempel ke anchor planet (gak ikut skala tiltGroup).
+// Default bidang ekliptika. plane: 'equator' = bidang ekuator planet (rotation.z sama dengan
+// tiltGroup), lalu inclination memiringkan orbit di dalam bidang itu. Urutan 'ZYX' artinya
+// kemiringan inclination dipasang duluan, baru seluruhnya ikut miring sumbu planet
+function createOrbitFrame(moonData, planet) {
+  const frame = new THREE.Object3D();
+  frame.name = `${moonData.id}-plane`;
+  if (moonData.plane === 'equator') {
+    frame.rotation.set((moonData.inclination ?? 0) * DEG, 0, planet.data.tilt * DEG, 'ZYX');
+  }
+  planet.anchor.add(frame);
+  return frame;
+}
+
 function createMoon(moonData, planet, index) {
   const size = {
     pretty: Math.min(scaleRadius(moonData.radius), planet.baseRadius * MAX_PRETTY_SIZE),
@@ -43,7 +60,7 @@ function createMoon(moonData, planet, index) {
 
   const pivot = new THREE.Object3D();
   pivot.name = `${moonData.id}-orbit`;
-  planet.anchor.add(pivot);
+  createOrbitFrame(moonData, planet).add(pivot);
 
   const mesh = createTexturedSphere(moonData, radius, SEED_OFFSET + index, {
     textureSize: TEXTURE_SIZE,

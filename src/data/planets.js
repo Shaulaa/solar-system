@@ -82,7 +82,10 @@ export const planets = [
     // radius relatif ke Bumi (sama kayak planet, nanti lewat scaleRadius)
     // orbitRadius dalam kelipatan radius planet induk yang SUDAH di-scale (mode Enak Dilihat).
     // Jarak asli Bulan 60x radius Bumi, kalau dipakai mentah Bulan bakal nyasar jauh dari Bumi di skala ini.
-    // distanceKm jarak asli, dipakai mode Skala Nyata
+    // distanceKm jarak asli, dipakai mode Skala Nyata.
+    // plane: 'equator' (opsional) = orbitnya di bidang ekuator planet induk, ikut miring sesuai sumbu
+    // planet. Tanpa itu orbitnya di bidang ekliptika. inclination (derajat) kemiringan tambahan
+    // terhadap bidang ekuator, di atas 90 berarti mengorbit berlawanan arah
     moons: [
       {
         id: 'moon',
@@ -266,7 +269,7 @@ export const planets = [
     rotationPeriod: 0.45,
     tilt: 26.7,
     texture: '2k_saturn.jpg',
-    // inner dan outer dalam kelipatan radius planet, dipakai scene/saturnRing.js
+    // inner dan outer dalam kelipatan radius planet, dipakai scene/planetRing.js
     ring: { texture: '2k_saturn_ring_alpha.png', inner: 1.24, outer: 2.27 },
     narration: 'Cincinnya tersusun dari miliaran bongkahan es dan batu yang ikut mengorbit planet.',
     look: { type: 'gas', colors: ['#8a7048', '#d9c08a', '#f2e3bd', '#b89a64', '#e6d3a3'] },
@@ -275,7 +278,65 @@ export const planets = [
       suhu: '-140°C di atas awan',
       bulan: 146,
       fakta: 'Massa jenisnya lebih kecil dari air, jadi secara teori Saturnus bisa ngambang.'
-    }
+    },
+    // Bulan Saturnus mengorbit di bidang ekuatornya, sebidang dengan cincin (plane: 'equator',
+    // lihat scene/moons.js). orbitRadius di luar tepi cincin (2,27)
+    moons: [
+      {
+        id: 'enceladus',
+        name: 'Enceladus',
+        subtitle: 'Bulan es Saturnus',
+        plane: 'equator',
+        radius: 0.0396,
+        orbitRadius: 2.75,
+        distanceKm: 238042,
+        orbitPeriod: 1.37,
+        rotationPeriod: 1.37,
+        look: { type: 'ice', colors: ['#aebcc6', '#dfe8ee', '#ffffff'] },
+        info: {
+          diameter: '504 km',
+          jarak: '238.042 km dari Saturnus',
+          suhu: '-198°C rata rata',
+          fakta: 'Semburan air dari kutub selatannya menyembur ke luar angkasa dan ikut membentuk salah satu cincin Saturnus.'
+        }
+      },
+      {
+        id: 'rhea',
+        name: 'Rhea',
+        subtitle: 'Bulan terbesar kedua Saturnus',
+        plane: 'equator',
+        radius: 0.1199,
+        orbitRadius: 3.3,
+        distanceKm: 527068,
+        orbitPeriod: 4.518,
+        rotationPeriod: 4.518,
+        look: { type: 'rocky', colors: ['#6f6b66', '#a9a49d', '#d8d3cb'] },
+        info: {
+          diameter: '1.527 km',
+          jarak: '527.068 km dari Saturnus',
+          suhu: '-220°C sampai -174°C',
+          fakta: 'Sekitar tiga perempat tubuhnya es air, sisanya batuan. Permukaannya penuh kawah tua.'
+        }
+      },
+      {
+        id: 'titan',
+        name: 'Titan',
+        subtitle: 'Bulan terbesar Saturnus',
+        plane: 'equator',
+        radius: 0.4041,
+        orbitRadius: 4.2,
+        distanceKm: 1221870,
+        orbitPeriod: 15.945,
+        rotationPeriod: 15.945,
+        look: { type: 'cloudy', colors: ['#8a5a24', '#c98f45', '#e6b86e'] },
+        info: {
+          diameter: '5.150 km',
+          jarak: '1.221.870 km dari Saturnus',
+          suhu: '-179°C',
+          fakta: 'Satu satunya bulan dengan atmosfer tebal. Di permukaannya ada danau dan sungai metana cair.'
+        }
+      }
+    ]
   },
   {
     id: 'uranus',
@@ -287,6 +348,27 @@ export const planets = [
     rotationPeriod: -0.72,
     tilt: 97.8,
     texture: '2k_uranus.jpg',
+    // Cincin tanpa file tekstur, digambar prosedural dari bands (utils/planetTexture.js).
+    // at dan width dalam kelipatan radius planet (25.559 km). Cincinnya sempit dan gelap, lebar
+    // aslinya cuma belasan sampai 100 km, jadi di tekstur dibuat minimal ~1% lebar cincin biar kelihatan.
+    // Urut dari dalam: cincin 6, 5, 4, alfa, beta, eta, gamma, delta, lambda, epsilon (paling terang)
+    ring: {
+      inner: 1.6,
+      outer: 2.04,
+      color: '#9aa3a8',
+      bands: [
+        { at: 1.637, width: 0.004, alpha: 0.35 },
+        { at: 1.652, width: 0.004, alpha: 0.35 },
+        { at: 1.666, width: 0.004, alpha: 0.35 },
+        { at: 1.75, width: 0.006, alpha: 0.5 },
+        { at: 1.786, width: 0.006, alpha: 0.5 },
+        { at: 1.846, width: 0.004, alpha: 0.3 },
+        { at: 1.863, width: 0.005, alpha: 0.45 },
+        { at: 1.89, width: 0.005, alpha: 0.5 },
+        { at: 1.957, width: 0.004, alpha: 0.2 },
+        { at: 2.001, width: 0.012, alpha: 0.9 }
+      ]
+    },
     narration: 'Uranus menggelinding di orbitnya karena sumbunya miring hampir 98 derajat.',
     look: { type: 'ice', colors: ['#7fc4cc', '#a6dde3', '#c8eef0'] },
     info: {
@@ -294,7 +376,65 @@ export const planets = [
       suhu: '-195°C',
       bulan: 28,
       fakta: 'Muternya miring hampir 98 derajat, jadi kayak bola yang menggelinding di orbitnya.'
-    }
+    },
+    // Bulan Uranus mengorbit di bidang ekuatornya, jadi ikut miring 98 derajat bareng cincinnya.
+    // Namanya dari tokoh karya Shakespeare dan Alexander Pope
+    moons: [
+      {
+        id: 'miranda',
+        name: 'Miranda',
+        subtitle: 'Bulan Uranus',
+        plane: 'equator',
+        radius: 0.037,
+        orbitRadius: 2.5,
+        distanceKm: 129390,
+        orbitPeriod: 1.413,
+        rotationPeriod: 1.413,
+        look: { type: 'rocky', colors: ['#5f6266', '#9a9ea3', '#cdd1d5'] },
+        info: {
+          diameter: '472 km',
+          jarak: '129.390 km dari Uranus',
+          suhu: '-214°C sampai -187°C',
+          fakta: 'Punya tebing es Verona Rupes setinggi sekitar 20 km, salah satu tebing tertinggi di tata surya.'
+        }
+      },
+      {
+        id: 'titania',
+        name: 'Titania',
+        subtitle: 'Bulan terbesar Uranus',
+        plane: 'equator',
+        radius: 0.1238,
+        orbitRadius: 3.3,
+        distanceKm: 435910,
+        orbitPeriod: 8.706,
+        rotationPeriod: 8.706,
+        look: { type: 'rocky', colors: ['#5a5552', '#948d88', '#c4bdb6'] },
+        info: {
+          diameter: '1.577 km',
+          jarak: '435.910 km dari Uranus',
+          suhu: '-203°C sampai -184°C',
+          fakta: 'Bulan terbesar Uranus, namanya diambil dari ratu peri di drama A Midsummer Night\'s Dream karya Shakespeare.'
+        }
+      },
+      {
+        id: 'oberon',
+        name: 'Oberon',
+        subtitle: 'Bulan terluar dari lima bulan besar Uranus',
+        plane: 'equator',
+        radius: 0.1195,
+        orbitRadius: 3.9,
+        distanceKm: 583520,
+        orbitPeriod: 13.463,
+        rotationPeriod: 13.463,
+        look: { type: 'rocky', colors: ['#4a4441', '#7f7671', '#ada39c'] },
+        info: {
+          diameter: '1.523 km',
+          jarak: '583.520 km dari Uranus',
+          suhu: '-198°C rata rata',
+          fakta: 'Permukaannya penuh kawah, dan foto Voyager 2 menangkap gunung setinggi sekitar 11 km di tepinya.'
+        }
+      }
+    ]
   },
   {
     id: 'neptune',
@@ -306,6 +446,20 @@ export const planets = [
     rotationPeriod: 0.67,
     tilt: 28.3,
     texture: '2k_neptune.jpg',
+    // Cincin redup kemerahan, kelipatan radius planet (24.764 km). Urut dari dalam: Galle (lebar dan
+    // tipis sekali), Le Verrier, lembaran Lassell, Arago, Adams (paling jelas)
+    ring: {
+      inner: 1.62,
+      outer: 2.58,
+      color: '#a8968c',
+      bands: [
+        { at: 1.692, width: 0.08, alpha: 0.12 },
+        { at: 2.148, width: 0.008, alpha: 0.45 },
+        { at: 2.23, width: 0.16, alpha: 0.08 },
+        { at: 2.31, width: 0.006, alpha: 0.25 },
+        { at: 2.541, width: 0.01, alpha: 0.6 }
+      ]
+    },
     narration: 'Planet terjauh, tempat angin paling kencang di tata surya bertiup.',
     look: { type: 'ice', colors: ['#1d3a8a', '#3a62c9', '#6a8fe6'] },
     info: {
@@ -313,7 +467,30 @@ export const planets = [
       suhu: '-200°C',
       bulan: 16,
       fakta: 'Anginnya paling kencang di tata surya, bisa tembus 2.000 km per jam.'
-    }
+    },
+    moons: [
+      {
+        id: 'triton',
+        name: 'Triton',
+        subtitle: 'Bulan terbesar Neptunus',
+        // Orbitnya miring 157 derajat dari ekuator Neptunus, artinya mengorbit berlawanan arah
+        // putaran planetnya (retrograde)
+        plane: 'equator',
+        inclination: 156.9,
+        radius: 0.2124,
+        orbitRadius: 3.0,
+        distanceKm: 354759,
+        orbitPeriod: 5.877,
+        rotationPeriod: 5.877,
+        look: { type: 'ice', colors: ['#8f8078', '#c9b9ad', '#efe4dc'] },
+        info: {
+          diameter: '2.707 km',
+          jarak: '354.759 km dari Neptunus',
+          suhu: '-235°C',
+          fakta: 'Mengorbit berlawanan arah dengan putaran Neptunus, tanda Triton dulunya benda Sabuk Kuiper yang tertangkap gravitasi Neptunus.'
+        }
+      }
+    ]
   }
 ];
 

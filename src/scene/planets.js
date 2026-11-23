@@ -6,7 +6,7 @@ import { scaleDistance, scaleRadius, blendScale } from '../utils/scale.js';
 import { createKeplerOrbit } from '../utils/kepler.js';
 import { START_DAYS_SINCE_J2000 } from '../utils/time.js';
 import { createEarth } from './earth.js';
-import { createSaturnRing } from './saturnRing.js';
+import { createPlanetRing } from './planetRing.js';
 
 const DEG = Math.PI / 180;
 
@@ -88,7 +88,7 @@ function createPlanet(data, index) {
   const body = data.id === 'earth' ? createEarth(data, radius, seed) : createBody(data, radius, seed);
   tiltGroup.add(body.group);
 
-  const ring = data.ring ? createSaturnRing(data.ring, radius) : null;
+  const ring = data.ring ? createPlanetRing(data.ring, radius) : null;
   if (ring) tiltGroup.add(ring.mesh);
 
   // Radius terluar benda (kelipatan radius planet): tepi cincin Saturnus, atmosfer Bumi, atau permukaannya.
