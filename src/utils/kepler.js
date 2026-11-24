@@ -10,11 +10,18 @@ const DEG = Math.PI / 180;
 const TAU = Math.PI * 2;
 
 // Persamaan Kepler M = E - e sin E diselesaikan pakai Newton.
-// Eksentrisitas planet paling besar 0,25 (Pluto), 5 iterasi sudah jauh di bawah presisi float
+// Planet (e paling besar 0,25) konvergen dalam 3 sampai 4 iterasi. Komet (Halley e = 0,967) butuh
+// tebakan awal PI: dari tebakan M + e sin M, Newton bisa loncat jauh di dekat perihelion
+// (turunannya 1 - e cos E hampir 0). Iterasi berhenti begitu langkahnya di bawah 1e-12
+const MAX_ITERATIONS = 30;
+const TOLERANCE = 1e-12;
+
 function solveKepler(meanAnomaly, e) {
-  let E = meanAnomaly + e * Math.sin(meanAnomaly);
-  for (let i = 0; i < 5; i++) {
-    E -= (E - e * Math.sin(E) - meanAnomaly) / (1 - e * Math.cos(E));
+  let E = e > 0.8 ? Math.PI : meanAnomaly + e * Math.sin(meanAnomaly);
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    const step = (E - e * Math.sin(E) - meanAnomaly) / (1 - e * Math.cos(E));
+    E -= step;
+    if (Math.abs(step) < TOLERANCE) break;
   }
   return E;
 }
@@ -60,7 +67,8 @@ export function createKeplerOrbit(a, period, elements) {
   return {
     // Posisi planet (AU) di hari ke sekian sejak J2000
     positionAt(daysSinceJ2000, out) {
-      const M = (meanAnomalyAtJ2000 + meanMotion * daysSinceJ2000) % TAU;
+      // Dinormalkan ke 0 sampai 2 PI, tebakan awal PI buat komet cuma dijamin konvergen di rentang ini
+      const M = (((meanAnomalyAtJ2000 + meanMotion * daysSinceJ2000) % TAU) + TAU) % TAU;
       return pointAt(solveKepler(M, e), out);
     },
     // Titik titik sepanjang elips buat garis orbit, dalam AU

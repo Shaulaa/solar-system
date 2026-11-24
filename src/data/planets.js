@@ -535,6 +535,135 @@ export const dwarfPlanets = [
       fakta:
         'Sejak 2006 statusnya diturunkan jadi planet katai, tapi Pluto tetap punya 5 bulan dan gunung es setinggi 3.500 meter.'
     }
+  },
+  // Empat planet katai resmi IAU lainnya. Elemen orbitnya perkiraan yang dibulatkan, meanLongitude
+  // dicocokkan ke posisi aslinya di langit sekitar tahun 2026
+  {
+    id: 'ceres',
+    name: 'Ceres',
+    kind: 'dwarf',
+    subtitle: 'Planet katai di sabuk asteroid',
+    radius: 0.0737,
+    distance: 2.767,
+    orbitPeriod: 1680,
+    orbit: { eccentricity: 0.0785, inclination: 10.59, node: 80.31, perihelion: 153.9, meanLongitude: 160 },
+    rotationPeriod: 0.378,
+    tilt: 4,
+    look: { type: 'rocky', colors: ['#4a4744', '#7c7873', '#aaa59e'] },
+    info: {
+      diameter: '939 km',
+      suhu: 'Sekitar -105°C',
+      bulan: 0,
+      fakta: 'Benda terbesar di sabuk asteroid, sekitar sepertiga massa seluruh sabuk. Wahana Dawn menemukan endapan garam terang di kawah Occator.'
+    }
+  },
+  {
+    id: 'haumea',
+    name: 'Haumea',
+    kind: 'dwarf',
+    subtitle: 'Planet katai di Sabuk Kuiper',
+    // radius rata rata. ellipsoid = perbandingan tiga sumbunya terhadap radius itu
+    // (2.322 x 1.704 x 1.026 km), sumbu pendek = sumbu putar
+    radius: 0.1224,
+    ellipsoid: [1.455, 0.643, 1.068],
+    distance: 43.1,
+    orbitPeriod: 103_400,
+    orbit: { eccentricity: 0.195, inclination: 28.2, node: 122.2, perihelion: 1.2, meanLongitude: 192.3 },
+    rotationPeriod: 0.163,
+    tilt: null,
+    // Cincin sempit sekitar 2.287 km dari pusat, kelipatan radius rata rata (798 km)
+    ring: { inner: 2.6, outer: 3.15, color: '#a39d96', glow: 0.35, bands: [{ at: 2.87, width: 0.08, alpha: 0.7 }] },
+    look: { type: 'ice', colors: ['#8d8a87', '#c9c6c2', '#efedea'] },
+    info: {
+      diameter: '2.322 x 1.704 x 1.026 km',
+      suhu: '-241°C',
+      bulan: 2,
+      fakta: 'Bentuknya lonjong seperti bola rugbi karena berputar sangat cepat, sekali putar cuma 3,9 jam. Punya cincin dan dua bulan.'
+    }
+  },
+  {
+    id: 'makemake',
+    name: 'Makemake',
+    kind: 'dwarf',
+    subtitle: 'Planet katai di Sabuk Kuiper',
+    radius: 0.1122,
+    distance: 45.43,
+    orbitPeriod: 111_840,
+    orbit: { eccentricity: 0.161, inclination: 28.98, node: 79.6, perihelion: 14.4, meanLongitude: 144.4 },
+    rotationPeriod: 0.951,
+    tilt: null,
+    look: { type: 'rocky', colors: ['#6b3f2c', '#a8684a', '#d8a684'] },
+    info: {
+      diameter: '1.430 km',
+      suhu: '-239°C',
+      bulan: 1,
+      fakta: 'Dinamai dewa pencipta dalam mitologi Rapa Nui di Pulau Paskah, karena ditemukan tak lama setelah Paskah 2005.'
+    }
+  },
+  {
+    id: 'eris',
+    name: 'Eris',
+    kind: 'dwarf',
+    subtitle: 'Planet katai di piringan tersebar',
+    radius: 0.1826,
+    distance: 67.86,
+    orbitPeriod: 204_200,
+    orbit: { eccentricity: 0.4361, inclination: 44.04, node: 35.95, perihelion: 187.6, meanLongitude: 18 },
+    rotationPeriod: 15.79,
+    tilt: null,
+    look: { type: 'ice', colors: ['#9a9590', '#d6d2cc', '#f6f4f0'] },
+    info: {
+      diameter: '2.326 km',
+      suhu: '-243°C sampai -217°C',
+      bulan: 1,
+      fakta: 'Ditemukan tahun 2005 dan hampir sebesar Pluto. Penemuan Eris yang membuat Pluto diturunkan jadi planet katai tahun 2006.'
+    }
+  }
+];
+
+// Komet periodik. Bentuk datanya sama dengan planet (orbit Kepler, scene/planets.js, radius = radius inti),
+// ditambah tail = { length }: panjang ekor (AU) kira kira di 0,6 AU dari Matahari (scene/comet.js)
+// orbitPeriod dipilih supaya dua perihelion yang diketahui jatuh di tanggal yang benar
+// (Halley 9 Februari 1986 dan 28 Juli 2061, Encke 22 Oktober 2023 dan sekitar 7 Februari 2027).
+// Elemen orbit selain itu dianggap tetap, jadi posisinya perkiraan
+export const comets = [
+  {
+    id: 'halley',
+    name: 'Komet Halley',
+    kind: 'comet',
+    aliases: ['Halley', "Halley's Comet", '1P/Halley'],
+    subtitle: 'Komet periodik paling terkenal',
+    radius: 0.00086,
+    distance: 17.834,
+    orbitPeriod: 27_563,
+    orbit: { eccentricity: 0.96714, inclination: 162.26, node: 58.42, perihelion: 169.75, meanLongitude: 236.03 },
+    rotationPeriod: 2.2,
+    tilt: null,
+    tail: { length: 0.5 },
+    look: { type: 'rocky', colors: ['#1c1a18', '#33302c', '#4d4842'] },
+    info: {
+      diameter: 'Inti 15 x 8 km',
+      fakta: 'Satu satunya komet periode pendek yang bisa dilihat mata telanjang dan kembali dalam satu umur manusia. Lewat lagi dekat Matahari sekitar Juli 2061.'
+    }
+  },
+  {
+    id: 'encke',
+    name: 'Komet Encke',
+    kind: 'comet',
+    aliases: ['Encke', '2P/Encke'],
+    subtitle: 'Komet dengan periode terpendek',
+    radius: 0.000377,
+    distance: 2.2152,
+    orbitPeriod: 1204,
+    orbit: { eccentricity: 0.8483, inclination: 11.78, node: 334.57, perihelion: 161.12, meanLongitude: 81.44 },
+    rotationPeriod: 0.46,
+    tilt: null,
+    tail: { length: 0.15 },
+    look: { type: 'rocky', colors: ['#1c1a18', '#33302c', '#4d4842'] },
+    info: {
+      diameter: 'Inti sekitar 4,8 km',
+      fakta: 'Mengitari Matahari tiap 3,3 tahun, tercepat di antara komet yang dikenal. Puing puingnya jadi hujan meteor Taurid tiap Oktober dan November.'
+    }
   }
 ];
 

@@ -2,8 +2,10 @@ import * as THREE from 'three';
 import { loadTexture, assignTexture } from '../utils/loader.js';
 import { createRingTexture, createBandedRingTexture } from '../utils/planetTexture.js';
 
-// Cincin planet (Saturnus, Uranus, Neptunus)
-// ring = { texture, inner, outer } dari data/planets.js, inner dan outer dalam kelipatan radius planet.
+// Cincin planet (Saturnus, Uranus, Neptunus, Haumea)
+// ring = { texture, inner, outer, glow } dari data/planets.js, inner dan outer dalam kelipatan radius planet.
+// glow (opsional, 0 sampai 1) = cahaya Matahari yang tembus cincin, biar cincin tetap kelihatan waktu
+// yang menghadap kamera sisi gelapnya (Haumea sekarang 28 derajat di atas ekliptika, disinari dari bawah).
 // Tanpa file tekstur, cincinnya digambar prosedural: dari bands kalau ada (cincin sempit Uranus dan
 // Neptunus), atau cincin lebar ala Saturnus kalau nggak
 
@@ -99,6 +101,11 @@ export function createPlanetRing(ring, planetRadius) {
   const fallback = () => (ring.bands ? createBandedRingTexture(ring) : createRingTexture());
   loadTexture(ring.texture, { fallback }).then((texture) => {
     assignTexture(material, 'map', texture);
+    if (ring.glow) {
+      material.emissive.set(0xffffff);
+      material.emissiveIntensity = ring.glow;
+      assignTexture(material, 'emissiveMap', texture);
+    }
     mesh.visible = true;
   });
 

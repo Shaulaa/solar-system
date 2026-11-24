@@ -1,4 +1,5 @@
 import gsap from 'gsap';
+import { START_DAYS_SINCE_J2000, simDate } from '../utils/time.js';
 
 // Panel info benda langit
 // Desktop muncul dari kanan, mobile (lebar < 768px) jadi bottom sheet dari bawah.
@@ -37,6 +38,16 @@ function formatLightYears(ly) {
   return ly >= 1e6 ? `${number2.format(ly / 1e6)} juta tahun cahaya` : `${number0.format(ly)} tahun cahaya`;
 }
 
+const monthYear = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' });
+
+// Tanggal perihelion (titik terdekat ke Matahari) berikutnya dari hari ini, dari elemen orbit komet
+function nextPerihelion(data) {
+  const { perihelion, meanLongitude } = data.orbit;
+  const anomaly = meanLongitude - perihelion + (360 / data.orbitPeriod) * START_DAYS_SINCE_J2000;
+  const remaining = (360 - (((anomaly % 360) + 360) % 360)) / 360;
+  return monthYear.format(simDate(remaining * data.orbitPeriod));
+}
+
 function formatDistance(au) {
   return `${number2.format(au)} AU · ${number1.format(au * KM_PER_AU_MILLION)} juta km`;
 }
@@ -65,6 +76,17 @@ function getStats(body) {
       ['Jumlah bintang', data.stars],
       ['Rasi bintang', data.constellation]
     ].filter((row) => row[1] != null);
+  }
+  // Komet: jarak terdekat dan terjauh dari elemen orbitnya
+  if (kind === 'comet') {
+    const { eccentricity } = data.orbit;
+    return [
+      ['Ukuran', info.diameter],
+      ['Periode orbit', formatYear(data.orbitPeriod)],
+      ['Jarak terdekat ke Matahari', formatDistance(data.distance * (1 - eccentricity))],
+      ['Jarak terjauh dari Matahari', formatDistance(data.distance * (1 + eccentricity))],
+      ['Perihelion berikutnya', nextPerihelion(data)]
+    ];
   }
   // Planet katai ngorbit Matahari juga, jadi datanya ditampilkan sama kayak planet
   const isPlanet = kind === 'planet' || kind === 'dwarf';

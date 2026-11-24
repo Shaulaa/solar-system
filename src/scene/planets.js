@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { planets as planetData, dwarfPlanets } from '../data/planets.js';
+import { planets as planetData, dwarfPlanets, comets } from '../data/planets.js';
 import { createPlanetTexture } from '../utils/planetTexture.js';
 import { loadTexture, assignTexture } from '../utils/loader.js';
 import { scaleDistance, scaleRadius, blendScale } from '../utils/scale.js';
@@ -7,6 +7,7 @@ import { createKeplerOrbit } from '../utils/kepler.js';
 import { START_DAYS_SINCE_J2000 } from '../utils/time.js';
 import { createEarth } from './earth.js';
 import { createPlanetRing } from './planetRing.js';
+import { createComet } from './comet.js';
 
 const DEG = Math.PI / 180;
 
@@ -41,6 +42,8 @@ export function createTexturedSphere(data, radius, seed, { textureSize, segments
 // Badan planet generik, bentuknya disamain sama createEarth biar planets.js gak perlu bedain
 function createBody(data, radius, seed) {
   const mesh = createTexturedSphere(data, radius, seed);
+  // Benda yang gak bulat (Haumea): tiga sumbunya dikali ellipsoid, sumbu Y = sumbu putar
+  if (data.ellipsoid) mesh.scale.fromArray(data.ellipsoid);
   return {
     group: mesh,
     mesh,
@@ -82,11 +85,17 @@ function createPlanet(data, index) {
   root.add(anchor);
 
   const tiltGroup = new THREE.Object3D();
-  tiltGroup.rotation.z = data.tilt * DEG;
+  // tilt null = kemiringan sumbunya belum diketahui pasti, digambar tegak (panel info gak nampilin barisnya)
+  tiltGroup.rotation.z = (data.tilt ?? 0) * DEG;
   anchor.add(tiltGroup);
 
-  const body = data.id === 'earth' ? createEarth(data, radius, seed) : createBody(data, radius, seed);
+  let body;
+  if (data.id === 'earth') body = createEarth(data, radius, seed);
+  else if (data.kind === 'comet') body = createComet(data, radius, seed);
+  else body = createBody(data, radius, seed);
   tiltGroup.add(body.group);
+  // Koma dan ekor komet ditempel ke anchor, gak ikut skala radius inti di tiltGroup
+  if (body.attachment) anchor.add(body.attachment);
 
   const ring = data.ring ? createPlanetRing(data.ring, radius) : null;
   if (ring) tiltGroup.add(ring.mesh);
@@ -95,8 +104,9 @@ function createPlanet(data, index) {
   // Dipakai kamera biar seluruh benda muat di layar waktu difokus
   const boundingScale = Math.max(data.ring?.outer ?? 1, body.boundingScale ?? 1);
 
-  // Posisi heliosentris dalam AU, diisi update()
+  // Posisi heliosentris dalam AU, diisi update(). velocity cuma dipakai komet (arah ekor debu)
   const helio = new THREE.Vector3();
+  const velocity = body.updateSun ? new THREE.Vector3() : null;
   let k = 0;
 
   function place() {
@@ -114,6 +124,8 @@ function createPlanet(data, index) {
     distance: 0,
     baseRadius: size.pretty,
     get boundingRadius() {
+      // Komet: koma yang ukurannya berubah sesuai jarak ke Matahari
+      if (body.boundingRadius) return Math.max(planet.radius, body.boundingRadius());
       return planet.radius * boundingScale;
     },
     root,
@@ -137,6 +149,10 @@ function createPlanet(data, index) {
       place();
       body.update((simDays / data.rotationPeriod) * Math.PI * 2 * ROTATION_SCALE);
       ring?.update();
+      if (velocity) {
+        orbit.positionAt(START_DAYS_SINCE_J2000 + simDays + 1, velocity).sub(helio);
+        body.updateSun(helio, velocity, k, scaleDistanceAt);
+      }
     }
   };
 
@@ -151,9 +167,9 @@ export function createPlanets() {
   const group = new THREE.Group();
   group.name = 'planets';
 
-  // Planet katai ikut list yang sama (biar mode skala, orbit, label, dan klik otomatis jalan),
+  // Planet katai dan komet ikut list yang sama (biar mode skala, orbit, label, dan klik otomatis jalan),
   // bedanya ditandai lewat data.kind
-  const list = [...planetData, ...dwarfPlanets].map((data, i) => {
+  const list = [...planetData, ...dwarfPlanets, ...comets].map((data, i) => {
     const planet = createPlanet(data, i);
     group.add(planet.root);
     return planet;

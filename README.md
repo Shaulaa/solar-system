@@ -24,6 +24,7 @@ Built with Three.js, GSAP, and Vite, no UI framework.
 - **True scale.** A 2.5 second transition from the "pretty" scale to real proportions (1 AU = 400 units) and back
 - **Time controls.** Pause, 4 speed presets (1 day to 1 year per second), and a simulation date that starts today
 - **Search.** Press `/` or `Ctrl+K`, type a planet, moon, nearby star, or galaxy name (English spellings and catalog names like M31 work too), press Enter to fly there. Typing "Milky Way" or "galaksi" zooms out to the whole galaxy, "Local Group" or "Grup Lokal" all the way out. There is one hidden object that shows up if you type its name
+- **Dwarf planets and comets.** Ceres in the asteroid belt, Haumea (stretched into an egg shape by its 4 hour day, with its ring), Makemake, and Eris, each on its real orbit. Halley's Comet and Comet Encke grow a coma and two tails as they near the Sun: a straight blue ion tail and a curved dust tail, both always pointing away from the Sun. Encke reaches perihelion in February 2027, so its tail is already visible; speed up time to watch Halley return in 2061
 - **16 moons.** The Moon, Phobos, Deimos, Jupiter's 4 Galilean moons, Enceladus, Rhea, and Titan around Saturn, Miranda, Titania, and Oberon around Uranus, and Triton around Neptune, all clickable. Moons of the outer planets orbit in their planet's equatorial plane, so Uranus's moons are tipped over with it and Triton orbits backwards
 - **Mobile friendly.** Swipe-to-close bottom sheet, compact toolbar, and graphics quality that drops automatically on slower devices
 - **Accessible.** Every button has a label and tooltip, and everything works from the keyboard
@@ -161,10 +162,11 @@ src/
 │   ├── bodies.js        registry of selectable bodies, shared by all interaction modules
 │   ├── scaleMode.js     transition between pretty and true scale
 │   ├── sun.js           the Sun (plasma shader, glow, light)
-│   ├── planets.js       planets and dwarf planets, elliptical orbits, rotation, axial tilt
+│   ├── planets.js       planets, dwarf planets, and comets, elliptical orbits, rotation, axial tilt
 │   ├── earth.js         three-layer Earth (day and night, relief, ocean glint, clouds, atmosphere)
 │   ├── moons.js         moons orbiting their parent planets
-│   ├── planetRing.js    rings of Saturn, Uranus, and Neptune (radial UVs, planet shadow)
+│   ├── planetRing.js    rings of Saturn, Uranus, Neptune, and Haumea (radial UVs, planet shadow)
+│   ├── comet.js         comet nucleus, coma, ion tail, and dust tail (particles placed in the vertex shader)
 │   ├── asteroidBelt.js  asteroid belt (InstancedMesh, 1 draw call)
 │   ├── orbits.js        elliptical orbit lines (buffer rewritten on scale change)
 │   ├── stars.js         twinkling stars

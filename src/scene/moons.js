@@ -39,7 +39,7 @@ function createOrbitFrame(moonData, planet) {
   const frame = new THREE.Object3D();
   frame.name = `${moonData.id}-plane`;
   if (moonData.plane === 'equator') {
-    frame.rotation.set((moonData.inclination ?? 0) * DEG, 0, planet.data.tilt * DEG, 'ZYX');
+    frame.rotation.set((moonData.inclination ?? 0) * DEG, 0, (planet.data.tilt ?? 0) * DEG, 'ZYX');
   }
   planet.anchor.add(frame);
   return frame;
