@@ -30,7 +30,8 @@ Built with Three.js, GSAP, and Vite, no UI framework.
 - **Dwarf planets and comets.** Ceres in the asteroid belt, Haumea (stretched into an egg shape by its 4 hour day, with its ring), Makemake, and Eris, each on its real orbit. Halley's Comet and Comet Encke grow a coma and two tails as they near the Sun: a straight blue ion tail and a curved dust tail, both always pointing away from the Sun. Encke reaches perihelion in February 2027, so its tail is already visible; speed up time to watch Halley return in 2061
 - **16 moons.** The Moon, Phobos, Deimos, Jupiter's 4 Galilean moons, Enceladus, Rhea, and Titan around Saturn, Miranda, Titania, and Oberon around Uranus, and Triton around Neptune, all clickable. Moons of the outer planets orbit in their planet's equatorial plane, so Uranus's moons are tipped over with it and Triton orbits backwards
 - **Mobile friendly.** Swipe-to-close bottom sheet, compact toolbar, and graphics quality that drops automatically on slower devices
-- **Accessible.** Every button has a label and tooltip, and everything works from the keyboard
+- **Info panel drawn from real data.** Each object gets its own accent color and small drawings: a top-down map of the solar system with its real orbit and where it is on the simulated date, its true size next to Earth (or next to our Moon, for other moons), the Moon's current phase, or a nearby star's place on the temperature scale. On phones the panel shows the name, drawings, and four key numbers first, with the rest behind an "all details" button, and the texture credit and language switch move into the About dialog
+- **Accessible.** Every button has a label and tooltip, and everything works from the keyboard. With the system's reduce motion setting on, the intro is skipped and camera flights, zooms, and scale changes become instant cuts
 
 ## Screenshots
 
@@ -57,6 +58,7 @@ Production build
 ```bash
 npm run build     # output goes to dist/
 npm run preview   # serve the build locally
+npm test          # unit tests (Vitest): orbits, zoom levels, Moon and eclipses, sky coordinates, workers, translations
 ```
 
 ## Controls
@@ -131,7 +133,13 @@ All asset paths are relative to Vite's `BASE_URL`, so the app also works from a 
 
 ```
 src/
-├── main.js              renderer, camera, bloom, main loop, wires all modules together
+├── main.js              renderer, camera, main loop, wires all modules together
+├── app/
+│   ├── keyboard.js      keyboard shortcuts
+│   ├── skySelection.js  clicking nearby stars and Local Group galaxies
+│   ├── deepLink.js      #id links that follow the selection
+│   ├── stageBloom.js    bloom settings per zoom stage
+│   └── gpuWarmup.js     shader precompile and texture upload after the intro
 ├── style.css
 ├── data/planets.js      planet, moon, and tour narration data (single source for all content)
 ├── data/nearbyStars.js  nearby star data (position, distance, spectral class, fun fact)
@@ -150,6 +158,7 @@ src/
 │   ├── toolbar.js       play / pause, speed, date, display toggles
 │   ├── labels.js        name labels above bodies (CSS2DRenderer) with overlap hiding
 │   ├── infoPanel.js     info panel (side panel on desktop, bottom sheet on mobile)
+│   ├── bodyFigure.js    info panel drawings: orbit map, true size, Moon phase, star temperature, accent color
 │   ├── search.js        search (ARIA combobox)
 │   ├── scaleBar.js      scale bar (AU, then light years)
 │   ├── stageName.js     stage title when the zoom enters a new stage
@@ -190,6 +199,7 @@ src/
     ├── moon.js          Moon position and phase (low precision lunar theory)
     ├── loader.js        shared LoadingManager, WebP first then fallbacks
     ├── performance.js   FPS monitoring and automatic quality drop
+    ├── motion.js        prefers-reduced-motion helpers
     ├── device.js        mobile detection
     ├── noise.js         noise for procedural textures
     └── planetTexture.js procedural textures (fallback when texture files are missing)

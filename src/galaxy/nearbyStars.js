@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { nearbyStars } from '../data/nearbyStars.js';
+import { nearbyStars, SPECTRAL_COLOR } from '../data/nearbyStars.js';
 
 // Bintang tetangga Matahari di galaxyScene (data di data/nearbyStars.js)
 //
@@ -9,16 +9,6 @@ import { nearbyStars } from '../data/nearbyStars.js';
 // Warna dari kelas spektral, ukuran dan kecerahan dari jenisnya (raksasa dan bintang A paling besar,
 // katai merah paling kecil). Nama cuma ditampilkan buat bintang paling terkenal (labeled) dan bintang
 // yang sedang dipilih
-
-const SPECTRAL_COLOR = {
-  O: '#9db4ff',
-  B: '#a9c1ff',
-  A: '#d5e0ff',
-  F: '#f8f7ff',
-  G: '#fff1d6',
-  K: '#ffd2a1',
-  M: '#ffb07a'
-};
 
 // Ukuran titik (piksel CSS) dan kecerahan tiap jenis
 function lookOf(star) {

@@ -16,7 +16,7 @@ const TAU = Math.PI * 2;
 const MAX_ITERATIONS = 30;
 const TOLERANCE = 1e-12;
 
-function solveKepler(meanAnomaly, e) {
+export function solveKepler(meanAnomaly, e) {
   let E = e > 0.8 ? Math.PI : meanAnomaly + e * Math.sin(meanAnomaly);
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     const step = (E - e * Math.sin(E) - meanAnomaly) / (1 - e * Math.cos(E));

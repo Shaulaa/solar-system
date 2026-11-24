@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import gsap from 'gsap';
+import { motion } from '../utils/motion.js';
 import { planets as planetData } from '../data/planets.js';
 import { scaleDistance, sunRadius, blendScale } from '../utils/scale.js';
 import { OVERVIEW_POSITION } from '../controls/cameraRig.js';
@@ -77,19 +78,25 @@ export function createScaleMode({ sun, planets, moons, asteroidBelt, orbits }) {
   function set(nextMode, { onUpdate, onComplete } = {}) {
     mode = nextMode;
     tween?.kill();
-    tween = gsap.to(state, {
+    // Dengan prefers-reduced-motion durasinya 0 dan onComplete sudah jalan di dalam gsap.to(),
+    // jadi tween yang sudah selesai gak boleh disimpan (transitioning bakal nyangkut true)
+    let finished = false;
+    let created = null;
+    created = gsap.to(state, {
       k: nextMode === 'real' ? 1 : 0,
-      duration: SCALE_TRANSITION_DURATION,
+      duration: motion(SCALE_TRANSITION_DURATION),
       ease: EASE,
       onUpdate: () => {
         apply();
         onUpdate?.(state.k);
       },
       onComplete: () => {
-        tween = null;
+        finished = true;
+        if (tween === created) tween = null;
         onComplete?.();
       }
     });
+    tween = finished ? null : created;
   }
 
   return {

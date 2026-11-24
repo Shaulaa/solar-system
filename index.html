@@ -170,6 +170,9 @@
         </li>
       </ul>
 
+      <h3 class="about-heading" data-i18n="about.language">Bahasa</h3>
+      <button class="about-language" type="button" data-action="switch-language" data-i18n="lang.switch" data-i18n-aria="lang.switchAria" aria-label="Switch the interface to English">English</button>
+
       <h3 class="about-heading" data-i18n="about.builtWith">Dibuat dengan</h3>
       <ul class="about-tags">
         <li>Three.js</li>
@@ -210,25 +213,32 @@
       Ini perbandingan asli. Planet sekecil ini dibanding jarak antar orbitnya
     </p>
 
-    <!-- Panel info benda langit. Isinya diisi ui/infoPanel.js dari data/planets.js -->
+    <!-- Panel info benda langit. Isinya diisi ui/infoPanel.js dari data/planets.js.
+         Urutannya: nama, keterangan, gambar (ui/bodyFigure.js), fakta, lalu data. Di HP fakta pindah
+         ke bawah data (CSS order) biar yang pertama kelihatan cuma nama, gambar, dan data utama -->
     <aside class="info-panel" id="info-panel" aria-labelledby="info-title" hidden>
       <!-- Pegangan bottom sheet (cuma kelihatan di HP), bisa ditarik ke bawah buat nutup panel -->
       <div class="sheet-handle" aria-hidden="true"></div>
+      <!-- Desktop: panah + teks Kembali. HP: cuma ikon tutup di pojok kanan atas sheet -->
       <button class="info-back" type="button" data-action="back" aria-label="Kembali ke tampilan tata surya" data-i18n-aria="panel.backAria">
-        <span aria-hidden="true">&larr;</span> <span data-i18n="panel.back">Kembali</span>
+        <svg class="icon icon-back" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>
+        <svg class="icon icon-close" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+        <span data-i18n="panel.back">Kembali</span>
       </button>
 
       <header class="info-header">
-        <p class="info-subtitle" id="info-subtitle" data-animate></p>
         <h2 class="info-title" id="info-title" data-animate></h2>
+        <p class="info-subtitle" id="info-subtitle" data-animate></p>
       </header>
 
-      <dl class="info-stats" id="info-stats"></dl>
+      <!-- Gambar dari data asli (ui/bodyFigure.js): peta orbit, ukuran, fase Bulan, atau skala suhu bintang -->
+      <div class="info-figures" id="info-figures" data-animate hidden></div>
 
-      <div class="info-fact" data-animate>
-        <p class="info-fact-label" data-i18n="panel.fact">Fakta unik</p>
-        <p class="info-fact-text" id="info-fact"></p>
-      </div>
+      <p class="info-fact" id="info-fact" data-animate></p>
+
+      <dl class="info-stats" id="info-stats"></dl>
+      <!-- Cuma di HP: baris data selain empat yang pertama disembunyikan sampai tombol ini ditekan -->
+      <button class="info-more" id="info-more" type="button" aria-controls="info-stats" aria-expanded="false" hidden></button>
 
       <nav class="info-nav" aria-label="Navigasi benda langit" data-i18n-aria="panel.nav">
         <button type="button" data-action="prev" id="info-prev"></button>

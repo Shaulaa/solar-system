@@ -1,4 +1,5 @@
 import gsap from 'gsap';
+import { shift } from '../utils/motion.js';
 import { ZOOM_STAGES, createStageTracker } from '../galaxy/zoomLevels.js';
 
 // Nama tahap skala ("Tata Surya", "Lingkungan Bintang Terdekat", "Galaksi Bima Sakti") yang muncul
@@ -14,7 +15,6 @@ import { ZOOM_STAGES, createStageTracker } from '../galaxy/zoomLevels.js';
 
 const SETTLE_SECONDS = 0.35;
 const HOLD_SECONDS = 2.6;
-const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 export function createStageName() {
   const element = document.getElementById('stage-name');
@@ -30,7 +30,7 @@ export function createStageName() {
   function show(index) {
     shown = index;
     const stage = ZOOM_STAGES[index];
-    const rise = reducedMotion.matches ? 0 : 6;
+    const rise = shift(6);
     timeline?.kill();
     timeline = gsap.timeline();
     // Kalau nama sebelumnya masih kelihatan, diganti pakai crossfade singkat

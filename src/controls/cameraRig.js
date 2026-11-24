@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import gsap from 'gsap';
+import { motion } from '../utils/motion.js';
 
 // Kamera terbang ke benda langit dan ngikutin benda itu selama difokus
 //
@@ -165,7 +166,7 @@ export function createCameraRig({ camera, controls }) {
 
     tween = gsap.to(progress, {
       t: 1,
-      duration,
+      duration: motion(duration),
       ease: FLY_EASE
     });
   }
@@ -213,7 +214,8 @@ export function createCameraRig({ camera, controls }) {
     controls.target.copy(OVERVIEW_TARGET);
     camera.position.setFromSpherical(introStart);
 
-    tween = gsap.to(progress, { t: 1, duration: INTRO_DURATION, ease: FLY_EASE });
+    // Dengan prefers-reduced-motion intro langsung selesai (kamera dipotong ke posisi overview)
+    tween = gsap.to(progress, { t: 1, duration: motion(INTRO_DURATION), ease: FLY_EASE });
   }
 
   // Taruh kamera di titik awal intro tanpa jalan (dipakai selama loading screen)
@@ -282,7 +284,7 @@ export function createCameraRig({ camera, controls }) {
     gsap.to(view, {
       x,
       y,
-      duration: VIEW_SHIFT_DURATION,
+      duration: motion(VIEW_SHIFT_DURATION),
       ease: FLY_EASE,
       overwrite: true
     });
@@ -525,25 +527,36 @@ export function createVirtualZoom({ camera, controls, domElement, isAllowed, max
     // di offset terasa sebagai kecepatan zoom yang rata di semua skala
     animateTo({ to, duration, delay = 0, ease = 'power2.inOut', onComplete }) {
       stopAnimation();
-      const state = { t: 0, from: 0, to: 0 };
-      tween = gsap.to(state, {
+      const state = { t: 0, from: 0, to: 0, started: false };
+      // Tween berdurasi 0 (prefers-reduced-motion) gak memanggil onStart, langsung onUpdate lalu onComplete,
+      // dan tanpa delay semuanya jalan di dalam gsap.to() sebelum hasilnya sempat disimpan. Jadi titik awal
+      // dihitung di update pertama juga, dan tween yang sudah selesai gak disimpan sebagai animasi aktif
+      const start = () => {
+        if (state.started) return;
+        state.started = true;
+        state.from = offset;
+        state.to = typeof to === 'function' ? to() : to;
+      };
+      let finished = false;
+      let created = null;
+      created = gsap.to(state, {
         t: 1,
-        duration,
+        duration: motion(duration),
         delay,
         ease,
-        onStart() {
-          state.from = offset;
-          state.to = typeof to === 'function' ? to() : to;
-        },
+        onStart: start,
         onUpdate() {
+          start();
           setTarget(state.from + (state.to - state.from) * state.t);
           offset = target;
         },
         onComplete() {
-          tween = null;
+          finished = true;
+          if (tween === created) tween = null;
           onComplete?.();
         }
       });
+      tween = finished ? null : created;
     },
     get animating() {
       return tween !== null;

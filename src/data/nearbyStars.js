@@ -74,6 +74,17 @@ const STARS = [
     fakta: 'Sebenarnya empat bintang: dua raksasa kuning yang berdekatan dan sepasang katai merah yang lebih jauh.' }
 ];
 
+// Warna titik bintang per kelas spektral (dipakai galaxy/nearbyStars.js dan panel info)
+export const SPECTRAL_COLOR = {
+  O: '#9db4ff',
+  B: '#a9c1ff',
+  A: '#d5e0ff',
+  F: '#f8f7ff',
+  G: '#fff1d6',
+  K: '#ffd2a1',
+  M: '#ffb07a'
+};
+
 // Jenis bintang dari huruf kelas spektral dan kelas luminositasnya (III = raksasa)
 const TYPE_LABEL = {
   O: 'Bintang biru',

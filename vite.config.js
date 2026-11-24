@@ -16,5 +16,13 @@ export default defineConfig({
     // karena hampir semua modul scene butuh namespace THREE. Batasnya dinaikkan sedikit di atas itu,
     // jadi peringatan tetap muncul kalau chunk lain ikut membengkak
     chunkSizeWarningLimit: 600
+  },
+  // Tes unit (npm test). Yang dites fungsi murni (orbit, skala, zoom, Bulan, koordinat langit, worker),
+  // jalan di Node tanpa browser. test/setup.js menyediakan location / localStorage / matchMedia
+  // tiruan buat modul yang membacanya waktu dimuat (pilihan bahasa, preferensi gerakan)
+  test: {
+    environment: 'node',
+    include: ['test/**/*.test.js'],
+    setupFiles: ['test/setup.js']
   }
 });

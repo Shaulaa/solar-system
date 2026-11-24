@@ -3,6 +3,9 @@ import { START_DAYS_SINCE_J2000, simDate } from '../utils/time.js';
 import { moonPhase } from '../utils/moon.js';
 import { solarEclipses, lunarEclipses, nextEclipse, eclipseRegion } from '../data/eclipses.js';
 import { t, LOCALE } from '../i18n/index.js';
+import { motion, shift } from '../utils/motion.js';
+import { bodyFigures, bodyColor } from './bodyFigure.js';
+import { planets as planetData } from '../data/planets.js';
 
 // Panel info benda langit
 // Desktop muncul dari kanan, mobile (lebar < 768px) jadi bottom sheet dari bawah.
@@ -12,6 +15,10 @@ const MOBILE_QUERY = '(max-width: 767px)';
 // Kira kira seberapa jauh framing kamera digeser ke atas waktu bottom sheet kebuka,
 // biar planet yang difokus pas di area yang gak ketutup sheet (sheet tingginya maks 55vh)
 const SHEET_VIEW_SHIFT = 0.2;
+// Lebar gradasi di sisi kiri panel desktop (piksel), harus sama dengan padding kiri .info-panel di style.css
+const PANEL_FADE = 56;
+// Jumlah baris data yang langsung kelihatan di HP
+const KEY_ROWS = 4;
 // Bottom sheet ditutup kalau ditarik turun sejauh ini (px) atau dilepas dengan kecepatan segini (px/ms)
 const SWIPE_CLOSE_DISTANCE = 90;
 const SWIPE_CLOSE_VELOCITY = 0.6;
@@ -146,13 +153,17 @@ export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, getSimDa
   const subtitle = document.getElementById('info-subtitle');
   const stats = document.getElementById('info-stats');
   const fact = document.getElementById('info-fact');
+  const figures = document.getElementById('info-figures');
+  const moreButton = document.getElementById('info-more');
+  let expanded = false;
   const prevButton = document.getElementById('info-prev');
   const nextButton = document.getElementById('info-next');
 
   let open = false;
   const isMobile = () => window.matchMedia(MOBILE_QUERY).matches;
   // Arah masuk keluar panel beda antara desktop (geser dari kanan) dan mobile (naik dari bawah)
-  const hiddenPose = () => (isMobile() ? { x: 0, yPercent: 100 } : { x: 48, yPercent: 0 });
+  // Dengan prefers-reduced-motion panel cuma memudar, gak meluncur (utils/motion.js)
+  const hiddenPose = () => (isMobile() ? { x: 0, yPercent: shift(100) } : { x: shift(48), yPercent: 0 });
 
   // Swipe turun buat nutup bottom sheet (cuma di layout HP).
   // Area tarik cuma pegangan dan judul, bukan seluruh panel, biar isi panel yang panjang
@@ -183,7 +194,7 @@ export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, getSimDa
     const { velocity } = drag;
     drag = null;
     if (offset > SWIPE_CLOSE_DISTANCE || velocity > SWIPE_CLOSE_VELOCITY) onSwipeClose?.();
-    else gsap.to(panel, { y: 0, duration: 0.35, ease: 'power3.out' });
+    else gsap.to(panel, { y: 0, duration: motion(0.35), ease: 'power3.out' });
   }
 
   panel.addEventListener('pointerup', endDrag);
@@ -196,22 +207,40 @@ export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, getSimDa
     else if (action === 'next') onNext?.();
   });
 
+  // Panah digambar (SVG), bukan karakter, biar ketebalannya sama dengan ikon toolbar
+  const ARROW = {
+    prev: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>',
+    next: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>'
+  };
+
   function setNavButton(button, body, direction) {
-    const arrow = direction === 'prev' ? '←' : '→';
     const word = t(direction === 'prev' ? 'panel.previous' : 'panel.next');
-    button.textContent = direction === 'prev' ? `${arrow} ${body.name}` : `${body.name} ${arrow}`;
+    const name = document.createElement('span');
+    name.textContent = body.name;
+    button.innerHTML = ARROW[direction];
+    if (direction === 'prev') button.append(name);
+    else button.prepend(name);
     button.setAttribute('aria-label', `${word}: ${body.name}`);
     button.title = t('panel.navTitle', { word, name: body.name, side: t(direction === 'prev' ? 'panel.left' : 'panel.right') });
   }
 
   // Isi pakai textContent (bukan innerHTML) biar aman walaupun datanya nanti datang dari luar
   function fill(body, { prev, next }) {
+    const simDays = getSimDays();
     title.textContent = body.name;
+    // Nama panjang (Awan Magellan Besar, Large Magellanic Cloud) diperkecil biar gak pecah jadi tiga baris
+    title.classList.toggle('is-long', body.name.length > 12);
     subtitle.textContent = getSubtitle(body);
     fact.textContent = body.data.info?.fakta ?? '';
+    // Warna aksen benda (pendar panel, keterangan, gambar), lihat ui/bodyFigure.js
+    panel.style.setProperty('--body-color', bodyColor(body));
+    const parent = body.parentId ? planetData.find((p) => p.id === body.parentId) : null;
+    const drawing = bodyFigures(body, simDays, { parent });
+    figures.hidden = !drawing;
+    figures.innerHTML = drawing ?? '';
 
     stats.replaceChildren(
-      ...getStats(body, getSimDays()).map(([label, value]) => {
+      ...getStats(body, simDays).map(([label, value]) => {
         const row = document.createElement('div');
         row.className = 'info-row';
         row.dataset.animate = '';
@@ -226,15 +255,31 @@ export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, getSimDa
 
     setNavButton(prevButton, prev, 'prev');
     setNavButton(nextButton, next, 'next');
+
+    // Di HP baris data setelah KEY_ROWS disembunyikan (CSS .is-extra) sampai tombol Data lengkap ditekan.
+    // Tiap ganti benda kembali ringkas
+    const rows = stats.children;
+    for (let i = 0; i < rows.length; i++) rows[i].classList.toggle('is-extra', i >= KEY_ROWS);
+    moreButton.hidden = rows.length <= KEY_ROWS;
+    setExpanded(false);
   }
+
+  function setExpanded(value) {
+    expanded = value;
+    panel.classList.toggle('is-expanded', value);
+    moreButton.setAttribute('aria-expanded', String(value));
+    moreButton.textContent = t(value ? 'panel.less' : 'panel.more');
+  }
+
+  moreButton.addEventListener('click', () => setExpanded(!expanded));
 
   const animatedItems = () => panel.querySelectorAll('[data-animate]');
 
   function staggerIn() {
     gsap.fromTo(
       animatedItems(),
-      { opacity: 0, y: 10 },
-      { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out', stagger: 0.04, overwrite: true }
+      { opacity: 0, y: shift(10) },
+      { opacity: 1, y: 0, duration: motion(0.5), ease: 'power3.out', stagger: motion(0.04), overwrite: true }
     );
   }
 
@@ -248,18 +293,18 @@ export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, getSimDa
       gsap.fromTo(
         panel,
         { opacity: 0, y: 0, ...hiddenPose() },
-        { opacity: 1, x: 0, y: 0, yPercent: 0, duration: 0.7, ease: 'power3.out' }
+        { opacity: 1, x: 0, y: 0, yPercent: 0, duration: motion(0.7), ease: 'power3.out' }
       );
       staggerIn();
       return;
     }
 
     // Panel sudah kebuka (pindah planet): cukup isinya yang ganti, panelnya diam
-    gsap.to(panel, { opacity: 1, x: 0, y: 0, yPercent: 0, duration: 0.3 });
+    gsap.to(panel, { opacity: 1, x: 0, y: 0, yPercent: 0, duration: motion(0.3) });
     gsap.to(animatedItems(), {
       opacity: 0,
-      y: -6,
-      duration: 0.15,
+      y: shift(-6),
+      duration: motion(0.15),
       ease: 'power2.in',
       overwrite: true,
       onComplete: () => {
@@ -276,7 +321,7 @@ export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, getSimDa
     gsap.to(panel, {
       opacity: 0,
       ...hiddenPose(),
-      duration: 0.45,
+      duration: motion(0.45),
       ease: 'power3.inOut',
       onComplete: () => {
         panel.hidden = true;
@@ -293,8 +338,9 @@ export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, getSimDa
     get viewShift() {
       if (!open) return { x: 0, y: 0 };
       if (isMobile()) return { x: 0, y: SHEET_VIEW_SHIFT };
-      // offsetLeft (bukan getBoundingClientRect) karena gak kena transform animasi slide masuk
-      const covered = window.innerWidth - panel.offsetLeft;
+      // offsetLeft (bukan getBoundingClientRect) karena gak kena transform animasi slide masuk.
+      // Bagian kiri panel cuma gradasi gelap yang masih tembus, gak dihitung tertutup
+      const covered = window.innerWidth - panel.offsetLeft - PANEL_FADE;
       return { x: covered / 2 / window.innerWidth, y: 0 };
     },
     get isOpen() {
