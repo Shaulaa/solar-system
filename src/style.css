@@ -46,6 +46,36 @@ body {
   letter-spacing: 0.04em;
 }
 
+/* Ganti bahasa, tombol teks kecil di bawah subjudul. HUD-nya pointer-events: none, tombol ini dinyalakan */
+.lang-switch {
+  margin-top: 10px;
+  padding: 4px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  opacity: 0.55;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+
+@media (hover: hover) {
+  .lang-switch:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.06);
+  }
+}
+
+.lang-switch:focus-visible {
+  outline: 1px solid var(--accent-cool);
+  outline-offset: 2px;
+  opacity: 1;
+}
+
 /* Versi pendek subjudul buat layar sempit (lihat media query 640px) */
 .sub-narrow {
   display: none;
@@ -388,14 +418,55 @@ body.hud-ready .credit {
   font-variant-numeric: tabular-nums;
 }
 
+.tb-date-wrap {
+  position: relative;
+  display: flex;
+}
+
 .tb-date {
   min-width: 132px;
+  height: 36px;
   padding: 0 8px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  font: inherit;
   font-size: 12px;
   letter-spacing: 0.06em;
   text-align: center;
   opacity: 0.75;
   font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+
+@media (hover: hover) {
+  .tb-date:hover:not(:disabled) {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.06);
+  }
+}
+
+.tb-date:focus-visible {
+  outline: 1px solid var(--accent-cool);
+  outline-offset: 2px;
+}
+
+.tb-date:disabled {
+  cursor: not-allowed;
+}
+
+/* Input tanggal asli cuma jadi jangkar pemilih tanggal browser (showPicker), gak kelihatan
+   dan gak bisa diklik. Gak boleh display: none, kalau gitu showPicker gak jalan */
+.tb-date-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  color-scheme: dark;
 }
 
 .tb-sep {
@@ -1165,11 +1236,16 @@ body.is-touring .zoom-back {
     padding: 4px 6px 6px;
   }
 
-  .tb-date {
+  .tb-date-wrap {
     order: -1;
     flex-basis: 100%;
+    justify-content: center;
+  }
+
+  .tb-date {
     min-width: 0;
-    padding: 2px 0 0;
+    height: auto;
+    padding: 2px 8px 0;
     font-size: 10px;
     letter-spacing: 0.12em;
     opacity: 0.5;
@@ -1262,11 +1338,16 @@ body.is-touring .zoom-back {
     text-overflow: ellipsis;
   }
 
+  /* Di bawah tombol ganti bahasa (.lang-switch), bukan langsung di bawah subjudul */
   .credit {
     bottom: auto;
-    top: 84px;
+    top: 116px;
     right: auto;
     left: 16px;
+  }
+
+  .lang-switch {
+    margin-top: 8px;
   }
 }
 

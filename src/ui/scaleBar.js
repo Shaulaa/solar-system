@@ -1,4 +1,5 @@
 import { AU_PER_LIGHT_YEAR } from '../galaxy/zoomLevels.js';
+import { t, LOCALE } from '../i18n/index.js';
 
 // Penggaris skala di pojok kiri bawah (PRD-GALAXY bagian 4)
 //
@@ -15,7 +16,7 @@ const MAX_WIDTH = { wide: 120, narrow: 96 };
 const NARROW_QUERY = window.matchMedia('(max-width: 640px)');
 const LIGHT_YEAR_FROM = 0.1;
 
-const formatter = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 3 });
+const formatter = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 3 });
 
 // Angka bulat 1, 2, atau 5 kali pangkat 10 terbesar yang <= value
 export function niceFloor(value) {
@@ -32,11 +33,14 @@ export function pickScale(maxAU) {
   if (maxLy >= LIGHT_YEAR_FROM) {
     const value = niceFloor(maxLy);
     // Dari sejuta ke atas (tahap Grup Lokal di layar portrait) ditulis "x juta" biar gak kepanjangan
-    const text = value >= 1e6 ? `${formatter.format(value / 1e6)} juta` : formatter.format(value);
-    return { value, unit: 'ly', label: `${text} tahun cahaya`, au: value * AU_PER_LIGHT_YEAR };
+    const label =
+      value >= 1e6
+        ? t('unit.millionLightYears', { value: formatter.format(value / 1e6) })
+        : t('unit.lightYears', { value: formatter.format(value) });
+    return { value, unit: 'ly', label, au: value * AU_PER_LIGHT_YEAR };
   }
   const value = niceFloor(maxAU);
-  return { value, unit: 'au', label: `${formatter.format(value)} AU`, au: value };
+  return { value, unit: 'au', label: t('unit.au', { value: formatter.format(value) }), au: value };
 }
 
 export function createScaleBar() {

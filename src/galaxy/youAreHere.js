@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { t } from '../i18n/index.js';
 
 // Penanda "Kamu di sini" di posisi Matahari pada galaxyScene (galaxy.sunPosition, ikut berputar
 // bersama galaksi). Cincin tipis berdenyut + titik tengah (THREE.Points satu vertex, ukurannya tetap
@@ -78,7 +79,7 @@ export function createYouAreHere({ pixelRatio = 1 } = {}) {
   // Label teks. Elemen HTML biasa (bukan di canvas) biar tajam dan pakai font yang sama dengan UI
   const label = document.createElement('div');
   label.className = 'you-are-here-label';
-  label.textContent = 'Kamu di sini';
+  label.textContent = t('youAreHere');
   label.setAttribute('aria-hidden', 'true');
   label.hidden = true;
   document.body.appendChild(label);

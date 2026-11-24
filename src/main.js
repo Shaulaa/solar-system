@@ -50,6 +50,12 @@ import { createZoomBack } from './ui/zoomBack.js';
 import { loadingManager } from './utils/loader.js';
 import { isMobile } from './utils/device.js';
 import { createPerformanceMonitor } from './utils/performance.js';
+import { daysFromStart } from './utils/time.js';
+import { t, lang, switchLanguage, applyDocumentText, localize } from './i18n/index.js';
+import { entries as entriesEn } from './i18n/content.en.js';
+
+// Teks statis di index.html diganti sesuai bahasa (i18n/index.js) sebelum apa pun tampil
+applyDocumentText();
 
 // Loading screen dipasang paling awal, sebelum modul scene mulai memuat tekstur
 const loadingScreen = createLoadingScreen({ manager: loadingManager });
@@ -188,7 +194,8 @@ const infoPanel = createInfoPanel({
   onBack: () => (selectedSky ? closeSky() : goOverview()),
   onPrev: () => stepFocus(-1),
   onNext: () => stepFocus(1),
-  onSwipeClose: () => (selectedSky ? closeSky() : goOverview())
+  onSwipeClose: () => (selectedSky ? closeSky() : goOverview()),
+  getSimDays: () => time.simDays
 });
 
 const picker = createPicker({
@@ -217,6 +224,7 @@ function focusBody(id, { fromTour = false } = {}) {
   labels.setFocus(id);
   infoPanel.show(body, { prev: bodies.neighbor(id, -1), next: bodies.neighbor(id, 1) });
   rig.setViewShift(infoPanel.viewShift);
+  setLink(id);
 }
 
 function clearFocus() {
@@ -231,6 +239,7 @@ function goOverview() {
   if (!rig.focusedId || !canInteract()) return;
   rig.overview();
   clearFocus();
+  setLink(null);
 }
 
 function stepFocus(direction) {
@@ -251,10 +260,12 @@ const time = {
 
 // State tampilan. Tombol toolbar dan shortcut keyboard dua duanya lewat fungsi di bawah ini,
 // jadi tampilan tombol selalu sinkron dengan state aslinya
-const view = { orbits: true, labels: true, speedIndex: 1 };
+const view = { orbits: true, labels: true, speedIndex: 1, reversed: false };
 
 const toolbar = createToolbar({
   onTogglePlay: () => setPaused(!time.paused),
+  onToggleReverse: () => setReversed(!view.reversed),
+  onDateChange: setDate,
   onSpeedChange: setSpeed,
   onToggleOrbits: () => setOrbitsVisible(!view.orbits),
   onToggleLabels: () => setLabelsVisible(!view.labels),
@@ -269,16 +280,35 @@ function setPaused(paused) {
   toolbar.setPaused(paused);
 }
 
-// Perubahan kecepatan di-tween biar planet gak tiba tiba ngebut / ngerem
+// Perubahan kecepatan di-tween biar planet gak tiba tiba ngebut / ngerem. Waktu mundur = kecepatan
+// negatif, jadi pindah arah juga di-tween: planet melambat, berhenti sebentar, lalu balik arah
 function setSpeed(index) {
   view.speedIndex = THREE.MathUtils.clamp(index, 0, SPEED_PRESETS.length - 1);
   toolbar.setSpeedIndex(view.speedIndex);
   gsap.to(time, {
-    daysPerSecond: SPEED_PRESETS[view.speedIndex].days,
+    daysPerSecond: SPEED_PRESETS[view.speedIndex].days * (view.reversed ? -1 : 1),
     duration: 0.8,
     ease: 'power2.out',
     overwrite: true
   });
+}
+
+function setReversed(reversed) {
+  if (!toolbar.solarControlsEnabled) return;
+  view.reversed = reversed;
+  toolbar.setReversed(reversed);
+  setSpeed(view.speedIndex);
+}
+
+// Lompat ke tanggal tertentu (pemilih tanggal di toolbar). Posisi semua benda langsung dihitung ulang
+// dari tanggal itu, kamera yang lagi fokus ikut pindah bareng bendanya. Panel info yang terbuka
+// diisi ulang biar fase Bulan / gerhana berikutnya ikut tanggal baru
+function setDate(year, month, date) {
+  if (!canInteract() || !toolbar.solarControlsEnabled) return;
+  // Jam 12 siang, bukan tengah malam: rata rata paling dekat ke kejadian apa pun di tanggal itu
+  time.simDays = daysFromStart(year, month, date) + 0.5;
+  const focused = rig.focusedId && bodies.get(rig.focusedId);
+  if (focused) infoPanel.show(focused, { prev: bodies.neighbor(focused.id, -1), next: bodies.neighbor(focused.id, 1) });
 }
 
 function setOrbitsVisible(visible) {
@@ -329,6 +359,7 @@ function toggleScaleMode() {
   // bareng transisi skalanya
   clearFocus();
   virtualZoom.reset();
+  setLink(null);
 
   // Batas jarak dan far plane dilonggarkan dulu ke yang paling besar dari dua mode,
   // kalau nggak OrbitControls nahan kamera di tengah jalan. Baru diketatkan setelah sampai
@@ -363,7 +394,7 @@ const narrationText = document.getElementById('narration-text');
 
 function showNarration(body, index, total) {
   const update = () => {
-    narrationStep.textContent = `Tur otomatis \u00b7 ${index + 1} dari ${total}`;
+    narrationStep.textContent = t('tour.step', { n: index + 1, total });
     narrationText.textContent = body.data.narration ?? '';
   };
   if (narration.hidden) {
@@ -398,7 +429,7 @@ function hideNarration() {
 // Galaksi Bima Sakti sebagai "benda" yang bisa dicari dan jadi pemberhentian terakhir tur.
 // Memilihnya = zoom keluar sampai galaksi utuh (zoomToGalaxy)
 const GALAXY_ZOOM_SECONDS = 4;
-const galaxyEntry = {
+const galaxyEntry = localize({
   id: 'milky-way',
   name: 'Bima Sakti',
   kind: 'galaxy',
@@ -411,11 +442,11 @@ const galaxyEntry = {
   },
   // Terbang balik dari Neptunus ke overview, zoom keluar, lalu diam cukup lama buat baca narasinya
   tourSeconds: FLY_DURATION + GALAXY_ZOOM_SECONDS + 7
-};
+}, entriesEn['milky-way']);
 
 // Grup Lokal: pemberhentian terakhir tur dan hasil pencarian. Memilihnya = zoom keluar paling jauh
 const GROUP_ZOOM_SECONDS = 3.5;
-const localGroupEntry = {
+const localGroupEntry = localize({
   id: 'local-group',
   name: 'Grup Lokal',
   kind: 'local-group',
@@ -427,7 +458,7 @@ const localGroupEntry = {
       'Bima Sakti cuma satu dari lebih 80 galaksi di Grup Lokal. Tetangga besar terdekatnya, Andromeda, jauhnya 2,5 juta tahun cahaya: cahayanya yang sampai malam ini berangkat waktu manusia purba pertama baru muncul.'
   },
   tourSeconds: GROUP_ZOOM_SECONDS + 7
-};
+}, entriesEn['local-group']);
 
 const tour = createTour({
   stops: [...bodies.sequence, galaxyEntry, localGroupEntry],
@@ -490,6 +521,7 @@ function selectSky(body) {
   if (selectedSky && selectedSky.sky !== body.sky) selectedSky.sky.layer.setSelected(null);
   selectedSky = body;
   body.sky.layer.setSelected(body.id);
+  setLink(body.id);
   infoPanel.show(body, { prev: skyNeighbor(body, -1), next: skyNeighbor(body, 1) });
   // Framing digeser seperti waktu fokus planet (bottom sheet HP / panel desktop nutupin sebagian layar).
   // Kamera galaksi ikut geseran kamera utama, jadi bintang / galaksinya gak ketutup panel
@@ -506,6 +538,7 @@ function clearSkySelection() {
 function closeSky() {
   if (!selectedSky) return;
   clearSkySelection();
+  setLink(null);
   infoPanel.hide();
   rig.setViewShift({ x: 0, y: 0 });
 }
@@ -553,11 +586,35 @@ const SECRETS = {
   pluto: () => planets.get('pluto')?.reveal()
 };
 
+const searchItems = [...bodies.list, galaxyEntry, localGroupEntry, ...groupBodies, ...starBodies];
 const search = createSearch({
-  items: [...bodies.list, galaxyEntry, localGroupEntry, ...groupBodies, ...starBodies],
+  items: searchItems,
   onSelect: selectSearchResult,
   onSecret: (query) => SECRETS[query]?.()
 });
+
+// Tautan langsung. Alamat halaman ikut benda yang dipilih (#saturn, #andromeda, #milky-way, ...),
+// jadi tampilannya bisa dibagikan. Ditulis lewat replaceState biar tombol Back browser gak penuh
+// riwayat tiap klik planet. Dibaca sekali setelah intro (tautan bikin intro langsung dilewati)
+// dan tiap kali user ganti hash sendiri (hashchange gak terpicu oleh replaceState)
+const linkTargets = new Map(searchItems.map((item) => [item.id, item]));
+
+function setLink(id) {
+  const hash = id ? `#${encodeURIComponent(id)}` : '';
+  if (location.hash === hash) return;
+  history.replaceState(null, '', `${location.pathname}${location.search}${hash}`);
+}
+
+function openLink() {
+  const id = decodeURIComponent(location.hash.slice(1)).toLowerCase();
+  if (!id || phase !== 'ready') return;
+  // Benda tersembunyi (Pluto) dimunculkan dulu, sama seperti waktu namanya diketik di pencarian
+  SECRETS[id]?.();
+  const item = linkTargets.get(id);
+  if (item) selectSearchResult(item);
+}
+
+window.addEventListener('hashchange', openLink);
 
 function selectSearchResult(item) {
   if (item.kind === 'galaxy') zoomToGalaxy();
@@ -584,6 +641,7 @@ function zoomToGalaxy({ fromTour = false } = {}) {
   if (!canInteract()) return;
   if (!fromTour) tour.stop();
   closeSky();
+  setLink(galaxyEntry.id);
   // Partikel mulai dibuat sekarang, jangan nunggu zoomLevel lewat GALAXY_GENERATE_AT,
   // biar galaksinya sudah siap waktu tween sampai
   if (galaxy.particles.state === 'idle') galaxy.prepare(galaxyParticleCount());
@@ -600,6 +658,7 @@ function zoomToLocalGroup(id = null, { fromTour = false } = {}) {
   if (!canInteract()) return;
   if (!fromTour) tour.stop();
   closeSky();
+  setLink(id ?? localGroupEntry.id);
   if (galaxy.particles.state === 'idle') galaxy.prepare(galaxyParticleCount());
   const fromGalaxy = zoomLevel >= GALAXY_VIEW_LEVEL - 0.5;
   const body = id ? groupSky.bodies.find((item) => item.id === id) : null;
@@ -626,6 +685,7 @@ function zoomToStar(id) {
   const index = starBodies.findIndex((body) => body.id === id);
   if (index < 0 || !canInteract()) return;
   tour.stop();
+  setLink(id);
   virtualZoom.animateTo({
     to: () => galaxy.levelForStar(index, camera, fit, starBox()) - solarZoomLevel(),
     duration: STAR_ZOOM_SECONDS,
@@ -640,6 +700,7 @@ function returnToSolar() {
   if (!canInteract() || !virtualZoom.active) return;
   tour.stop();
   closeSky();
+  setLink(null);
   virtualZoom.animateTo({ to: 0, duration: RETURN_SECONDS });
   rig.overview({ duration: RETURN_SECONDS, force: true });
 }
@@ -680,6 +741,10 @@ function openSearch() {
   search.open();
 }
 
+// Ganti bahasa (tombol di bawah judul). Halaman dimuat ulang, hash tautan ikut terbawa
+const languageButton = document.getElementById('lang-switch');
+languageButton.addEventListener('click', () => switchLanguage(lang === 'en' ? 'id' : 'en'));
+
 // Halaman Tentang (dialog bawaan browser)
 const about = document.getElementById('about');
 about.querySelector('[data-action="close-about"]').addEventListener('click', () => about.close());
@@ -716,9 +781,12 @@ loadingScreen.ready.then(() => {
     onReveal: revealHud,
     onDone: () => {
       phase = 'ready';
+      openLink();
       setTimeout(() => precompileZoomOutShaders(warmPendingTextures), SHADER_PRECOMPILE_DELAY);
     }
   });
+  // Dibuka lewat tautan langsung: intro dilewati biar langsung terbang ke tujuannya
+  if (location.hash.length > 1) rig.skipIntro();
 });
 
 // Klik di mana aja selama intro = skip. Pakai capture biar jalan duluan sebelum handler lain
@@ -784,6 +852,10 @@ window.addEventListener('keydown', (e) => {
     setLabelsVisible(!view.labels);
   } else if (key === 's') {
     toggleScaleMode();
+  } else if (key === 'r') {
+    setReversed(!view.reversed);
+  } else if (key === 'd') {
+    if (toolbar.solarControlsEnabled) toolbar.openDatePicker();
   } else if (key === 't') {
     toggleTour();
   } else if (key === '/') {
@@ -1010,7 +1082,7 @@ function updateGalaxyGeneration() {
   galaxyStatusState = next;
   galaxyStatus.hidden = next === '';
   galaxyStatus.classList.toggle('is-error', next === 'error');
-  galaxyStatus.textContent = next === 'error' ? 'Galaksi gagal disiapkan' : 'Menyiapkan galaksi';
+  galaxyStatus.textContent = t(next === 'error' ? 'galaxy.failed' : 'galaxy.preparing');
 }
 
 // Kredit ilustrasi galaksi NASA/JPL-Caltech wajib tampil selama lapisan teksturnya kelihatan

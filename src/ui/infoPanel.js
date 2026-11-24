@@ -1,5 +1,8 @@
 import gsap from 'gsap';
 import { START_DAYS_SINCE_J2000, simDate } from '../utils/time.js';
+import { moonPhase } from '../utils/moon.js';
+import { solarEclipses, lunarEclipses, nextEclipse, eclipseRegion } from '../data/eclipses.js';
+import { t, LOCALE } from '../i18n/index.js';
 
 // Panel info benda langit
 // Desktop muncul dari kanan, mobile (lebar < 768px) jadi bottom sheet dari bawah.
@@ -15,30 +18,32 @@ const SWIPE_CLOSE_VELOCITY = 0.6;
 const KM_PER_AU_MILLION = 149.6;
 const DAYS_PER_YEAR = 365.25;
 
-const number1 = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 });
-const number2 = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 });
-const number0 = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 });
+const number1 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
+const number2 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 2 });
+const number0 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 0 });
 
 // Di bawah 2 tahun lebih kebayang kalau ditulis dalam hari
 function formatYear(days) {
   return days < 730
-    ? `${number2.format(days)} hari`
-    : `${number2.format(days / DAYS_PER_YEAR)} tahun Bumi`;
+    ? t('unit.days', { value: number2.format(days) })
+    : t('unit.earthYears', { value: number2.format(days / DAYS_PER_YEAR) });
 }
 
 // Rotasi di bawah 2 hari ditulis dalam jam. Nilai negatif = rotasi berlawanan arah (retrograde)
 function formatDay(days) {
   const abs = Math.abs(days);
-  const text = abs < 2 ? `${number1.format(abs * 24)} jam` : `${number1.format(abs)} hari`;
-  return days < 0 ? `${text}, berlawanan arah` : text;
+  const text = abs < 2 ? t('unit.hours', { value: number1.format(abs * 24) }) : t('unit.days', { value: number1.format(abs) });
+  return days < 0 ? t('unit.retrograde', { value: text }) : text;
 }
 
 // Jarak dalam tahun cahaya. Dari sejuta ke atas ditulis "x juta" biar gak kepanjangan
 function formatLightYears(ly) {
-  return ly >= 1e6 ? `${number2.format(ly / 1e6)} juta tahun cahaya` : `${number0.format(ly)} tahun cahaya`;
+  return ly >= 1e6
+    ? t('unit.millionLightYears', { value: number2.format(ly / 1e6) })
+    : t('unit.lightYears', { value: number0.format(ly) });
 }
 
-const monthYear = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' });
+const monthYear = new Intl.DateTimeFormat(LOCALE, { month: 'long', year: 'numeric' });
 
 // Tanggal perihelion (titik terdekat ke Matahari) berikutnya dari hari ini, dari elemen orbit komet
 function nextPerihelion(data) {
@@ -48,70 +53,94 @@ function nextPerihelion(data) {
   return monthYear.format(simDate(remaining * data.orbitPeriod));
 }
 
+// Nama fase Bulan (phase.0 sampai phase.7 di kamus), delapan bagian siklus yang berpusat di tiap fase utama
+function formatPhase(simDays) {
+  const phase = moonPhase(START_DAYS_SINCE_J2000 + simDays);
+  const name = t(`phase.${Math.floor(phase.fraction * 8 + 0.5) % 8}`);
+  return t('phase.value', { name, percent: number0.format(phase.illumination * 100) });
+}
+
+const fullDate = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+// Gerhana berikutnya setelah tanggal simulasi, null di luar rentang daftar (data/eclipses.js)
+function formatNextEclipse(list, simDays) {
+  const date = simDate(simDays);
+  const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const eclipse = nextEclipse(list, iso);
+  if (!eclipse) return null;
+  const text = `${fullDate.format(new Date(`${eclipse.date}T00:00:00Z`))}, ${t(`eclipse.${eclipse.type}`)}`;
+  const region = eclipseRegion(eclipse);
+  return region ? `${text} (${region})` : text;
+}
+
 function formatDistance(au) {
-  return `${number2.format(au)} AU · ${number1.format(au * KM_PER_AU_MILLION)} juta km`;
+  return t('unit.auKm', { au: number2.format(au), km: number1.format(au * KM_PER_AU_MILLION) });
 }
 
 // Baris statistik per jenis benda. Baris dengan nilai kosong otomatis dilewati
-function getStats(body) {
+// simDays = hari simulasi sekarang, buat fase Bulan dan gerhana berikutnya
+function getStats(body, simDays) {
   const { data, kind } = body;
   const info = data.info ?? {};
 
   // Bintang tetangga (data/nearbyStars.js) punya baris sendiri
   if (kind === 'nearby-star') {
     return [
-      ['Jarak dari Matahari', `${number2.format(data.distanceLy)} tahun cahaya`],
-      ['Kelas spektral', data.spectral],
-      ['Suhu permukaan', `${number0.format(data.temperature)} K`],
-      ['Rasi bintang', data.constellation]
+      [t('row.distanceFromSun'), t('unit.lightYears', { value: number2.format(data.distanceLy) })],
+      [t('row.spectral'), data.spectral],
+      [t('row.surfaceTemperature'), `${number0.format(data.temperature)} K`],
+      [t('row.constellation'), data.constellation]
     ];
   }
   // Galaksi Grup Lokal (data/localGroup.js). Bima Sakti gak punya jarak, gantinya jarak Matahari ke pusatnya
   if (kind === 'local-galaxy') {
     return [
-      ['Jarak dari Matahari', data.distanceLy != null ? formatLightYears(data.distanceLy) : null],
-      ['Jarak Matahari ke pusatnya', data.sunDistanceLy != null ? formatLightYears(data.sunDistanceLy) : null],
-      ['Diameter', `Sekitar ${formatLightYears(data.diameterLy)}`],
-      ['Jenis', data.galaxyType],
-      ['Jumlah bintang', data.stars],
-      ['Rasi bintang', data.constellation]
+      [t('row.distanceFromSun'), data.distanceLy != null ? formatLightYears(data.distanceLy) : null],
+      [t('row.sunToCenter'), data.sunDistanceLy != null ? formatLightYears(data.sunDistanceLy) : null],
+      [t('row.diameter'), t('unit.about', { value: formatLightYears(data.diameterLy) })],
+      [t('row.galaxyType'), data.galaxyType],
+      [t('row.stars'), data.stars],
+      [t('row.constellation'), data.constellation]
     ].filter((row) => row[1] != null);
   }
   // Komet: jarak terdekat dan terjauh dari elemen orbitnya
   if (kind === 'comet') {
     const { eccentricity } = data.orbit;
     return [
-      ['Ukuran', info.diameter],
-      ['Periode orbit', formatYear(data.orbitPeriod)],
-      ['Jarak terdekat ke Matahari', formatDistance(data.distance * (1 - eccentricity))],
-      ['Jarak terjauh dari Matahari', formatDistance(data.distance * (1 + eccentricity))],
-      ['Perihelion berikutnya', nextPerihelion(data)]
+      [t('row.size'), info.diameter],
+      [t('row.orbitPeriod'), formatYear(data.orbitPeriod)],
+      [t('row.perihelion'), formatDistance(data.distance * (1 - eccentricity))],
+      [t('row.aphelion'), formatDistance(data.distance * (1 + eccentricity))],
+      [t('row.nextPerihelion'), nextPerihelion(data)]
     ];
   }
   // Planet katai ngorbit Matahari juga, jadi datanya ditampilkan sama kayak planet
   const isPlanet = kind === 'planet' || kind === 'dwarf';
+  const eclipses = data.id === 'moon' || data.id === 'earth';
 
   return [
-    ['Diameter', info.diameter],
-    isPlanet && ['Jarak rata rata dari Matahari', formatDistance(data.distance)],
-    kind === 'moon' && ['Jarak orbit', info.jarak],
-    isPlanet && ['Lama setahun', formatYear(data.orbitPeriod)],
-    kind === 'moon' && ['Lama mengorbit', formatYear(data.orbitPeriod)],
-    data.rotationPeriod != null && [
-      isPlanet ? 'Lama sehari' : 'Lama rotasi',
-      formatDay(data.rotationPeriod)
-    ],
-    ['Suhu', info.suhu],
-    isPlanet && ['Jumlah bulan', info.bulan],
-    data.tilt != null && ['Kemiringan sumbu', `${number2.format(data.tilt)}°`]
+    [t('row.diameter'), info.diameter],
+    isPlanet && [t('row.meanDistance'), formatDistance(data.distance)],
+    kind === 'moon' && [t('row.orbitDistance'), info.jarak],
+    isPlanet && [t('row.year'), formatYear(data.orbitPeriod)],
+    kind === 'moon' && [t('row.orbitTime'), formatYear(data.orbitPeriod)],
+    data.rotationPeriod != null && [t(isPlanet ? 'row.day' : 'row.rotation'), formatDay(data.rotationPeriod)],
+    [t('row.temperature'), info.suhu],
+    isPlanet && [t('row.moons'), info.bulan],
+    data.tilt != null && [t('row.tilt'), `${number2.format(data.tilt)}°`],
+    // Fase dan gerhana dihitung dari tanggal simulasi waktu panel dibuka
+    data.id === 'moon' && [t('row.moonPhase'), formatPhase(simDays)],
+    eclipses && [t('row.nextSolarEclipse'), formatNextEclipse(solarEclipses, simDays)],
+    eclipses && [t('row.nextLunarEclipse'), formatNextEclipse(lunarEclipses, simDays)]
   ].filter((row) => row && row[1] != null && row[1] !== '');
 }
 
 function getSubtitle(body) {
-  return body.data.subtitle ?? `Planet ke ${body.index + 1} dari Matahari`;
+  return body.data.subtitle ?? t('panel.planetOrder', { n: body.index + 1 });
 }
 
-export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose }) {
+// getSimDays() = hari simulasi sekarang (main.js)
+export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, getSimDays = () => 0 }) {
   const panel = document.getElementById('info-panel');
   const title = document.getElementById('info-title');
   const subtitle = document.getElementById('info-subtitle');
@@ -169,10 +198,10 @@ export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose }) {
 
   function setNavButton(button, body, direction) {
     const arrow = direction === 'prev' ? '←' : '→';
-    const word = direction === 'prev' ? 'Sebelumnya' : 'Berikutnya';
+    const word = t(direction === 'prev' ? 'panel.previous' : 'panel.next');
     button.textContent = direction === 'prev' ? `${arrow} ${body.name}` : `${body.name} ${arrow}`;
     button.setAttribute('aria-label', `${word}: ${body.name}`);
-    button.title = `${word}: ${body.name} (panah ${direction === 'prev' ? 'kiri' : 'kanan'})`;
+    button.title = t('panel.navTitle', { word, name: body.name, side: t(direction === 'prev' ? 'panel.left' : 'panel.right') });
   }
 
   // Isi pakai textContent (bukan innerHTML) biar aman walaupun datanya nanti datang dari luar
@@ -182,7 +211,7 @@ export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose }) {
     fact.textContent = body.data.info?.fakta ?? '';
 
     stats.replaceChildren(
-      ...getStats(body).map(([label, value]) => {
+      ...getStats(body, getSimDays()).map(([label, value]) => {
         const row = document.createElement('div');
         row.className = 'info-row';
         row.dataset.animate = '';

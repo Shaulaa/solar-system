@@ -1,4 +1,6 @@
 import { skyDirection } from '../utils/sky.js';
+import { lang, LOCALE, localize } from '../i18n/index.js';
+import { stars as starsEn, starTypes, starText } from '../i18n/content.en.js';
 
 // Bintang tetangga Matahari: semua bintang (dan sistem bintang) sampai sekitar 13 tahun cahaya,
 // ditambah beberapa bintang terang terkenal yang sedikit lebih jauh (Altair, Vega, Fomalhaut,
@@ -83,18 +85,26 @@ const TYPE_LABEL = {
   M: 'Katai merah'
 };
 
-const number = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 });
+const number = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
+const english = lang === 'en';
 
 function typeOf(star) {
   const letter = star.spectral[0];
   const giant = /III/.test(star.spectral);
-  if (giant) return { letter, label: letter === 'K' ? 'Raksasa oranye' : 'Raksasa kuning', giant };
-  return { letter, label: TYPE_LABEL[letter], giant };
+  if (giant) {
+    if (english) return { letter, label: letter === 'K' ? starTypes.giantK : starTypes.giantOther, giant };
+    return { letter, label: letter === 'K' ? 'Raksasa oranye' : 'Raksasa kuning', giant };
+  }
+  return { letter, label: english ? starTypes[letter] : TYPE_LABEL[letter], giant };
 }
 
 // Fakta umum kalau bintangnya gak punya fakta khusus
 function genericFact(star, type) {
   const d = number.format(star.distanceLy);
+  if (english) {
+    if (type.letter === 'M') return starText.factM(d);
+    return type.letter === 'K' ? starText.factK : starText.factOther(d);
+  }
   if (type.letter === 'M') {
     return `Katai merah, jenis bintang paling umum di galaksi. Terlalu redup untuk dilihat tanpa teleskop, padahal jaraknya cuma ${d} tahun cahaya.`;
   }
@@ -104,14 +114,16 @@ function genericFact(star, type) {
   return `Cahayanya butuh ${d} tahun untuk sampai ke Bumi.`;
 }
 
-export const nearbyStars = STARS.map((star) => {
+export const nearbyStars = STARS.map((source) => {
+  // Nama dan fakta khusus versi Inggris (i18n/content.en.js), fakta umum dibuat sesuai bahasa
+  const star = localize(source, starsEn[source.id]);
   const type = typeOf(star);
   return {
     ...star,
     type: type.letter,
     giant: type.giant,
     direction: skyDirection(star.ra, star.dec),
-    subtitle: `${type.label} di rasi ${star.constellation}`,
+    subtitle: english ? starText.subtitle(type.label, star.constellation) : `${type.label} di rasi ${star.constellation}`,
     info: { fakta: star.fakta ?? genericFact(star, type) }
   };
 });

@@ -4,16 +4,17 @@
 // dan shortcut keyboard selalu lewat jalur yang sama dan gak mungkin beda state
 
 import { simDate } from '../utils/time.js';
+import { t, LOCALE } from '../i18n/index.js';
 
 // Preset kecepatan, urut dari slider paling kiri
 export const SPEED_PRESETS = [
-  { days: 1, label: '1 hari/dtk', spoken: '1 hari per detik' },
-  { days: 10, label: '10 hari/dtk', spoken: '10 hari per detik' },
-  { days: 30.44, label: '1 bulan/dtk', spoken: '1 bulan per detik' },
-  { days: 365.25, label: '1 tahun/dtk', spoken: '1 tahun per detik' }
+  { days: 1, label: t('speed.day'), spoken: t('speed.daySpoken') },
+  { days: 10, label: t('speed.tenDays'), spoken: t('speed.tenDaysSpoken') },
+  { days: 30.44, label: t('speed.month'), spoken: t('speed.monthSpoken') },
+  { days: 365.25, label: t('speed.year'), spoken: t('speed.yearSpoken') }
 ];
 
-const dateFormat = new Intl.DateTimeFormat('id-ID', {
+const dateFormat = new Intl.DateTimeFormat(LOCALE, {
   day: 'numeric',
   month: 'long',
   year: 'numeric'
@@ -21,6 +22,8 @@ const dateFormat = new Intl.DateTimeFormat('id-ID', {
 
 export function createToolbar({
   onTogglePlay,
+  onToggleReverse,
+  onDateChange,
   onSpeedChange,
   onToggleOrbits,
   onToggleLabels,
@@ -38,6 +41,11 @@ export function createToolbar({
   const speedInput = document.getElementById('speed');
   const speedLabel = document.getElementById('speed-label');
   const dateElement = document.getElementById('sim-date');
+  const dateButton = element.querySelector('[data-action="date"]');
+  const dateInput = document.getElementById('date-input');
+  const reverseButton = element.querySelector('[data-action="reverse"]');
+  let reversed = false;
+  let speedIndex = 0;
 
   // Kontrol yang cuma berarti di tata surya. Di skala galaksi dimatikan (PRD-GALAXY bagian 4),
   // tooltip-nya ditambah keterangan biar jelas kenapa gak bisa dipencet
@@ -45,7 +53,9 @@ export function createToolbar({
   const solarOnly = [
     { control: speedInput, tooltipHost: speedGroup },
     { control: orbitsButton, tooltipHost: orbitsButton },
-    { control: scaleButton, tooltipHost: scaleButton }
+    { control: scaleButton, tooltipHost: scaleButton },
+    { control: reverseButton, tooltipHost: reverseButton },
+    { control: dateButton, tooltipHost: dateButton }
   ].map((item) => ({ ...item, tooltip: item.tooltipHost.dataset.tooltip }));
   let solarControlsEnabled = true;
 
@@ -55,6 +65,8 @@ export function createToolbar({
   element.addEventListener('click', (event) => {
     const action = event.target.closest('button[data-action]')?.dataset.action;
     if (action === 'play') onTogglePlay?.();
+    else if (action === 'reverse') onToggleReverse?.();
+    else if (action === 'date') openDatePicker();
     else if (action === 'orbits') onToggleOrbits?.();
     else if (action === 'labels') onToggleLabels?.();
     else if (action === 'scale') onToggleScale?.();
@@ -65,6 +77,23 @@ export function createToolbar({
 
   speedInput.addEventListener('input', () => onSpeedChange?.(Number(speedInput.value)));
 
+  // Pemilih tanggal bawaan browser. Nilainya diisi tanggal simulasi sekarang dulu, jadi kalendernya
+  // kebuka di bulan yang lagi tampil. Browser tanpa showPicker (lama) dapat fokus ke inputnya
+  function openDatePicker() {
+    if (dateButton.disabled) return;
+    dateInput.value = dateElement.dateTime;
+    try {
+      dateInput.showPicker();
+    } catch {
+      dateInput.focus();
+    }
+  }
+
+  dateInput.addEventListener('change', () => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateInput.value);
+    if (match) onDateChange?.(Number(match[1]), Number(match[2]), Number(match[3]));
+  });
+
   function setPressed(button, pressed) {
     button.setAttribute('aria-pressed', String(pressed));
   }
@@ -74,17 +103,29 @@ export function createToolbar({
 
     setPaused(paused) {
       playButton.classList.toggle('is-paused', paused);
-      const label = paused ? 'Lanjutkan simulasi' : 'Jeda simulasi';
-      playButton.setAttribute('aria-label', label);
-      playButton.dataset.tooltip = `${paused ? 'Lanjutkan' : 'Jeda'} (Spasi)`;
+      playButton.setAttribute('aria-label', t(paused ? 'toolbar.resume' : 'toolbar.pause'));
+      playButton.dataset.tooltip = t(paused ? 'toolbar.resumeTip' : 'toolbar.pauseTip');
     },
 
     setSpeedIndex(index) {
+      speedIndex = index;
       const preset = SPEED_PRESETS[index];
       speedInput.value = String(index);
-      speedInput.setAttribute('aria-valuetext', preset.spoken);
-      speedLabel.textContent = preset.label;
+      // Waktu mundur ditandai minus di label kecepatan
+      speedInput.setAttribute('aria-valuetext', reversed ? t('speed.backwardSpoken', { speed: preset.spoken }) : preset.spoken);
+      speedLabel.textContent = reversed ? `−${preset.label}` : preset.label;
     },
+
+    setReversed(value) {
+      reversed = value;
+      setPressed(reverseButton, value);
+      reverseButton.setAttribute('aria-label', t(value ? 'toolbar.forward' : 'toolbar.backward'));
+      reverseButton.dataset.tooltip = t(value ? 'toolbar.forwardTip' : 'toolbar.backwardTip');
+      solarOnly.find((item) => item.control === reverseButton).tooltip = reverseButton.dataset.tooltip;
+      this.setSpeedIndex(speedIndex);
+    },
+
+    openDatePicker,
 
     setOrbitsVisible(visible) {
       setPressed(orbitsButton, visible);
@@ -100,8 +141,8 @@ export function createToolbar({
 
     setTourActive(active) {
       setPressed(tourButton, active);
-      tourButton.setAttribute('aria-label', active ? 'Hentikan tur otomatis' : 'Tur otomatis');
-      tourButton.dataset.tooltip = active ? 'Hentikan tur (T)' : 'Tur otomatis (T)';
+      tourButton.setAttribute('aria-label', t(active ? 'toolbar.tourStop' : 'toolbar.tour'));
+      tourButton.dataset.tooltip = t(active ? 'toolbar.tourStopTip' : 'toolbar.tourTip');
     },
 
     setSolarControlsEnabled(enabled) {
@@ -110,7 +151,7 @@ export function createToolbar({
       element.classList.toggle('is-zoomed-out', !enabled);
       for (const { control, tooltipHost, tooltip } of solarOnly) {
         control.disabled = !enabled;
-        tooltipHost.dataset.tooltip = enabled ? tooltip : `${tooltip.replace(/ \(.*\)$/, '')} · cuma di tata surya`;
+        tooltipHost.dataset.tooltip = enabled ? tooltip : t('toolbar.solarOnly', { label: tooltip.replace(/ \(.*\)$/, '') });
       }
     },
 

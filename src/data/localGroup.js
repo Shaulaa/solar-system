@@ -1,4 +1,6 @@
 import { skyDirection, diskOrientation } from '../utils/sky.js';
+import { localize } from '../i18n/index.js';
+import { galaxies as galaxiesEn } from '../i18n/content.en.js';
 
 // Galaksi Grup Lokal yang tampil di tahap zoom paling luar (galaxy/localGroup.js)
 //
@@ -161,7 +163,7 @@ export function localGroupPosition(galaxy, sunLocal) {
   return [0, 1, 2].map((k) => sunLocal[k] + direction[k] * distance);
 }
 
-export const localGroup = GALAXIES.map((galaxy) => ({
+export const localGroup = GALAXIES.map((source) => localize(source, galaxiesEn[source.id])).map((galaxy) => ({
   ...galaxy,
   orientation: galaxy.milkyWay
     ? null

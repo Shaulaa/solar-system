@@ -8,7 +8,7 @@ Built with Three.js, GSAP, and Vite, no UI framework.
 
 ### [▶ Live demo: solarsystem-id.vercel.app](https://solarsystem-id.vercel.app)
 
-> The interface is in Indonesian (Bahasa Indonesia).
+> The interface is in Indonesian (Bahasa Indonesia) by default. Use the English button under the title, or open [solarsystem-id.vercel.app/?lang=en](https://solarsystem-id.vercel.app/?lang=en).
 
 ## Features
 
@@ -22,7 +22,10 @@ Built with Three.js, GSAP, and Vite, no UI framework.
 - **Scale bar and stage names.** A scale bar with round numbers that switches from AU to light years, a short title whenever you enter a new stage (solar system, nearest stars, Milky Way), and a "Back to the solar system" button that zooms you home
 - **Guided tour.** From the Sun out to Neptune, then out to the whole galaxy and the Local Group, with a short narration at each stop. It stops on its own as soon as you take over the camera
 - **True scale.** A 2.5 second transition from the "pretty" scale to real proportions (1 AU = 400 units) and back
-- **Time controls.** Pause, 4 speed presets (1 day to 1 year per second), and a simulation date that starts today
+- **Time controls.** Pause, 4 speed presets (1 day to 1 year per second), run time backward, and jump to any date from 1900 to 2100 with the date picker. The simulation starts today
+- **Moon phases and eclipses.** The Moon sits where it really is on the simulated date (low precision lunar theory, within about 1 degree), so it shows the right phase, and only lines up with the Sun near its orbital nodes. The Moon and Earth panels show the phase and the next solar and lunar eclipse (2026 to 2030)
+- **Shareable links.** The address follows what you select (`#saturn`, `#titan`, `#andromeda`, `#milky-way`, `#local-group`), so any view can be shared. Opening a link skips the intro and flies straight there
+- **Two languages.** Indonesian and English, including every fact, narration line, and number format. The choice is remembered
 - **Search.** Press `/` or `Ctrl+K`, type a planet, moon, nearby star, or galaxy name (English spellings and catalog names like M31 work too), press Enter to fly there. Typing "Milky Way" or "galaksi" zooms out to the whole galaxy, "Local Group" or "Grup Lokal" all the way out. There is one hidden object that shows up if you type its name
 - **Dwarf planets and comets.** Ceres in the asteroid belt, Haumea (stretched into an egg shape by its 4 hour day, with its ring), Makemake, and Eris, each on its real orbit. Halley's Comet and Comet Encke grow a coma and two tails as they near the Sun: a straight blue ion tail and a curved dust tail, both always pointing away from the Sun. Encke reaches perihelion in February 2027, so its tail is already visible; speed up time to watch Halley return in 2061
 - **16 moons.** The Moon, Phobos, Deimos, Jupiter's 4 Galilean moons, Enceladus, Rhea, and Titan around Saturn, Miranda, Titania, and Oberon around Uranus, and Triton around Neptune, all clickable. Moons of the outer planets orbit in their planet's equatorial plane, so Uranus's moons are tipped over with it and Triton orbits backwards
@@ -69,6 +72,8 @@ npm run preview   # serve the build locally
 | Previous / next planet | Buttons under the info panel | `←` `→` |
 | Pause / resume | Play button | `Space` |
 | Time speed | Slider | `1` to `4` |
+| Run time backward / forward | Rewind button | `R` |
+| Jump to a date | Click the date | `D` |
 | Orbit lines / labels | Toolbar buttons | `O` / `L` |
 | True scale | Toolbar button | `S` |
 | Guided tour | Toolbar button | `T` |
@@ -131,6 +136,11 @@ src/
 ├── data/planets.js      planet, moon, and tour narration data (single source for all content)
 ├── data/nearbyStars.js  nearby star data (position, distance, spectral class, fun fact)
 ├── data/localGroup.js   Local Group galaxies and dwarf galaxies (sky position, distance, disk tilt, shape)
+├── data/eclipses.js     solar and lunar eclipses 2026 to 2030
+├── i18n/
+│   ├── index.js         language choice, t() for interface text, localize() for data
+│   ├── ui.js            interface text in Indonesian and English
+│   └── content.en.js    English facts, narration, and names for every object
 ├── controls/
 │   ├── picker.js        click / hover via raycasting, tells clicks apart from drags
 │   ├── cameraRig.js     intro, camera flights, following the focused body
@@ -177,6 +187,7 @@ src/
     ├── kepler.js        planet positions from orbital elements (Kepler's equation)
     ├── sky.js           sky coordinates (RA, Dec) to galaxy scene coordinates, galaxy disk orientation
     ├── time.js          simulation date and days since J2000
+    ├── moon.js          Moon position and phase (low precision lunar theory)
     ├── loader.js        shared LoadingManager, WebP first then fallbacks
     ├── performance.js   FPS monitoring and automatic quality drop
     ├── device.js        mobile detection

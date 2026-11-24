@@ -9,6 +9,8 @@
 // bintang tetangga). Tiap item minimal punya id, name, kind, data (aliases, subtitle), dan boleh
 // punya visible = false (easter egg Pluto). Hasil yang dipilih dioper utuh ke onSelect
 
+import { t, LOCALE } from '../i18n/index.js';
+
 const MAX_RESULTS = 8;
 
 const normalize = (text) =>
@@ -18,12 +20,12 @@ const normalize = (text) =>
     .replace(/[̀-ͯ]/g, '')
     .trim();
 
-const distanceFormat = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 });
+const distanceFormat = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 2 });
 
 function describe(item) {
-  if (item.kind === 'nearby-star') return `Bintang tetangga · ${distanceFormat.format(item.data.distanceLy)} tahun cahaya`;
+  if (item.kind === 'nearby-star') return t('search.nearbyStar', { distance: distanceFormat.format(item.data.distanceLy) });
   if (item.data.subtitle) return item.data.subtitle;
-  if (item.kind === 'planet') return `Planet ke ${item.index + 1} dari Matahari`;
+  if (item.kind === 'planet') return t('panel.planetOrder', { n: item.index + 1 });
   return '';
 }
 
@@ -95,7 +97,7 @@ export function createSearch({ items, onSelect, onSecret }) {
     if (results.length === 0) {
       const empty = document.createElement('li');
       empty.className = 'search-empty';
-      empty.textContent = 'Gak ketemu. Coba nama planet, bulan, atau bintang lain';
+      empty.textContent = t('search.empty');
       list.append(empty);
       input.removeAttribute('aria-activedescendant');
     } else {

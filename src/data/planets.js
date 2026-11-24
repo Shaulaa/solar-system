@@ -14,7 +14,10 @@
 // narration teks pendek yang muncul di bawah layar waktu tur otomatis (controls/tour.js)
 // aliases nama lain buat pencarian (misal ejaan Inggris), id juga otomatis ikut dicari
 
-export const planets = [
+import { localize } from '../i18n/index.js';
+import { bodies as bodiesEn } from '../i18n/content.en.js';
+
+const PLANETS = [
   {
     id: 'mercury',
     name: 'Merkurius',
@@ -90,6 +93,8 @@ export const planets = [
       {
         id: 'moon',
         name: 'Bulan',
+        // Posisinya dari fase asli di tanggal simulasi (scene/moons.js), bukan dari orbitPeriod
+        ephemeris: 'moon',
         radius: 0.27,
         orbitRadius: 2.3,
         distanceKm: 384400,
@@ -494,7 +499,7 @@ export const planets = [
   }
 ];
 
-export const sun = {
+const SUN = {
   id: 'sun',
   name: 'Matahari',
   subtitle: 'Bintang di pusat tata surya',
@@ -514,7 +519,7 @@ export const sun = {
 
 // Planet katai. Pluto disembunyikan (hidden) dan baru muncul kalau user ngetik "pluto"
 // di kotak pencarian
-export const dwarfPlanets = [
+const DWARF_PLANETS = [
   {
     id: 'pluto',
     name: 'Pluto',
@@ -626,7 +631,7 @@ export const dwarfPlanets = [
 // orbitPeriod dipilih supaya dua perihelion yang diketahui jatuh di tanggal yang benar
 // (Halley 9 Februari 1986 dan 28 Juli 2061, Encke 22 Oktober 2023 dan sekitar 7 Februari 2027).
 // Elemen orbit selain itu dianggap tetap, jadi posisinya perkiraan
-export const comets = [
+const COMETS = [
   {
     id: 'halley',
     name: 'Komet Halley',
@@ -666,6 +671,19 @@ export const comets = [
     }
   }
 ];
+
+// Teks benda versi Inggris (i18n/content.en.js) digabung di sini, sekali waktu modul dimuat.
+// Bulan ikut diterjemahkan lewat id masing masing
+function localizeBody(body) {
+  const localized = localize(body, bodiesEn[body.id]);
+  if (!body.moons) return localized;
+  return { ...localized, moons: body.moons.map((moon) => localize(moon, bodiesEn[moon.id])) };
+}
+
+export const planets = PLANETS.map(localizeBody);
+export const sun = localizeBody(SUN);
+export const dwarfPlanets = DWARF_PLANETS.map(localizeBody);
+export const comets = COMETS.map(localizeBody);
 
 // Sabuk asteroid utama di antara Mars dan Jupiter
 // orbitPeriod kira kira periode orbit di 2,7 AU (hukum Kepler), dipakai buat muterin belt sebagai satu grup

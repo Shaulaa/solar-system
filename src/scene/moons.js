@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { scaleRadius, scaleKm, blendScale } from '../utils/scale.js';
 import { createTexturedSphere } from './planets.js';
+import { START_DAYS_SINCE_J2000 } from '../utils/time.js';
+import { moonPosition } from '../utils/moon.js';
 
 // Bulan bulan planet, dibaca dari field moons di data/planets.js
 // Hierarki: anchor planet > pivot (muter = revolusi bulan) > mesh
@@ -10,6 +12,11 @@ import { createTexturedSphere } from './planets.js';
 // ekliptika, bulan Saturnus, Uranus, dan Neptunus di bidang ekuator planetnya (plane: 'equator').
 // Rotasi mesh gak di-update sendiri: karena mesh ikut pivot, sisi yang sama selalu
 // menghadap planet (tidal lock), persis kayak Bulan aslinya
+//
+// Bulan Bumi (ephemeris: 'moon') posisinya gak dari periode orbit, tapi dari bujur dan lintang
+// ekliptika aslinya di tanggal simulasi (utils/moon.js). Jadi Bulan di layar tampak purnama / sabit
+// sesuai kalender, dan bulan baru cuma lewat persis di depan Matahari kalau lintangnya hampir 0
+// (musim gerhana)
 
 // Seed fallback prosedural dipisah dari seed planet (1..8) biar polanya beda
 const SEED_OFFSET = 100;
@@ -43,6 +50,14 @@ function createOrbitFrame(moonData, planet) {
   }
   planet.anchor.add(frame);
   return frame;
+}
+
+// Bulan Bumi dari bujur dan lintang ekliptikanya. Sumbu scene: x = titik Aries, y = kutub utara
+// ekliptika, -z = bujur 90 derajat. Mesh ada di +x pivot, jadi Rz(lintang) dulu (naik ke utara),
+// baru Ry(bujur): urutan Euler 'YZX'. Sisi yang sama tetap menghadap Bumi karena mesh ikut pivot
+function placeByEphemeris(pivot, days) {
+  const { longitude, latitude } = moonPosition(days);
+  pivot.rotation.set(0, longitude, latitude, 'YZX');
 }
 
 function createMoon(moonData, planet, index) {
@@ -88,6 +103,10 @@ function createMoon(moonData, planet, index) {
       mesh.scale.setScalar(moon.radius / size.pretty);
     },
     update(simDays) {
+      if (moonData.ephemeris === 'moon') {
+        placeByEphemeris(pivot, START_DAYS_SINCE_J2000 + simDays);
+        return;
+      }
       pivot.rotation.y = startAngle + (simDays / period) * Math.PI * 2;
     }
   };

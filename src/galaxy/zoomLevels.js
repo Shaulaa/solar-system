@@ -1,4 +1,5 @@
 import { planets as planetData } from '../data/planets.js';
+import { t } from '../i18n/index.js';
 import { scaleDistance, unscaleDistance, blendScale } from '../utils/scale.js';
 
 // Satu nilai zoomLevel jadi sumber kebenaran semua transisi tata surya ke galaksi
@@ -103,10 +104,10 @@ export const LOCAL_GROUP_GENERATE_AT = 7;
 // bintang tetangga baru jelas sekitar 4,3 (nearbyStarsIn), dan bentuk galaksi mulai terbaca waktu
 // bintang tetangga memudar (nearbyStarsOut)
 export const ZOOM_STAGES = [
-  { id: 'solar', name: 'Tata Surya', note: 'Satu bintang, delapan planet' },
-  { id: 'neighbors', name: 'Lingkungan Bintang Terdekat', note: 'Bintang dalam radius sekitar 40 tahun cahaya', from: 4.3 },
-  { id: 'galaxy', name: 'Galaksi Bima Sakti', note: '100 sampai 400 miliar bintang', from: 7 },
-  { id: 'local-group', name: 'Grup Lokal', note: 'Lebih dari 80 galaksi dalam radius sekitar 5 juta tahun cahaya', from: 10.7 }
+  { id: 'solar', name: t('stage.solar'), note: t('stage.solarNote') },
+  { id: 'neighbors', name: t('stage.neighbors'), note: t('stage.neighborsNote'), from: 4.3 },
+  { id: 'galaxy', name: t('stage.galaxy'), note: t('stage.galaxyNote'), from: 7 },
+  { id: 'local-group', name: t('stage.localGroup'), note: t('stage.localGroupNote'), from: 10.7 }
 ];
 
 // Tombol "Kembali ke Tata Surya" muncul di atas angka ini (PRD-GALAXY bagian 4)

@@ -35,7 +35,7 @@
   <body class="is-intro">
     <!-- Loading screen. Sengaja ada di HTML (bukan dibuat JS) biar langsung nutup layar dari awal -->
     <div class="loading" id="loading" role="status" aria-live="polite">
-      <p class="loading-title">Tata Surya</p>
+      <p class="loading-title" data-i18n="app.name">Tata Surya</p>
       <div class="loading-bar" aria-hidden="true"><span class="loading-fill" id="loading-fill"></span></div>
       <p class="loading-percent"><span id="loading-percent">0</span>%</p>
     </div>
@@ -43,21 +43,26 @@
     <canvas id="scene"></canvas>
 
     <div class="hud">
-      <h1>Tata Surya</h1>
+      <h1 data-i18n="app.name">Tata Surya</h1>
       <p class="sub">
-        <span class="sub-wide">Klik planet buat lihat detail, drag buat muter, scroll buat zoom</span>
-        <span class="sub-narrow">Tap planet buat detail, geser buat muter</span>
+        <span class="sub-wide" data-i18n="hud.subWide">Klik planet buat lihat detail, drag buat muter, scroll buat zoom</span>
+        <span class="sub-narrow" data-i18n="hud.subNarrow">Tap planet buat detail, geser buat muter</span>
       </p>
+      <!-- Ganti bahasa antarmuka (i18n/index.js). Teksnya nama bahasa tujuan -->
+      <button class="lang-switch" id="lang-switch" type="button" data-i18n="lang.switch" data-i18n-aria="lang.switchAria" aria-label="Switch the interface to English">English</button>
     </div>
 
     <!-- Toolbar waktu dan tampilan. Dihubungkan di ui/toolbar.js -->
-    <div class="toolbar" id="toolbar" role="toolbar" aria-label="Kontrol simulasi">
-      <button class="tb-btn" type="button" data-action="play" aria-label="Jeda simulasi" data-tooltip="Jeda (Spasi)">
+    <div class="toolbar" id="toolbar" role="toolbar" aria-label="Kontrol simulasi" data-i18n-aria="toolbar.aria">
+      <button class="tb-btn" type="button" data-action="play" aria-label="Jeda simulasi" data-tooltip="Jeda (Spasi)" data-i18n-aria="toolbar.pause" data-i18n-tooltip="toolbar.pauseTip">
         <svg class="icon icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14" /></svg>
         <svg class="icon icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z" /></svg>
       </button>
+      <button class="tb-btn" type="button" data-action="reverse" aria-pressed="false" aria-label="Waktu mundur" data-tooltip="Waktu mundur (R)" data-i18n-aria="toolbar.backward" data-i18n-tooltip="toolbar.backwardTip">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11.5 6.5 4.5 12l7 5.5zM19.5 6.5 12.5 12l7 5.5z" /></svg>
+      </button>
 
-      <div class="tb-speed" data-tooltip="Kecepatan waktu (1 sampai 4)">
+      <div class="tb-speed" data-tooltip="Kecepatan waktu (1 sampai 4)" data-i18n-tooltip="toolbar.speedTip">
         <input
           type="range"
           id="speed"
@@ -66,33 +71,40 @@
           step="1"
           value="1"
           aria-label="Kecepatan waktu"
+          data-i18n-aria="toolbar.speed"
         />
         <output class="tb-speed-label" id="speed-label" for="speed"></output>
       </div>
 
-      <time class="tb-date" id="sim-date"></time>
+      <!-- Tanggal simulasi. Diklik buka pemilih tanggal bawaan browser (input date di belakangnya) -->
+      <span class="tb-date-wrap">
+        <button class="tb-date" type="button" data-action="date" aria-label="Pilih tanggal simulasi" data-tooltip="Pilih tanggal (D)" data-i18n-aria="toolbar.date" data-i18n-tooltip="toolbar.dateTip">
+          <time id="sim-date"></time>
+        </button>
+        <input class="tb-date-input" id="date-input" type="date" min="1900-01-01" max="2100-12-31" tabindex="-1" aria-hidden="true" />
+      </span>
 
       <span class="tb-sep" aria-hidden="true"></span>
 
-      <button class="tb-btn" type="button" data-action="orbits" aria-pressed="true" aria-label="Garis orbit" data-tooltip="Garis orbit (O)">
+      <button class="tb-btn" type="button" data-action="orbits" aria-pressed="true" aria-label="Garis orbit" data-tooltip="Garis orbit (O)" data-i18n-aria="toolbar.orbits" data-i18n-tooltip="toolbar.orbitsTip">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="12" rx="10" ry="5.5" transform="rotate(-24 12 12)" /><circle cx="12" cy="12" r="2.2" /><circle class="icon-fill" cx="20.2" cy="8.4" r="1.6" /></svg>
       </button>
-      <button class="tb-btn" type="button" data-action="labels" aria-pressed="true" aria-label="Label nama" data-tooltip="Label nama (L)">
+      <button class="tb-btn" type="button" data-action="labels" aria-pressed="true" aria-label="Label nama" data-tooltip="Label nama (L)" data-i18n-aria="toolbar.labels" data-i18n-tooltip="toolbar.labelsTip">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1 1 0 0 1 0 1.4l-7.3 7.3a1 1 0 0 1-1.4 0z" /><circle cx="8" cy="8" r="1.4" /></svg>
       </button>
-      <button class="tb-btn" type="button" data-action="scale" aria-pressed="false" aria-label="Skala nyata" data-tooltip="Skala nyata (S)">
+      <button class="tb-btn" type="button" data-action="scale" aria-pressed="false" aria-label="Skala nyata" data-tooltip="Skala nyata (S)" data-i18n-aria="toolbar.scale" data-i18n-tooltip="toolbar.scaleTip">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15.5 15.5 3 21 8.5 8.5 21z" /><path d="m7 12 2 2M10 9l2 2M13 6l2 2" /></svg>
       </button>
-      <button class="tb-btn" type="button" data-action="tour" aria-pressed="false" aria-label="Tur otomatis" data-tooltip="Tur otomatis (T)">
+      <button class="tb-btn" type="button" data-action="tour" aria-pressed="false" aria-label="Tur otomatis" data-tooltip="Tur otomatis (T)" data-i18n-aria="toolbar.tour" data-i18n-tooltip="toolbar.tourTip">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2 5-5 2 2-5z" /></svg>
       </button>
 
       <span class="tb-sep" aria-hidden="true"></span>
 
-      <button class="tb-btn" type="button" data-action="search" aria-label="Cari planet, bulan, bintang, atau galaksi" data-tooltip="Cari (/ atau Ctrl+K)">
+      <button class="tb-btn" type="button" data-action="search" aria-label="Cari planet, bulan, bintang, atau galaksi" data-tooltip="Cari (/ atau Ctrl+K)" data-i18n-aria="toolbar.search" data-i18n-tooltip="toolbar.searchTip">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 5 5" /></svg>
       </button>
-      <button class="tb-btn" type="button" data-action="about" aria-label="Tentang project ini" data-tooltip="Tentang (?)">
+      <button class="tb-btn" type="button" data-action="about" aria-label="Tentang project ini" data-tooltip="Tentang (?)" data-i18n-aria="toolbar.about" data-i18n-tooltip="toolbar.aboutTip">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6" /><circle class="icon-fill" cx="12" cy="7.6" r="1.1" /></svg>
       </button>
     </div>
@@ -101,13 +113,13 @@
     <div class="narration" id="narration" hidden>
       <p class="narration-step" id="narration-step"></p>
       <p class="narration-text" id="narration-text" aria-live="polite"></p>
-      <button class="narration-stop" type="button" data-action="stop-tour">Hentikan tur</button>
+      <button class="narration-stop" type="button" data-action="stop-tour" data-i18n="tour.stop">Hentikan tur</button>
     </div>
 
     <!-- Pencarian (/ atau Ctrl+K). Pola combobox ARIA: fokus tetap di input,
          hasil yang aktif ditunjuk lewat aria-activedescendant -->
     <div class="search" id="search" hidden>
-      <div class="search-box" role="dialog" aria-modal="true" aria-label="Cari benda langit">
+      <div class="search-box" role="dialog" aria-modal="true" aria-label="Cari benda langit" data-i18n-aria="search.dialog">
         <svg class="icon search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 5 5" /></svg>
         <input
           id="search-input"
@@ -117,58 +129,59 @@
           aria-controls="search-results"
           aria-autocomplete="list"
           placeholder="Cari planet, bulan, bintang, atau galaksi"
+          data-i18n-placeholder="search.placeholder"
           autocomplete="off"
           spellcheck="false"
         />
-        <ul class="search-results" id="search-results" role="listbox" aria-label="Hasil pencarian"></ul>
+        <ul class="search-results" id="search-results" role="listbox" aria-label="Hasil pencarian" data-i18n-aria="search.results"></ul>
         <p class="search-hint" aria-hidden="true">
-          <kbd>&uarr;</kbd><kbd>&darr;</kbd> pilih <span class="search-dot"></span> <kbd>Enter</kbd> terbang <span class="search-dot"></span> <kbd>Esc</kbd> tutup
+          <kbd>&uarr;</kbd><kbd>&darr;</kbd> <span data-i18n="search.hintSelect">pilih</span> <span class="search-dot"></span> <kbd>Enter</kbd> <span data-i18n="search.hintFly">terbang</span> <span class="search-dot"></span> <kbd>Esc</kbd> <span data-i18n="search.hintClose">tutup</span>
         </p>
       </div>
     </div>
 
     <!-- Tentang. Pakai <dialog> bawaan browser: fokus otomatis terkunci di dalam dan Esc langsung nutup -->
     <dialog class="about" id="about" aria-labelledby="about-title">
-      <button class="about-close" type="button" data-action="close-about" aria-label="Tutup">
+      <button class="about-close" type="button" data-action="close-about" aria-label="Tutup" data-i18n-aria="about.close">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
       </button>
-      <p class="about-kicker">Tentang</p>
-      <h2 class="about-title" id="about-title">Tata Surya Interaktif</h2>
-      <p class="about-lead">
+      <p class="about-kicker" data-i18n="about.kicker">Tentang</p>
+      <h2 class="about-title" id="about-title" data-i18n="app.title">Tata Surya Interaktif</h2>
+      <p class="about-lead" data-i18n="about.lead">
         Tata surya 3D yang bisa dijelajahi langsung di browser. Ukuran dan jarak di mode Enak Dilihat
         sengaja dikompres biar semua planet kelihatan, mode Skala Nyata nunjukin perbandingan aslinya.
       </p>
 
-      <h3 class="about-heading">Kredit</h3>
+      <h3 class="about-heading" data-i18n="about.credits">Kredit</h3>
       <ul class="about-list">
-        <li>
+        <li data-i18n-html="about.creditTextures">
           Tekstur oleh
           <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noopener noreferrer">Solar System Scope</a>,
           lisensi <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>
         </li>
-        <li>
+        <li data-i18n-html="about.creditGalaxy">
           Ilustrasi Bima Sakti oleh
           <a href="https://photojournal.jpl.nasa.gov/catalog/PIA10748" target="_blank" rel="noopener noreferrer">NASA/JPL-Caltech (R. Hurt)</a>,
           dipakai sebagai lapisan cahaya di tampilan galaksi
         </li>
-        <li>
+        <li data-i18n-html="about.creditData">
           Data planet dari
           <a href="https://nssdc.gsfc.nasa.gov/planetary/factsheet/" target="_blank" rel="noopener noreferrer">NASA Planetary Fact Sheet</a>
         </li>
       </ul>
 
-      <h3 class="about-heading">Dibuat dengan</h3>
+      <h3 class="about-heading" data-i18n="about.builtWith">Dibuat dengan</h3>
       <ul class="about-tags">
         <li>Three.js</li>
         <li>GSAP</li>
         <li>Vite</li>
-        <li>JavaScript tanpa framework</li>
+        <li data-i18n="about.noFramework">JavaScript tanpa framework</li>
         <li>GLSL</li>
       </ul>
 
       <a class="about-link" href="https://github.com/Shaulaa/solar-system" target="_blank" rel="noopener noreferrer">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19c-4 1.3-4-2-6-2.5m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21" /></svg>
-        Lihat kode di GitHub
+        <span data-i18n="about.github">Lihat kode di GitHub</span>
       </a>
     </dialog>
 
@@ -187,13 +200,13 @@
 
     <button class="zoom-back" id="zoom-back" type="button">
       <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>
-      Kembali ke Tata Surya
+      <span data-i18n="zoomBack">Kembali ke Tata Surya</span>
     </button>
 
     <!-- Muncul kalau partikel galaksi belum selesai dibuat waktu user sudah zoom keluar jauh -->
     <p class="galaxy-status" id="galaxy-status" role="status" aria-live="polite" hidden></p>
 
-    <p class="scale-note" id="scale-note" hidden>
+    <p class="scale-note" id="scale-note" data-i18n="scaleNote" hidden>
       Ini perbandingan asli. Planet sekecil ini dibanding jarak antar orbitnya
     </p>
 
@@ -201,8 +214,8 @@
     <aside class="info-panel" id="info-panel" aria-labelledby="info-title" hidden>
       <!-- Pegangan bottom sheet (cuma kelihatan di HP), bisa ditarik ke bawah buat nutup panel -->
       <div class="sheet-handle" aria-hidden="true"></div>
-      <button class="info-back" type="button" data-action="back" aria-label="Kembali ke tampilan tata surya">
-        <span aria-hidden="true">&larr;</span> Kembali
+      <button class="info-back" type="button" data-action="back" aria-label="Kembali ke tampilan tata surya" data-i18n-aria="panel.backAria">
+        <span aria-hidden="true">&larr;</span> <span data-i18n="panel.back">Kembali</span>
       </button>
 
       <header class="info-header">
@@ -213,11 +226,11 @@
       <dl class="info-stats" id="info-stats"></dl>
 
       <div class="info-fact" data-animate>
-        <p class="info-fact-label">Fakta unik</p>
+        <p class="info-fact-label" data-i18n="panel.fact">Fakta unik</p>
         <p class="info-fact-text" id="info-fact"></p>
       </div>
 
-      <nav class="info-nav" aria-label="Navigasi benda langit">
+      <nav class="info-nav" aria-label="Navigasi benda langit" data-i18n-aria="panel.nav">
         <button type="button" data-action="prev" id="info-prev"></button>
         <button type="button" data-action="next" id="info-next"></button>
       </nav>
@@ -229,7 +242,7 @@
       (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>)
       <!-- Tampil selama lapisan ilustrasi galaksi kelihatan (diatur main.js) -->
       <span class="credit-galaxy" id="credit-galaxy" hidden>
-        Ilustrasi galaksi:
+        <span data-i18n="credit.galaxy">Ilustrasi galaksi:</span>
         <a href="https://photojournal.jpl.nasa.gov/catalog/PIA10748" target="_blank" rel="noopener noreferrer">NASA/JPL-Caltech (R. Hurt)</a>
       </span>
     </p>
