@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { planets as planetData, dwarfPlanets, comets } from '../data/planets.js';
+import { planets as planetData, dwarfPlanets, comets, asteroids } from '../data/planets.js';
 import { createPlanetTexture } from '../utils/planetTexture.js';
 import { loadTexture, assignTexture } from '../utils/loader.js';
 import { scaleDistance, scaleRadius, blendScale } from '../utils/scale.js';
@@ -14,6 +14,8 @@ const DEG = Math.PI / 180;
 // Kecepatan rotasi di-scale terpisah dari revolusi
 // Kalo pake angka asli, di 10 hari per detik Bumi bakal muter 10 kali per detik dan bikin pusing
 const ROTATION_SCALE = 0.04;
+// Jarak (AU) asteroid ke Bumi yang dianggap "lagi lewat dekat", sekitar dua kali jarak Bulan
+const CLOSE_RANGE = 0.005;
 
 // Bola bertekstur generik, dipakai planet biasa dan bulan.
 // Sebelum tekstur siap, material pakai warna dasar dari look biar gak kelihatan putih polos.
@@ -126,8 +128,11 @@ function createPlanet(data, index) {
     get boundingRadius() {
       // Komet: koma yang ukurannya berubah sesuai jarak ke Matahari
       if (body.boundingRadius) return Math.max(planet.radius, body.boundingRadius());
-      return planet.radius * boundingScale;
+      // Asteroid yang lagi lewat dekat Bumi: kamera mundur sampai Bumi ikut kelihatan (lihat createPlanets)
+      return Math.max(planet.radius * boundingScale, planet.companionRadius?.() ?? 0);
     },
+    // Posisi heliosentris sekarang (AU), jangan diubah dari luar
+    helio,
     root,
     anchor,
     tiltGroup,
@@ -169,11 +174,24 @@ export function createPlanets() {
 
   // Planet katai dan komet ikut list yang sama (biar mode skala, orbit, label, dan klik otomatis jalan),
   // bedanya ditandai lewat data.kind
-  const list = [...planetData, ...dwarfPlanets, ...comets].map((data, i) => {
+  const list = [...planetData, ...dwarfPlanets, ...comets, ...asteroids].map((data, i) => {
     const planet = createPlanet(data, i);
     group.add(planet.root);
     return planet;
   });
+
+  // Benda dengan closeApproach (Apophis): selama jaraknya ke Bumi di bawah CLOSE_RANGE AU, radius fokusnya
+  // dilebarkan sampai mencakup Bumi, jadi waktu difokus pas lewat, Bumi ikut masuk bingkai.
+  // Jarak AU diubah ke unit scene pakai perbandingan jarak benda itu sendiri (sama di sekitar 1 AU)
+  const earth = list.find((p) => p.data.id === 'earth');
+  for (const planet of list) {
+    if (!planet.data.closeApproach) continue;
+    planet.companionRadius = () => {
+      const au = planet.helio.distanceTo(earth.helio);
+      if (au > CLOSE_RANGE) return 0;
+      return au * (planet.distance / planet.helio.length()) * 1.15 + earth.radius;
+    };
+  }
 
   return {
     group,

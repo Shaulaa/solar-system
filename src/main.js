@@ -48,7 +48,7 @@ import { createZoomBack } from './ui/zoomBack.js';
 import { loadingManager } from './utils/loader.js';
 import { isMobile } from './utils/device.js';
 import { createPerformanceMonitor } from './utils/performance.js';
-import { daysFromStart } from './utils/time.js';
+import { daysFromStart, simDaysAt } from './utils/time.js';
 import { motion, shift } from './utils/motion.js';
 import { warmUpGpu, GPU_WARMUP_DELAY } from './app/gpuWarmup.js';
 import { createStageBloom } from './app/stageBloom.js';
@@ -199,6 +199,7 @@ const infoPanel = createInfoPanel({
   onPrev: () => stepFocus(-1),
   onNext: () => stepFocus(1),
   onSwipeClose: () => (skySelection.selected ? skySelection.close() : goOverview()),
+  onFlyby: (body) => flyBy(body),
   getSimDays: () => time.simDays
 });
 
@@ -273,7 +274,7 @@ const toolbar = createToolbar({
   onSpeedChange: setSpeed,
   onToggleOrbits: () => setOrbitsVisible(!view.orbits),
   onToggleLabels: () => setLabelsVisible(!view.labels),
-  onToggleScale: toggleScaleMode,
+  onToggleScale: () => toggleScaleMode(),
   onToggleTour: toggleTour,
   onSearch: openSearch,
   onAbout: openAbout
@@ -315,6 +316,18 @@ function setDate(year, month, date) {
   if (focused) infoPanel.show(focused, { prev: bodies.neighbor(focused.id, -1), next: bodies.neighbor(focused.id, 1) });
 }
 
+// Tombol Lihat saat lewat (Apophis, closeApproach di data/planets.js): waktu lompat ke saat terdekatnya
+// lalu berhenti, dan tampilan pindah ke Skala Nyata. Di mode Enak Dilihat jarak 38 ribu km itu jauh lebih
+// kecil dari bola Bumi, jadi asteroidnya ketutup. Kamera fokus ke asteroid dengan Bumi ikut di bingkai
+// (companionRadius di scene/planets.js)
+function flyBy(body) {
+  if (!canInteract() || !toolbar.solarControlsEnabled) return;
+  time.simDays = simDaysAt(body.data.closeApproach.time);
+  setPaused(true);
+  if (scaleMode.mode === 'real') focusBody(body.id);
+  else toggleScaleMode({ onComplete: () => focusBody(body.id) });
+}
+
 function setOrbitsVisible(visible) {
   view.orbits = visible;
   orbits.group.visible = visible;
@@ -353,7 +366,8 @@ function setScaleNote(show) {
   }
 }
 
-function toggleScaleMode() {
+// onComplete dipanggil setelah transisi skala selesai (dipakai flyBy)
+function toggleScaleMode({ onComplete } = {}) {
   if (phase !== 'ready' || !toolbar.solarControlsEnabled) return;
   tour.stop();
   const next = scaleMode.mode === 'pretty' ? 'real' : 'pretty';
@@ -384,6 +398,7 @@ function toggleScaleMode() {
       controls.maxDistance = settings.maxDistance;
       camera.far = settings.far;
       camera.updateProjectionMatrix();
+      onComplete?.();
     }
   });
 
@@ -743,7 +758,7 @@ bindKeyboardShortcuts({
     setSpeed: (index) => toolbar.solarControlsEnabled && setSpeed(index),
     toggleOrbits: () => toolbar.solarControlsEnabled && setOrbitsVisible(!view.orbits),
     toggleLabels: () => setLabelsVisible(!view.labels),
-    toggleScale: toggleScaleMode,
+    toggleScale: () => toggleScaleMode(),
     toggleReverse: () => setReversed(!view.reversed),
     openDate: () => toolbar.solarControlsEnabled && toolbar.openDatePicker(),
     toggleTour

@@ -28,6 +28,7 @@ Built with Three.js, GSAP, and Vite, no UI framework.
 - **Two languages.** Indonesian and English, including every fact, narration line, and number format. The choice is remembered
 - **Search.** Press `/` or `Ctrl+K`, type a planet, moon, nearby star, or galaxy name (English spellings and catalog names like M31 work too), press Enter to fly there. Typing "Milky Way" or "galaksi" zooms out to the whole galaxy, "Local Group" or "Grup Lokal" all the way out. There is one hidden object that shows up if you type its name
 - **Dwarf planets and comets.** Ceres in the asteroid belt, Haumea (stretched into an egg shape by its 4 hour day, with its ring), Makemake, and Eris, each on its real orbit. Halley's Comet and Comet Encke grow a coma and two tails as they near the Sun: a straight blue ion tail and a curved dust tail, both always pointing away from the Sun. Encke reaches perihelion in February 2027, so its tail is already visible; speed up time to watch Halley return in 2061
+- **Asteroid Apophis.** The 450 meter asteroid that passes about 38,000 km from the center of the Earth on 13 April 2029, closer than geostationary satellites. Its panel shows the distance from Earth on the simulated date, and a "watch it pass" button jumps to the moment of closest approach in true scale, where it sits next to Earth (in the default scale it would be hidden inside Earth's sphere). The orbit is calibrated so the simulation reproduces the flyby to within about 500 km and 15 minutes
 - **16 moons.** The Moon, Phobos, Deimos, Jupiter's 4 Galilean moons, Enceladus, Rhea, and Titan around Saturn, Miranda, Titania, and Oberon around Uranus, and Triton around Neptune, all clickable. Moons of the outer planets orbit in their planet's equatorial plane, so Uranus's moons are tipped over with it and Triton orbits backwards
 - **Mobile friendly.** Swipe-to-close bottom sheet, compact toolbar, and graphics quality that drops automatically on slower devices
 - **Info panel drawn from real data.** Each object gets its own accent color and small drawings: a top-down map of the solar system with its real orbit and where it is on the simulated date, its true size next to Earth (or next to our Moon, for other moons), the Moon's current phase, or a nearby star's place on the temperature scale. On phones the panel shows the name, drawings, and four key numbers first, with the rest behind an "all details" button, and the texture credit and language switch move into the About dialog
@@ -40,7 +41,8 @@ Built with Three.js, GSAP, and Vite, no UI framework.
 | ![Solar system overview](docs/overview.jpg) | ![Earth with the info panel](docs/earth.jpg) |
 | ![Saturn and its rings](docs/saturn.jpg) | ![Guided tour](docs/tour.jpg) |
 | ![True scale mode](docs/real-scale.jpg) | ![The Milky Way seen from above](docs/galaxy.jpg) |
-| ![Mobile version: the solar system and the Milky Way](docs/mobile.jpg) | |
+| ![Andromeda in the Local Group](docs/local-group.jpg) | ![Apophis passing Earth on 13 April 2029, in true scale](docs/apophis.jpg) |
+| ![Mobile version: Saturn's info sheet and the Milky Way](docs/mobile.jpg) | |
 
 ## Running locally
 
@@ -119,11 +121,13 @@ Saturn's ring must be lossless because its transparency lives in the alpha chann
 
 ## Deployment
 
-The live version is hosted on Vercel (Vite preset, no extra configuration). To deploy manually from the project folder
+The live version is hosted on Vercel (Vite preset, no extra configuration). With the Vercel project connected to the GitHub repository (Project Settings > Git), every push to `main` deploys to production and every pull request gets a preview. To deploy manually from the project folder
 
 ```bash
 vercel deploy --prod
 ```
+
+[GitHub Actions](.github/workflows/ci.yml) runs the unit tests and the production build on every push and pull request to `main`.
 
 [.vercelignore](.vercelignore) keeps folders the build doesn't need (`textures-extra/`, `docs/`) from being uploaded.
 
@@ -181,7 +185,7 @@ src/
 │   ├── bodies.js        registry of selectable bodies, shared by all interaction modules
 │   ├── scaleMode.js     transition between pretty and true scale
 │   ├── sun.js           the Sun (plasma shader, glow, light)
-│   ├── planets.js       planets, dwarf planets, and comets, elliptical orbits, rotation, axial tilt
+│   ├── planets.js       planets, dwarf planets, comets, and Apophis, elliptical orbits, rotation, axial tilt
 │   ├── earth.js         three-layer Earth (day and night, relief, ocean glint, clouds, atmosphere)
 │   ├── moons.js         moons orbiting their parent planets
 │   ├── planetRing.js    rings of Saturn, Uranus, Neptune, and Haumea (radial UVs, planet shadow)

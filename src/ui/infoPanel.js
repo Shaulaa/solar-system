@@ -1,6 +1,7 @@
 import gsap from 'gsap';
 import { START_DAYS_SINCE_J2000, simDate } from '../utils/time.js';
 import { moonPhase } from '../utils/moon.js';
+import { createKeplerOrbit } from '../utils/kepler.js';
 import { solarEclipses, lunarEclipses, nextEclipse, eclipseRegion } from '../data/eclipses.js';
 import { t, LOCALE } from '../i18n/index.js';
 import { motion, shift } from '../utils/motion.js';
@@ -23,6 +24,9 @@ const KEY_ROWS = 4;
 const SWIPE_CLOSE_DISTANCE = 90;
 const SWIPE_CLOSE_VELOCITY = 0.6;
 const KM_PER_AU_MILLION = 149.6;
+const KM_PER_AU = 149_597_870.7;
+// Jarak ke Bumi di bawah ini ditulis dalam km, di atasnya AU dan juta km
+const KM_DISTANCE_LIMIT = 2_000_000;
 const DAYS_PER_YEAR = 365.25;
 
 const number1 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
@@ -84,6 +88,27 @@ function formatDistance(au) {
   return t('unit.auKm', { au: number2.format(au), km: number1.format(au * KM_PER_AU_MILLION) });
 }
 
+// Jarak benda ke Bumi di tanggal simulasi, dihitung dari elemen orbit yang sama dengan scene
+// (scene/planets.js), jadi angkanya cocok dengan yang kelihatan di layar
+const vector = () => ({ x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; } });
+function formatEarthDistance(data, simDays) {
+  const earth = planetData.find((p) => p.id === 'earth');
+  const days = START_DAYS_SINCE_J2000 + simDays;
+  const a = createKeplerOrbit(data.distance, data.orbitPeriod, data.orbit).positionAt(days, vector());
+  const b = createKeplerOrbit(earth.distance, earth.orbitPeriod, earth.orbit).positionAt(days, vector());
+  const au = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+  const km = au * KM_PER_AU;
+  return km < KM_DISTANCE_LIMIT ? t('unit.km', { value: number0.format(km) }) : formatDistance(au);
+}
+
+// Lewat dekat Bumi (closeApproach di data/planets.js): tanggal dan jam di zona waktu pengunjung
+// (sama dengan tanggal di toolbar), dan jarak dari pusat Bumi
+const localMoment = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const localDate = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' });
+function formatCloseApproach({ time, km }) {
+  return t('unit.closeApproach', { date: localMoment.format(new Date(time)), km: number0.format(km) });
+}
+
 // Baris statistik per jenis benda. Baris dengan nilai kosong otomatis dilewati
 // simDays = hari simulasi sekarang, buat fase Bulan dan gerhana berikutnya
 function getStats(body, simDays) {
@@ -121,6 +146,18 @@ function getStats(body, simDays) {
       [t('row.nextPerihelion'), nextPerihelion(data)]
     ];
   }
+  // Asteroid: jarak ke Bumi di tanggal simulasi dulu, karena itu yang menarik dari asteroid dekat Bumi
+  if (kind === 'asteroid') {
+    const { eccentricity } = data.orbit;
+    return [
+      [t('row.size'), info.diameter],
+      [t('row.earthDistance'), formatEarthDistance(data, simDays)],
+      data.closeApproach && [t('row.closeApproach'), formatCloseApproach(data.closeApproach)],
+      [t('row.orbitPeriod'), formatYear(data.orbitPeriod)],
+      [t('row.perihelion'), formatDistance(data.distance * (1 - eccentricity))],
+      [t('row.aphelion'), formatDistance(data.distance * (1 + eccentricity))]
+    ].filter(Boolean);
+  }
   // Planet katai ngorbit Matahari juga, jadi datanya ditampilkan sama kayak planet
   const isPlanet = kind === 'planet' || kind === 'dwarf';
   const eclipses = data.id === 'moon' || data.id === 'earth';
@@ -147,7 +184,8 @@ function getSubtitle(body) {
 }
 
 // getSimDays() = hari simulasi sekarang (main.js)
-export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, getSimDays = () => 0 }) {
+// onFlyby(body) = tombol Lihat saat lewat (benda dengan closeApproach), lihat main.js
+export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, onFlyby, getSimDays = () => 0 }) {
   const panel = document.getElementById('info-panel');
   const title = document.getElementById('info-title');
   const subtitle = document.getElementById('info-subtitle');
@@ -155,6 +193,8 @@ export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, getSimDa
   const fact = document.getElementById('info-fact');
   const figures = document.getElementById('info-figures');
   const moreButton = document.getElementById('info-more');
+  const flybyButton = document.getElementById('info-flyby');
+  let current = null;
   let expanded = false;
   const prevButton = document.getElementById('info-prev');
   const nextButton = document.getElementById('info-next');
@@ -205,6 +245,7 @@ export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, getSimDa
     if (action === 'back') onBack?.();
     else if (action === 'prev') onPrev?.();
     else if (action === 'next') onNext?.();
+    else if (action === 'flyby' && current) onFlyby?.(current);
   });
 
   // Panah digambar (SVG), bukan karakter, biar ketebalannya sama dengan ikon toolbar
@@ -227,6 +268,7 @@ export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, getSimDa
   // Isi pakai textContent (bukan innerHTML) biar aman walaupun datanya nanti datang dari luar
   function fill(body, { prev, next }) {
     const simDays = getSimDays();
+    current = body;
     title.textContent = body.name;
     // Nama panjang (Awan Magellan Besar, Large Magellanic Cloud) diperkecil biar gak pecah jadi tiga baris
     title.classList.toggle('is-long', body.name.length > 12);
@@ -252,6 +294,11 @@ export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, getSimDa
         return row;
       })
     );
+
+    flybyButton.hidden = !body.data.closeApproach;
+    if (body.data.closeApproach) {
+      flybyButton.textContent = t('panel.flyby', { date: localDate.format(new Date(body.data.closeApproach.time)) });
+    }
 
     setNavButton(prevButton, prev, 'prev');
     setNavButton(nextButton, next, 'next');

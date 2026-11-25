@@ -229,6 +229,13 @@ export const bodies = {
       diameter: 'Nucleus about 4.8 km',
       fakta: 'It circles the Sun every 3.3 years, faster than any other known comet. Its debris produces the Taurid meteor shower every October and November.'
     }
+  },
+  apophis: {
+    subtitle: 'Near-Earth asteroid',
+    info: {
+      diameter: 'About 450 x 170 m',
+      fakta: 'On 13 April 2029 it passes about 32,000 km above the Earth, closer than geostationary satellites, and will be visible to the naked eye. It will not hit the Earth for at least the next 100 years.'
+    }
   }
 };
 

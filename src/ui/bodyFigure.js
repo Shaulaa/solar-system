@@ -10,7 +10,8 @@ import { t, LOCALE } from '../i18n/index.js';
 //   peta      posisi di tata surya: orbit planet planet (redup), orbit benda ini (terang), dan posisinya
 //             di tanggal simulasi, dilihat dari atas. Jarak dikompres akar kuadrat biar Merkurius
 //             sampai Neptunus muat. Bulan planet pakai orbit planet induknya
-//   ukuran    perbandingan ukuran sebenarnya dengan Bumi (bulan dibandingkan dengan Bulan kita)
+//   ukuran    perbandingan ukuran sebenarnya dengan Bumi (bulan dibandingkan dengan Bulan kita).
+//             Komet dan asteroid cuma dapat peta, intinya terlalu kecil buat dibandingkan
 //   fase      Bulan: bagian piringan yang terang di tanggal simulasi
 //   suhu      bintang tetangga: posisinya di skala suhu, dari katai merah sampai bintang biru
 //
@@ -79,14 +80,22 @@ function meanAnomaly(data, simDays) {
   return ((((meanLongitude - perihelion) * DEG + (TAU * days) / data.orbitPeriod) % TAU) + TAU) % TAU;
 }
 
+// Benda yang orbitnya gak keluar dari orbit Mars (asteroid dekat Bumi) cukup digambar sampai Mars,
+// kalau sampai Neptunus orbitnya cuma titik di tengah
+const INNER_LIMIT = 1.6;
+
 function mapFigure(data, simDays, color) {
   const size = 140;
   const c = size / 2;
-  const outer = Math.max(planets[planets.length - 1].distance, data.distance * (1 + data.orbit.eccentricity)) * 1.04;
+  const aphelion = data.distance * (1 + data.orbit.eccentricity);
+  const mars = planets.find((p) => p.id === 'mars').distance;
+  const limit = aphelion < INNER_LIMIT ? mars : planets[planets.length - 1].distance;
+  const outer = Math.max(limit, aphelion) * 1.04;
   const radius = (r) => (c - 6) * Math.sqrt(r / outer);
   const point = ({ r, angle }) => [c + radius(r) * Math.cos(angle), c - radius(r) * Math.sin(angle)];
 
   const rings = planets
+    .filter((p) => p.distance <= limit)
     .map((p) => `<circle class="map-ring${p.id === data.id ? ' is-self' : ''}" cx="${c}" cy="${c}" r="${fixed(radius(p.distance))}" />`)
     .join('');
   const steps = 160;
@@ -208,7 +217,7 @@ export function bodyFigures(body, simDays, { parent } = {}) {
     figures.push(mapFigure(parent, simDays, color), sizeFigure(self(data.radius), MOON()));
   } else if ((kind === 'planet' || kind === 'dwarf') && data.orbit) {
     figures.push(mapFigure(data, simDays, color), sizeFigure(self(data.radius), data.id === 'earth' ? MOON() : EARTH()));
-  } else if (kind === 'comet' && data.orbit) {
+  } else if ((kind === 'comet' || kind === 'asteroid') && data.orbit) {
     figures.push(mapFigure(data, simDays, color));
   }
   return figures.length ? figures.join('') : null;

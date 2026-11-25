@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createKeplerOrbit } from '../src/utils/kepler.js';
 import { scaleDistance, unscaleDistance, blendScale, scaleRadius } from '../src/utils/scale.js';
-import { planets, comets, dwarfPlanets } from '../src/data/planets.js';
+import { planets, comets, dwarfPlanets, asteroids } from '../src/data/planets.js';
 
 const J2000 = Date.UTC(2000, 0, 1, 12);
 const daysSinceJ2000 = (iso) => (Date.parse(`${iso}T00:00:00Z`) - J2000) / 86_400_000;
@@ -67,5 +67,34 @@ describe('mode skala', () => {
   it('di mode nyata Bumi sekitar 0,017 unit dan 1 AU = 400 unit', () => {
     expect(scaleRadius(1, 'real')).toBeCloseTo(0.017, 3);
     expect(scaleDistance(1, 'real')).toBe(400);
+  });
+});
+
+describe('Apophis', () => {
+  const apophis = asteroids.find((a) => a.id === 'apophis');
+  const earth = orbitOf(planets.find((p) => p.id === 'earth'));
+  const orbit = orbitOf(apophis);
+  const km = (days) => {
+    const a = orbit.positionAt(days, vector());
+    const b = earth.positionAt(days, vector());
+    return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) * 149_597_870.7;
+  };
+
+  it('lewat sekitar 38 ribu km dari Bumi tanggal 13 April 2029, sekitar jam 22 UTC', () => {
+    const moment = (Date.parse(apophis.closeApproach.time) - J2000) / 86_400_000;
+    let closest = { km: Infinity, hours: 0 };
+    for (let minutes = -24 * 60; minutes <= 24 * 60; minutes += 5) {
+      const d = km(moment + minutes / 1440);
+      if (d < closest.km) closest = { km: d, hours: minutes / 60 };
+    }
+    expect(closest.km).toBeGreaterThan(30_000);
+    expect(closest.km).toBeLessThan(45_000);
+    expect(Math.abs(closest.hours)).toBeLessThan(1);
+  });
+
+  it('jauh dari Bumi sebulan sebelum dan sesudahnya', () => {
+    const moment = (Date.parse(apophis.closeApproach.time) - J2000) / 86_400_000;
+    expect(km(moment - 30)).toBeGreaterThan(10_000_000);
+    expect(km(moment + 30)).toBeGreaterThan(10_000_000);
   });
 });

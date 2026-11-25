@@ -23,6 +23,11 @@ export function simDate(simDays) {
 export const START_DAYS_SINCE_J2000 =
   (new Date(start.year, start.month, start.date).getTime() - J2000) / MS_PER_DAY;
 
+// simDays untuk satu saat tertentu (Date / milidetik UTC), termasuk jamnya
+export function simDaysAt(moment) {
+  return (new Date(moment).getTime() - J2000) / MS_PER_DAY - START_DAYS_SINCE_J2000;
+}
+
 // Kebalikan simDate: tanggal kalender (tahun, bulan 1 sampai 12, tanggal) ke simDays
 export function daysFromStart(year, month, date) {
   return Math.round((Date.UTC(year, month - 1, date) - Date.UTC(start.year, start.month, start.date)) / MS_PER_DAY);

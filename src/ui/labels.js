@@ -12,7 +12,7 @@ import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer
 
 // Batas jarak kamera ke benda. Bulan cuma muncul kalau kamera sudah cukup dekat,
 // kalau nggak labelnya numpuk sama label planet induknya di tampilan overview
-const MAX_DISTANCE = { star: Infinity, planet: Infinity, dwarf: Infinity, comet: Infinity, moon: 40 };
+const MAX_DISTANCE = { star: Infinity, planet: Infinity, dwarf: Infinity, comet: Infinity, asteroid: Infinity, moon: 40 };
 // Jarak label di atas permukaan, kelipatan radius
 const LABEL_LIFT = 1.25;
 
@@ -25,7 +25,7 @@ const LABEL_LIFT = 1.25;
 const LABEL_CHAR_WIDTH = 9.5;
 const LABEL_PADDING = 10;
 const LABEL_HEIGHT = 20; // termasuk padding bawah 6px
-const KIND_PRIORITY = { star: 3, planet: 2, dwarf: 2, comet: 1, moon: 1 };
+const KIND_PRIORITY = { star: 3, planet: 2, dwarf: 2, comet: 1, asteroid: 1, moon: 1 };
 // Jarak minimal antar label. Di layar sempit dibikin lebih lega, karena label lebih rapat
 const LABEL_GAP = { wide: 2, narrow: 8 };
 const NARROW_SCREEN = 768;
@@ -130,6 +130,9 @@ export function createLabels({ bodies }) {
   // Label benda yang difokus sendiri disembunyikan karena namanya sudah besar di panel info
   function isRelated(body, focus) {
     if (!focus) return true;
+    // Asteroid yang lewat dekat Bumi (Apophis): bendanya sendiri jauh di bawah satu piksel di Skala Nyata,
+    // jadi labelnya tetap tampil sebagai penanda posisi, bareng label Bumi
+    if (focus.data.closeApproach && (body.id === focus.id || body.id === 'earth')) return true;
     return body.parentId === focus.id || body.id === focus.parentId;
   }
 

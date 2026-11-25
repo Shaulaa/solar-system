@@ -187,7 +187,7 @@ const PLANETS = [
     info: {
       diameter: '139.820 km',
       suhu: '-110°C di atas awan',
-      bulan: 95,
+      bulan: 115,
       fakta: 'Badai Bintik Merah Raksasa di Jupiter lebih gede dari Bumi dan udah ada ratusan tahun.'
     },
     // 4 bulan Galilean, ditemukan Galileo Galilei tahun 1610
@@ -281,7 +281,7 @@ const PLANETS = [
     info: {
       diameter: '116.460 km',
       suhu: '-140°C di atas awan',
-      bulan: 146,
+      bulan: 293,
       fakta: 'Massa jenisnya lebih kecil dari air, jadi secara teori Saturnus bisa ngambang.'
     },
     // Bulan Saturnus mengorbit di bidang ekuatornya, sebidang dengan cincin (plane: 'equator',
@@ -379,7 +379,7 @@ const PLANETS = [
     info: {
       diameter: '50.724 km',
       suhu: '-195°C',
-      bulan: 28,
+      bulan: 29,
       fakta: 'Muternya miring hampir 98 derajat, jadi kayak bola yang menggelinding di orbitnya.'
     },
     // Bulan Uranus mengorbit di bidang ekuatornya, jadi ikut miring 98 derajat bareng cincinnya.
@@ -672,6 +672,38 @@ const COMETS = [
   }
 ];
 
+// Asteroid dekat Bumi. Elemen orbit dari Wikipedia (osculating, epoch 5 Mei 2025), lalu distance dan
+// meanLongitude dikalibrasi sedikit (a 0,9224 jadi 0,92185 AU, bujur rata rata J2000 204,28 jadi 204,484)
+// supaya di model Kepler ini Apophis lewat sekitar 37.500 km dari pusat Bumi tanggal 13 April 2029 sekitar
+// jam 22 UTC (aslinya 38.012 km, 21.46 UTC, tes di test/orbits.test.js).
+// Tarikan gravitasi Bumi waktu lewat itu mengubah orbit aslinya (jadi sedikit di luar orbit Bumi),
+// model ini tetap pakai orbit sebelum 2029, jadi posisinya setelah itu cuma perkiraan kasar.
+// closeApproach = waktu (UTC) dan jarak dari pusat Bumi menurut JPL, ditampilkan di panel info
+const ASTEROIDS = [
+  {
+    id: 'apophis',
+    name: 'Apophis',
+    kind: 'asteroid',
+    aliases: ['99942 Apophis', '2004 MN4'],
+    subtitle: 'Asteroid dekat Bumi',
+    // radius rata rata 185 m, bentuknya lonjong sekitar 450 x 170 m
+    radius: 0.000029,
+    ellipsoid: [1.22, 0.62, 0.62],
+    distance: 0.92185,
+    orbitPeriod: 323.6,
+    orbit: { eccentricity: 0.1911, inclination: 3.341, node: 203.9, perihelion: 330.6, meanLongitude: 204.484 },
+    // Berputar sambil terguling, periode utamanya sekitar 30,6 jam
+    rotationPeriod: 1.275,
+    tilt: null,
+    closeApproach: { time: '2029-04-13T21:46:00Z', km: 38_012 },
+    look: { type: 'rocky', colors: ['#3d352d', '#6e6152', '#a08f7a'] },
+    info: {
+      diameter: 'Sekitar 450 x 170 m',
+      fakta: 'Tanggal 13 April 2029 (14 April subuh WIB) lewat sekitar 32.000 km di atas permukaan Bumi, lebih dekat dari satelit geostasioner, dan bisa dilihat mata telanjang. Gak akan menabrak Bumi setidaknya 100 tahun ke depan.'
+    }
+  }
+];
+
 // Teks benda versi Inggris (i18n/content.en.js) digabung di sini, sekali waktu modul dimuat.
 // Bulan ikut diterjemahkan lewat id masing masing
 function localizeBody(body) {
@@ -684,6 +716,7 @@ export const planets = PLANETS.map(localizeBody);
 export const sun = localizeBody(SUN);
 export const dwarfPlanets = DWARF_PLANETS.map(localizeBody);
 export const comets = COMETS.map(localizeBody);
+export const asteroids = ASTEROIDS.map(localizeBody);
 
 // Sabuk asteroid utama di antara Mars dan Jupiter
 // orbitPeriod kira kira periode orbit di 2,7 AU (hukum Kepler), dipakai buat muterin belt sebagai satu grup
