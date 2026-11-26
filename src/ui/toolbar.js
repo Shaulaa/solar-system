@@ -30,6 +30,7 @@ export function createToolbar({
   onToggleScale,
   onToggleTour,
   onSearch,
+  onEvents,
   onAbout
 }) {
   const element = document.getElementById('toolbar');
@@ -43,6 +44,7 @@ export function createToolbar({
   const dateElement = document.getElementById('sim-date');
   const dateButton = element.querySelector('[data-action="date"]');
   const dateInput = document.getElementById('date-input');
+  const eventsButton = element.querySelector('[data-action="events"]');
   const reverseButton = element.querySelector('[data-action="reverse"]');
   let reversed = false;
   let speedIndex = 0;
@@ -55,7 +57,8 @@ export function createToolbar({
     { control: orbitsButton, tooltipHost: orbitsButton },
     { control: scaleButton, tooltipHost: scaleButton },
     { control: reverseButton, tooltipHost: reverseButton },
-    { control: dateButton, tooltipHost: dateButton }
+    { control: dateButton, tooltipHost: dateButton },
+    { control: eventsButton, tooltipHost: eventsButton }
   ].map((item) => ({ ...item, tooltip: item.tooltipHost.dataset.tooltip }));
   let solarControlsEnabled = true;
 
@@ -67,6 +70,7 @@ export function createToolbar({
     if (action === 'play') onTogglePlay?.();
     else if (action === 'reverse') onToggleReverse?.();
     else if (action === 'date') openDatePicker();
+    else if (action === 'events') onEvents?.();
     else if (action === 'orbits') onToggleOrbits?.();
     else if (action === 'labels') onToggleLabels?.();
     else if (action === 'scale') onToggleScale?.();

@@ -29,6 +29,7 @@ Built with Three.js, GSAP, and Vite, no UI framework.
 - **Search.** Press `/` or `Ctrl+K`, type a planet, moon, nearby star, or galaxy name (English spellings and catalog names like M31 work too), press Enter to fly there. Typing "Milky Way" or "galaksi" zooms out to the whole galaxy, "Local Group" or "Grup Lokal" all the way out. There is one hidden object that shows up if you type its name
 - **Dwarf planets and comets.** Ceres in the asteroid belt, Haumea (stretched into an egg shape by its 4 hour day, with its ring), Makemake, and Eris, each on its real orbit. Halley's Comet and Comet Encke grow a coma and two tails as they near the Sun: a straight blue ion tail and a curved dust tail, both always pointing away from the Sun. Encke reaches perihelion in February 2027, so its tail is already visible; speed up time to watch Halley return in 2061
 - **Asteroid Apophis.** The 450 meter asteroid that passes about 38,000 km from the center of the Earth on 13 April 2029, closer than geostationary satellites. Its panel shows the distance from Earth on the simulated date, and a "watch it pass" button jumps to the moment of closest approach in true scale, where it sits next to Earth (in the default scale it would be hidden inside Earth's sphere). The orbit is calibrated so the simulation reproduces the flyby to within about 500 km and 15 minutes
+- **Sky calendar.** The next oppositions of Mars to Neptune, solar and lunar eclipses, comet perihelia, and the Apophis flyby, counted from the simulated date. Picking one jumps to that moment, pauses time, and flies to the body. Oppositions and perihelia are computed from the same Kepler orbits and land within about a day of the almanac dates
 - **16 moons.** The Moon, Phobos, Deimos, Jupiter's 4 Galilean moons, Enceladus, Rhea, and Titan around Saturn, Miranda, Titania, and Oberon around Uranus, and Triton around Neptune, all clickable. Moons of the outer planets orbit in their planet's equatorial plane, so Uranus's moons are tipped over with it and Triton orbits backwards
 - **Mobile friendly.** Swipe-to-close bottom sheet, compact toolbar, and graphics quality that drops automatically on slower devices
 - **Info panel drawn from real data.** Each object gets its own accent color and small drawings: a top-down map of the solar system with its real orbit and where it is on the simulated date, its true size next to Earth (or next to our Moon, for other moons), the Moon's current phase, or a nearby star's place on the temperature scale. On phones the panel shows the name, drawings, and four key numbers first, with the rest behind an "all details" button, and the texture credit and language switch move into the About dialog
@@ -78,6 +79,7 @@ npm test          # unit tests (Vitest): orbits, zoom levels, Moon and eclipses,
 | Time speed | Slider | `1` to `4` |
 | Run time backward / forward | Rewind button | `R` |
 | Jump to a date | Click the date | `D` |
+| Upcoming events | Click the calendar next to the date | `E` |
 | Orbit lines / labels | Toolbar buttons | `O` / `L` |
 | True scale | Toolbar button | `S` |
 | Guided tour | Toolbar button | `T` |
@@ -149,6 +151,7 @@ src/
 ├── data/nearbyStars.js  nearby star data (position, distance, spectral class, fun fact)
 ├── data/localGroup.js   Local Group galaxies and dwarf galaxies (sky position, distance, disk tilt, shape)
 ├── data/eclipses.js     solar and lunar eclipses 2026 to 2030
+├── data/events.js       sky calendar: oppositions, eclipses, comet perihelia, flybys
 ├── i18n/
 │   ├── index.js         language choice, t() for interface text, localize() for data
 │   ├── ui.js            interface text in Indonesian and English
@@ -164,6 +167,7 @@ src/
 │   ├── infoPanel.js     info panel (side panel on desktop, bottom sheet on mobile)
 │   ├── bodyFigure.js    info panel drawings: orbit map, true size, Moon phase, star temperature, accent color
 │   ├── search.js        search (ARIA combobox)
+│   ├── events.js        sky calendar dialog
 │   ├── scaleBar.js      scale bar (AU, then light years)
 │   ├── stageName.js     stage title when the zoom enters a new stage
 │   └── zoomBack.js      "Back to the solar system" button

@@ -45,10 +45,11 @@ import { createSearch } from './ui/search.js';
 import { createScaleBar } from './ui/scaleBar.js';
 import { createStageName } from './ui/stageName.js';
 import { createZoomBack } from './ui/zoomBack.js';
+import { createEventsDialog } from './ui/events.js';
 import { loadingManager } from './utils/loader.js';
 import { isMobile } from './utils/device.js';
 import { createPerformanceMonitor } from './utils/performance.js';
-import { daysFromStart, simDaysAt } from './utils/time.js';
+import { daysFromStart, simDaysAt, simMoment } from './utils/time.js';
 import { motion, shift } from './utils/motion.js';
 import { warmUpGpu, GPU_WARMUP_DELAY } from './app/gpuWarmup.js';
 import { createStageBloom } from './app/stageBloom.js';
@@ -277,6 +278,7 @@ const toolbar = createToolbar({
   onToggleScale: () => toggleScaleMode(),
   onToggleTour: toggleTour,
   onSearch: openSearch,
+  onEvents: openEvents,
   onAbout: openAbout
 });
 
@@ -326,6 +328,31 @@ function flyBy(body) {
   setPaused(true);
   if (scaleMode.mode === 'real') focusBody(body.id);
   else toggleScaleMode({ onComplete: () => focusBody(body.id) });
+}
+
+// Kalender peristiwa (ui/events.js). Memilih satu = lompat ke saat itu, waktu dijeda, kamera ke bendanya.
+// Lewat dekat Bumi pakai flyBy (pindah ke Skala Nyata), gerhana fokus ke Bumi (Matahari) atau Bulan
+const eventsDialog = createEventsDialog({
+  getNow: () => simMoment(time.simDays),
+  getBody: (id) => bodies.get(id) ?? null,
+  onSelect: jumpToEvent
+});
+
+function openEvents() {
+  if (phase !== 'ready' || !toolbar.solarControlsEnabled || about.open) return;
+  eventsDialog.show();
+}
+
+function jumpToEvent(event) {
+  if (!canInteract() || !toolbar.solarControlsEnabled) return;
+  const body = bodies.get(event.bodyId);
+  if (event.type === 'flyby' && body) {
+    flyBy(body);
+    return;
+  }
+  time.simDays = simDaysAt(event.time);
+  setPaused(true);
+  if (body?.visible) focusBody(body.id);
 }
 
 function setOrbitsVisible(visible) {
@@ -691,7 +718,10 @@ canvas.addEventListener('pointerdown', () => document.body.classList.add('has-in
 const about = document.getElementById('about');
 about.querySelector('[data-action="close-about"]').addEventListener('click', () => about.close());
 // Klik di backdrop (di luar kotak dialog) = tutup
+// Klik backdrop selalu ber-target dialog itu sendiri. Tombol di dalam yang ditekan lewat keyboard
+// juga memicu click dengan koordinat (0, 0), jangan sampai itu dikira klik di luar
 about.addEventListener('click', (event) => {
+  if (event.target !== about) return;
   const rect = about.getBoundingClientRect();
   const inside =
     event.clientX >= rect.left &&
@@ -743,7 +773,7 @@ window.addEventListener(
 // Shortcut keyboard (app/keyboard.js). Kontrol khusus tata surya mati di skala galaksi, shortcut-nya juga
 bindKeyboardShortcuts({
   getPhase: () => phase,
-  isDialogOpen: () => about.open,
+  isDialogOpen: () => about.open || eventsDialog.open,
   speedCount: SPEED_PRESETS.length,
   actions: {
     skipIntro: () => rig.skipIntro(),
@@ -761,6 +791,7 @@ bindKeyboardShortcuts({
     toggleScale: () => toggleScaleMode(),
     toggleReverse: () => setReversed(!view.reversed),
     openDate: () => toolbar.solarControlsEnabled && toolbar.openDatePicker(),
+    openEvents,
     toggleTour
   }
 });

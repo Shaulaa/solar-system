@@ -22,6 +22,7 @@ const LETTERS = {
   s: 'toggleScale',
   r: 'toggleReverse',
   d: 'openDate',
+  e: 'openEvents',
   t: 'toggleTour',
   '?': 'openAbout'
 };

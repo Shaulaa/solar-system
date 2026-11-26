@@ -31,6 +31,32 @@ function createRockGeometry() {
 // Kalau ukurannya dibiarkan, batu asteroid bakal jauh lebih besar dari Bumi di mode nyata
 const REAL_ROCK_FACTOR = scaleRadius(1, 'real') / scaleRadius(1);
 
+// Batu yang kebetulan dekat sekali dengan kamera (misal waktu fokus ke Bumi atau Mars dari sisi
+// sabuk) bisa tampil sebesar planet di layar. Di shader, tiap batu dikecilkan kalau jarak kamera
+// ke pusatnya kurang dari NEAR_FULL kali ukurannya, dan hilang di bawah NEAR_GONE kali.
+// Dihitung sebagai perbandingan jarak/ukuran, jadi tetap benar di Skala Nyata dan waktu tata
+// surya mengecil saat zoom keluar (ukuran batu dibaca dari matrix-nya sendiri)
+// Dengan 120 kali, batu tampil paling besar sekitar 16 px di layar setinggi 900 px (FOV 50 derajat)
+const NEAR_FULL = 120;
+const NEAR_GONE = 50;
+
+function shrinkNearCamera(material) {
+  material.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <project_vertex>',
+      /* glsl */ `
+      #ifdef USE_INSTANCING
+        mat4 rockToView = modelViewMatrix * instanceMatrix;
+        // View matrix gak punya skala, jadi panjang kolom = ukuran batu di dunia
+        float rockSize = length(rockToView[0].xyz);
+        float rockDistance = length(rockToView[3].xyz);
+        transformed *= smoothstep(${NEAR_GONE.toFixed(1)}, ${NEAR_FULL.toFixed(1)}, rockDistance / rockSize);
+      #endif
+      #include <project_vertex>`
+    );
+  };
+}
+
 export function createAsteroidBelt({ mobile = false } = {}) {
   const count = mobile ? beltData.count.mobile : beltData.count.desktop;
 
@@ -40,6 +66,7 @@ export function createAsteroidBelt({ mobile = false } = {}) {
     metalness: 0,
     flatShading: true
   });
+  shrinkNearCamera(material);
 
   const mesh = new THREE.InstancedMesh(createRockGeometry(), material, count);
   mesh.name = 'asteroid-belt';

@@ -35,6 +35,8 @@ const id = {
   'toolbar.searchTip': 'Cari (/ atau Ctrl+K)',
   'toolbar.about': 'Tentang project ini',
   'toolbar.aboutTip': 'Tentang (?)',
+  'toolbar.events': 'Peristiwa langit berikutnya',
+  'toolbar.eventsTip': 'Peristiwa (E)',
   'toolbar.solarOnly': '{label} · cuma di tata surya',
   'speed.day': '1 hari/dtk',
   'speed.daySpoken': '1 hari per detik',
@@ -161,7 +163,23 @@ const id = {
   'phase.value': '{name}, {percent}% terang',
   'eclipse.total': 'total',
   'eclipse.annular': 'cincin',
-  'eclipse.partial': 'sebagian'
+  'eclipse.partial': 'sebagian',
+
+  'events.kicker': 'Kalender langit',
+  'events.title': 'Peristiwa berikutnya',
+  'events.lead': 'Dihitung dari tanggal simulasi, {date}. Pilih satu buat lompat ke saat itu.',
+  'events.empty': 'Gak ada peristiwa tercatat dalam enam tahun setelah tanggal ini.',
+  'events.opposition': 'Oposisi {name}',
+  'events.oppositionNote': 'Paling dekat dan paling terang, kelihatan semalaman',
+  'events.solarEclipse': 'Gerhana Matahari {kind}',
+  'events.lunarEclipse': 'Gerhana Bulan {kind}',
+  'events.totalityPath': 'Jalur total: {where}',
+  'events.solarEclipseNote': 'Cuma kelihatan dari sebagian wilayah Bumi',
+  'events.lunarEclipseNote': 'Kelihatan dari seluruh sisi malam Bumi',
+  'events.perihelion': '{name} di perihelion',
+  'events.perihelionNote': 'Paling dekat ke Matahari, ekornya paling panjang',
+  'events.flyby': '{name} lewat dekat Bumi',
+  'events.flybyNote': '{km} km dari pusat Bumi'
 };
 
 const en = {
@@ -199,6 +217,8 @@ const en = {
   'toolbar.searchTip': 'Search (/ or Ctrl+K)',
   'toolbar.about': 'About this project',
   'toolbar.aboutTip': 'About (?)',
+  'toolbar.events': 'Upcoming sky events',
+  'toolbar.eventsTip': 'Events (E)',
   'toolbar.solarOnly': '{label} · solar system only',
   'speed.day': '1 day/s',
   'speed.daySpoken': '1 day per second',
@@ -325,7 +345,23 @@ const en = {
   'phase.value': '{name}, {percent}% lit',
   'eclipse.total': 'total',
   'eclipse.annular': 'annular',
-  'eclipse.partial': 'partial'
+  'eclipse.partial': 'partial',
+
+  'events.kicker': 'Sky calendar',
+  'events.title': 'Coming up',
+  'events.lead': 'Counted from the simulation date, {date}. Pick one to jump there.',
+  'events.empty': 'No events on record in the six years after this date.',
+  'events.opposition': '{name} at opposition',
+  'events.oppositionNote': 'Closest and brightest, visible all night',
+  'events.solarEclipse': '{kind} solar eclipse',
+  'events.lunarEclipse': '{kind} lunar eclipse',
+  'events.totalityPath': 'Path of totality: {where}',
+  'events.solarEclipseNote': 'Visible only from part of the Earth',
+  'events.lunarEclipseNote': 'Visible from the whole night side of the Earth',
+  'events.perihelion': '{name} at perihelion',
+  'events.perihelionNote': 'Closest to the Sun, tail at its longest',
+  'events.flyby': '{name} passes close to Earth',
+  'events.flybyNote': '{km} km from the center of the Earth'
 };
 
 export const UI = { id, en };
