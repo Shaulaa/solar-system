@@ -88,6 +88,7 @@ const id = {
   'galaxy.failed': 'Galaksi gagal disiapkan',
   'credit.galaxy': 'Ilustrasi galaksi:',
   'zoomBack': 'Kembali ke Tata Surya',
+  'scaleBar.enlarged': 'Ukuran galaksi dibesarkan {factor}×',
   'resetView': 'Atur ulang kamera',
   'youAreHere': 'Kamu di sini',
 
@@ -281,6 +282,7 @@ const en = {
   'galaxy.failed': 'The galaxy could not be prepared',
   'credit.galaxy': 'Galaxy illustration:',
   'zoomBack': 'Back to the solar system',
+  'scaleBar.enlarged': 'Galaxy sizes enlarged {factor}×',
   'resetView': 'Reset camera',
   'youAreHere': 'You are here',
 

@@ -59,7 +59,7 @@ import { createDeepLinks } from './app/deepLink.js';
 import { createSkySelection } from './app/skySelection.js';
 import { bindKeyboardShortcuts } from './app/keyboard.js';
 import { saveSession, takeSession } from './app/session.js';
-import { t, lang, switchLanguage, applyDocumentText, localize } from './i18n/index.js';
+import { t, lang, LOCALE, switchLanguage, applyDocumentText, localize } from './i18n/index.js';
 import { entries as entriesEn } from './i18n/content.en.js';
 
 // Teks statis di index.html diganti sesuai bahasa (i18n/index.js) sebelum apa pun tampil
@@ -778,6 +778,7 @@ function updateCameraMoved() {
 
 // UI pendukung zoom keluar (G6): penggaris skala, nama tahap, tombol kembali
 const scaleBar = createScaleBar();
+const enlargeFormat = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
 const stageName = createStageName();
 const zoomBack = createZoomBack({ onClick: resetView });
 // Kontrol khusus tata surya di toolbar dimatikan di atas SOLAR_CONTROLS_UNTIL (pakai hysteresis)
@@ -802,9 +803,13 @@ function updateZoomUi() {
   const viewHeightAU =
     2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * galaxy.viewDistance * AU_PER_GALAXY_UNIT;
   const meaningful = (scaleMode.mode === 'real' && !scaleMode.transitioning) || zoomLevel >= 2;
+  // Di tahap Grup Lokal galaksinya digambar lebih besar dari aslinya (galaxyEnlargeAt), penggarisnya tetap
+  // benar untuk jarak. Angkanya faktor saat ini, satu desimal
+  const enlarged = galaxy.enlarge > 1.05 ? t('scaleBar.enlarged', { factor: enlargeFormat.format(galaxy.enlarge) }) : '';
   scaleBar.update({
     auPerPixel: viewHeightAU / window.innerHeight,
-    show: ready && !rig.focusedId && meaningful
+    show: ready && !rig.focusedId && meaningful,
+    note: enlarged
   });
 }
 

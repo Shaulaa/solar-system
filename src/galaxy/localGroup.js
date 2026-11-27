@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { localGroup, localGroupPosition, dwarfGalaxies } from '../data/localGroup.js';
 import { createParticleMaterial, setMaterialPixelRatio } from './galaxyShaders.js';
+import { createGalaxyArt } from './galaxyArt.js';
+import { GALAXY_ENLARGE } from './zoomLevels.js';
 
 // Galaksi Grup Lokal di galaxyScene (data di data/localGroup.js)
 //
@@ -18,10 +20,12 @@ import { createParticleMaterial, setMaterialPixelRatio } from './galaxyShaders.j
 // Label nama (HTML) dan klik bekerja di tahap Grup Lokal, termasuk label "Bima Sakti" yang
 // partikelnya tetap dari galaxyScene.
 //
-// Dua tambahan khusus tahap Grup Lokal, biar galaksi yang di sana cuma puluhan piksel tetap terbaca:
-//   pendar   satu titik gas lembut per galaksi (termasuk Bima Sakti), muncul bareng tahap Grup Lokal.
-//            Sebelumnya disembunyikan: dari dalam Bima Sakti pendar pusat galaksi bakal jadi gumpalan raksasa
-//   kerdil   25 galaksi kerdil asli sebagai bercak redup (partikel dari worker yang sama, satu komponen)
+// Tambahan khusus tahap Grup Lokal, biar galaksi yang di sana cuma puluhan piksel tetap terbaca:
+//   ilustrasi  gambar shader per galaksi (galaxy/galaxyArt.js), muncul bareng tahap Grup Lokal
+//   besar      anchor tiap galaksi dibesarkan bertahap (enlarge, dari galaxyEnlargeAt di zoomLevels.js).
+//              Partikel dan ilustrasinya ikut, posisinya tetap. Bima Sakti dibesarkan galaxyScene.js
+//   kerdil     25 galaksi kerdil asli sebagai bercak redup (partikel dari worker yang sama, satu komponen),
+//              ukurannya tetap
 
 // Kecerahan dasar dan fluks acuan Bima Sakti: jumlah (kecerahan x ukuran^2) semua partikel bintang
 // Bima Sakti, dinormalkan ke 500 ribu partikel dengan kecerahan BRIGHTNESS galaxyParticles.js.
@@ -41,8 +45,6 @@ const LABEL_GAP = 4;
 const INTERACTIVE_OPACITY = 0.5;
 // Ruang di tepi bingkai Grup Lokal, kelipatan bola terkecil yang memuat semuanya
 const FRAME_MARGIN = 1.05;
-// Pendar galaksi: diameter titik (kelipatan jari jari galaksi), warna (linear RGB), dan kecerahannya
-const HALO = { size: 2.4, color: [1.0, 0.86, 0.72], brightness: 0.16 };
 // Jari jari Bima Sakti buat bingkai dan klik (unit galaksi), sama dengan bingkai galaksi utuh
 const MILKY_WAY_RADIUS = 540;
 
@@ -95,23 +97,20 @@ export function createLocalGroup({ pixelRatio = 1, sunLocal }) {
     };
   });
 
-  const frame = boundingSphere(members);
+  // Bingkai dihitung dengan ukuran galaksi di zoom maksimal (GALAXY_ENLARGE), biar yang di tepi gak kepotong
+  const frame = boundingSphere(members.map(({ position, radius }) => ({ position, radius: radius * GALAXY_ENLARGE })));
   const frameRadius = frame.radius * FRAME_MARGIN;
   const dwarfs = dwarfGalaxies(sunLocal.toArray());
 
-  // Pendar: satu vertex per galaksi, material gas yang sama dengan gumpalan gas Bima Sakti (glow)
-  const haloMaterial = createParticleMaterial('glow', { brightness: HALO.brightness, pixelRatio });
-  haloMaterial.uniforms.uExtinction.value = 0;
-  const haloGeometry = new THREE.BufferGeometry();
-  haloGeometry.setAttribute('position', new THREE.Float32BufferAttribute(members.flatMap((m) => m.position.toArray()), 3));
-  haloGeometry.setAttribute('color', new THREE.Float32BufferAttribute(members.flatMap(() => HALO.color), 3));
-  haloGeometry.setAttribute('size', new THREE.Float32BufferAttribute(members.map((m) => m.radius * HALO.size), 1));
-  haloGeometry.setAttribute('seed', new THREE.Float32BufferAttribute(members.map(() => 0.5), 1));
-  const halos = new THREE.Points(haloGeometry, haloMaterial);
-  halos.name = 'local-group-halos';
-  halos.frustumCulled = false;
-  halos.visible = false;
-  group.add(halos);
+  // Ilustrasi tiap galaksi yang punya shape (Bima Sakti sudah punya ilustrasi NASA di galaxyScene).
+  // Seed beda per galaksi biar pola noise lengan dan gumpalannya gak kembar
+  const arts = members
+    .filter((member) => member.data.shape)
+    .map((member, index) => {
+      const art = createGalaxyArt(member.data.shape, { seed: 3.7 + index * 11.3 });
+      member.anchor.add(art.group);
+      return art;
+    });
 
   // idle -> generating -> warming -> ready (atau error), sama dengan galaxyParticles.js.
   // Selama pemanasan satu galaksi per frame mulai digambar (opacity 0) biar upload ke GPU gak numpuk
@@ -249,7 +248,6 @@ export function createLocalGroup({ pixelRatio = 1, sunLocal }) {
     },
     setPixelRatio(ratio) {
       setMaterialPixelRatio(material, ratio);
-      setMaterialPixelRatio(haloMaterial, ratio);
     },
     setLabelEnabled(value) {
       labelEnabled = value;
@@ -274,9 +272,10 @@ export function createLocalGroup({ pixelRatio = 1, sunLocal }) {
       }
       return best;
     },
-    // camera = kamera galaksi (matrix sudah final). opacity = partikel, halo = pendar, labels = label dan
-    // klik (semuanya 0 sampai 1). viewportHeight dalam piksel device, width / height CSS
-    update({ camera, opacity, halo, labels: nextLabelOpacity, delta, viewportHeight, width, height }) {
+    // camera = kamera galaksi (matrix sudah final). opacity = partikel, art = ilustrasi, labels = label dan
+    // klik (semuanya 0 sampai 1). enlarge = faktor pembesaran galaksi (1 = ukuran asli).
+    // viewportHeight dalam piksel device, width / height CSS
+    update({ camera, opacity, art = 0, enlarge = 1, labels: nextLabelOpacity, delta, viewportHeight, width, height }) {
       labelOpacity = nextLabelOpacity;
       if (state === 'warming' && warmIndex >= pointsList.length) {
         for (const points of pointsList) points.frustumCulled = true;
@@ -292,15 +291,14 @@ export function createLocalGroup({ pixelRatio = 1, sunLocal }) {
         shown = appear * appear * (3 - 2 * appear);
       }
       const alpha = opacity * shown;
-      const haloAlpha = halo * shown;
-      halos.visible = haloAlpha > 0;
-      group.visible = state === 'warming' || alpha > 0 || halos.visible;
+      // Ilustrasi gak nunggu partikel worker: kalau worker gagal, galaksinya tetap tergambar
+      for (const item of arts) item.setOpacity(art);
+      for (const member of members) member.anchor.scale.setScalar(enlarge);
+      group.visible = state === 'warming' || alpha > 0 || art > 0;
       const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
       const pixelScale = viewportHeight / (2 * tanHalfFov);
       material.uniforms.uOpacity.value = alpha;
       material.uniforms.uPixelScale.value = pixelScale;
-      haloMaterial.uniforms.uOpacity.value = haloAlpha;
-      haloMaterial.uniforms.uPixelScale.value = pixelScale;
 
       if (labelOpacity <= 0) {
         if (!layer.hidden) layer.hidden = true;
@@ -317,15 +315,14 @@ export function createLocalGroup({ pixelRatio = 1, sunLocal }) {
         s.visible = view.z < 0 && Math.abs(world.x) <= 1 && Math.abs(world.y) <= 1;
         s.x = ((world.x + 1) / 2) * width;
         s.y = ((1 - world.y) / 2) * height;
-        s.radius = (member.radius * cssScale) / Math.max(-view.z, 1e-6);
+        s.radius = (member.radius * enlarge * cssScale) / Math.max(-view.z, 1e-6);
       }
       updateLabels(width, height);
     },
     dispose() {
       for (const geometry of geometries) geometry.dispose();
-      haloGeometry.dispose();
+      for (const item of arts) item.dispose();
       material.dispose();
-      haloMaterial.dispose();
       layer.remove();
     }
   };

@@ -82,13 +82,30 @@ export const STAGES = {
   // Galaksinya sendiri sudah ada di scene sejak partikel siap: Awan Magellan kelihatan di tepi
   // tampilan Bima Sakti, Andromeda jadi bercak kecil
   localGroupView: { start: 10, end: 11.3 },
-  // Pendar lembut di tiap galaksi Grup Lokal, biar galaksi yang tinggal puluhan piksel tetap terbaca
-  localGroupHalo: { start: 10.2, end: 10.8 },
+  // Ilustrasi shader tiap galaksi Grup Lokal (galaxy/galaxyArt.js), biar galaksi yang tinggal puluhan
+  // piksel tetap terbaca sebagai galaksi
+  localGroupArt: { start: 10.2, end: 10.8 },
   // Label dan klik galaksi Grup Lokal. Cincin dan label "Kamu di sini" memudar lebih dulu, digantikan
   // label "Bima Sakti" (keduanya nunjuk ke tempat yang sama dan bakal tabrakan)
   localGroupLabels: { start: 10.4, end: 10.9 },
-  youAreHereRingOut: { start: 10.15, end: 10.5 }
+  youAreHereRingOut: { start: 10.15, end: 10.5 },
+  // Galaksi dibesarkan bertahap dari ukuran asli (Bima Sakti utuh) sampai GALAXY_ENLARGE di zoom maksimal,
+  // lihat galaxyEnlargeAt
+  localGroupEnlarge: { start: 10, end: 11.3 }
 };
+
+// Seberapa besar galaksi digambar di tahap Grup Lokal dibanding ukuran aslinya. Dengan ukuran asli
+// Andromeda cuma sekitar 30 px di desktop dan 10 px di HP (bingkainya sekitar 3 juta tahun cahaya),
+// jadi bentuknya gak terbaca. Semua galaksi (termasuk Bima Sakti) pakai faktor yang sama, biar
+// perbandingan ukurannya tetap benar, jaraknya tetap jarak asli. Dibatasi segini karena Awan Magellan
+// Besar cuma sekitar 1.600 unit dari pusat Bima Sakti: lebih besar lagi keduanya mulai menumpuk
+export const GALAXY_ENLARGE = 2.3;
+
+// Faktor pembesaran galaksi di zoomLevel tertentu: 1 sampai Bima Sakti utuh, naik halus ke GALAXY_ENLARGE
+export function galaxyEnlargeAt(zoomLevel) {
+  const { start, end } = STAGES.localGroupEnlarge;
+  return 1 + (GALAXY_ENLARGE - 1) * fadeBetween(zoomLevel, start, end);
+}
 
 // Partikel galaksi baru di-generate (di worker) waktu zoomLevel pertama kali lewat angka ini
 export const GALAXY_GENERATE_AT = 3;

@@ -785,6 +785,19 @@ body.is-touring .scale-note {
   user-select: none;
 }
 
+.scale-bar-note {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  color: var(--accent-warm);
+  opacity: 0.85;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
+}
+
+.scale-bar-note[hidden] {
+  display: none;
+}
+
 .scale-bar-label {
   font-size: 11px;
   letter-spacing: 0.08em;

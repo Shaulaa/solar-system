@@ -182,7 +182,8 @@ src/
 │   ├── galaxyShaders.js particle shaders
 │   ├── galaxyTexture.js NASA/JPL-Caltech illustration layer, uploaded tile by tile
 │   ├── nearbyStars.js   clickable nearby stars
-│   ├── localGroup.js    Local Group galaxies (particles from the worker, glow, labels, clicks)
+│   ├── localGroup.js    Local Group galaxies (particles from the worker, labels, clicks, enlargement)
+│   ├── galaxyArt.js     procedural shader illustration of each Local Group galaxy (disk and core)
 │   └── youAreHere.js    "you are here" marker at the Sun
 ├── workers/
 │   ├── galaxyWorker.js  generates the galaxy particles

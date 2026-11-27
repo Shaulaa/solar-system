@@ -47,9 +47,11 @@ export function createScaleBar() {
   const element = document.getElementById('scale-bar');
   const labelElement = element.querySelector('.scale-bar-label');
   const lineElement = element.querySelector('.scale-bar-line');
+  const noteElement = element.querySelector('.scale-bar-note');
 
   let visible = false;
   let shownLabel = '';
+  let shownNote = '';
   let shownWidth = -1;
 
   function setVisible(next) {
@@ -59,10 +61,16 @@ export function createScaleBar() {
   }
 
   return {
-    // auPerPixel = berapa AU satu piksel CSS di kedalaman titik pandang. show = boleh tampil
-    update({ auPerPixel, show }) {
+    // auPerPixel = berapa AU satu piksel CSS di kedalaman titik pandang. show = boleh tampil.
+    // note = keterangan kecil di bawah garis (kosong = gak ada), misal ukuran galaksi yang dibesarkan
+    update({ auPerPixel, show, note = '' }) {
       setVisible(show && Number.isFinite(auPerPixel) && auPerPixel > 0);
       if (!visible) return;
+      if (note !== shownNote) {
+        noteElement.textContent = note;
+        noteElement.hidden = !note;
+        shownNote = note;
+      }
       const maxWidth = NARROW_QUERY.matches ? MAX_WIDTH.narrow : MAX_WIDTH.wide;
       const scale = pickScale(maxWidth * auPerPixel);
       // DOM cuma disentuh kalau ada yang berubah (lebar dibulatkan ke 0,5 px)
