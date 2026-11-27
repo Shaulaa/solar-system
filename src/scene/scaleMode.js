@@ -30,6 +30,21 @@ export function overviewFit(aspect) {
   return Math.max(1, Math.pow(OVERVIEW_FIT_ASPECT / aspect, OVERVIEW_FIT_POWER));
 }
 
+// Sudut kamera overview di atas bidang orbit. Mundur karena layar sempit cuma menyelesaikan lebarnya:
+// dari sudut 25 derajat orbit Neptunus kelihatan sebagai elips setinggi 0,42x lebarnya, jadi di HP
+// portrait tata suryanya jadi pita tipis di tengah layar dengan langit kosong di atas dan bawahnya.
+// Makin sempit layarnya (fit makin besar) kamera makin naik, sampai 52 derajat (elips setinggi 0,79x
+// lebarnya). Jarak kameranya tetap sama, jadi zoomLevel dan batas zoom gak berubah. Layar lebar dan
+// laptop (fit di bawah 1,3) tetap 25 derajat seperti biasa
+const BASE_ELEVATION = Math.atan2(OVERVIEW_POSITION.y, OVERVIEW_POSITION.z);
+const PORTRAIT_ELEVATION = THREE.MathUtils.degToRad(52);
+const ELEVATION_FIT_RANGE = [1.3, 2.6];
+
+export function overviewElevation(fit = 1) {
+  const t = THREE.MathUtils.smoothstep(fit, ELEVATION_FIT_RANGE[0], ELEVATION_FIT_RANGE[1]);
+  return THREE.MathUtils.lerp(BASE_ELEVATION, PORTRAIT_ELEVATION, t);
+}
+
 // Pengaturan kamera dasar tiap mode (layar lebar). Pakai cameraSettings() biar ikut layar sempit
 const CAMERA_SETTINGS = {
   pretty: {
@@ -55,9 +70,12 @@ export function cameraSettings(mode, fit = 1) {
   };
 }
 
-// Posisi overview untuk nilai k mana pun, mundur sebanding dengan dunianya (dan lebar layar)
+// Posisi overview untuk nilai k mana pun, mundur sebanding dengan dunianya (dan lebar layar).
+// Arahnya dari overviewElevation, di layar lebar sama persis dengan OVERVIEW_POSITION
 export function overviewPositionAt(k, fit = 1, target = new THREE.Vector3()) {
-  return target.copy(OVERVIEW_POSITION).multiplyScalar(blendScale(1, OVERVIEW_GROWTH, k) * fit);
+  const distance = OVERVIEW_POSITION.length() * blendScale(1, OVERVIEW_GROWTH, k) * fit;
+  const elevation = overviewElevation(fit);
+  return target.set(0, Math.sin(elevation) * distance, Math.cos(elevation) * distance);
 }
 
 export function createScaleMode({ sun, planets, moons, asteroidBelt, orbits }) {
@@ -74,8 +92,9 @@ export function createScaleMode({ sun, planets, moons, asteroidBelt, orbits }) {
   }
 
   // Pindah mode. Kalau dipanggil di tengah transisi, tween lama ditimpa dan transisi
-  // lanjut dari k yang sekarang, jadi bisa bolak balik tanpa loncat
-  function set(nextMode, { onUpdate, onComplete } = {}) {
+  // lanjut dari k yang sekarang, jadi bisa bolak balik tanpa loncat.
+  // instant: langsung jadi tanpa transisi (memulihkan keadaan setelah ganti bahasa, lihat app/session.js)
+  function set(nextMode, { onUpdate, onComplete, instant = false } = {}) {
     mode = nextMode;
     tween?.kill();
     // Dengan prefers-reduced-motion durasinya 0 dan onComplete sudah jalan di dalam gsap.to(),
@@ -84,7 +103,7 @@ export function createScaleMode({ sun, planets, moons, asteroidBelt, orbits }) {
     let created = null;
     created = gsap.to(state, {
       k: nextMode === 'real' ? 1 : 0,
-      duration: motion(SCALE_TRANSITION_DURATION),
+      duration: instant ? 0 : motion(SCALE_TRANSITION_DURATION),
       ease: EASE,
       onUpdate: () => {
         apply();

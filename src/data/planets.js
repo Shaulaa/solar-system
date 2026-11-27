@@ -12,6 +12,9 @@
 // (AU ke juta km, hari ke tahun / jam), jadi gak perlu ditulis ulang sebagai teks.
 // subtitle cuma diisi kalau gak bisa diturunkan (planet otomatis "Planet ke N dari Matahari")
 // narration teks pendek yang muncul di bawah layar waktu tur otomatis (controls/tour.js)
+// info.bulanPer = bulan dan tahun jumlah bulan itu dihitung (YYYY-MM). Planet raksasa masih terus
+// dapat bulan baru dari pengamatan, jadi panel nampilin tanggalnya. Sumber: NASA Space Place
+// (Jupiter per April 2026, Saturnus per Juni 2026) dan pengumuman penemuan terakhir Uranus / Neptunus
 // aliases nama lain buat pencarian (misal ejaan Inggris), id juga otomatis ikut dicari
 
 import { localize } from '../i18n/index.js';
@@ -51,7 +54,7 @@ const PLANETS = [
     look: { type: 'cloudy', colors: ['#a8783a', '#d9b26f', '#f0d9a0'] },
     info: {
       diameter: '12.104 km',
-      suhu: '464°C rata rata',
+      suhu: '464°C rata-rata',
       bulan: 0,
       fakta: 'Satu hari di Venus lebih lama dari satu tahunnya.'
     }
@@ -74,13 +77,13 @@ const PLANETS = [
       normal: '2k_earth_normal_map.png',
       specular: '2k_earth_specular_map.png'
     },
-    narration: 'Rumah kita. Satu satunya tempat yang sejauh ini diketahui punya kehidupan.',
+    narration: 'Rumah kita. Satu-satunya tempat yang sejauh ini diketahui punya kehidupan.',
     look: { type: 'earth', colors: ['#0b2a5c', '#1d5fa8', '#3f7a3a', '#c9b47a', '#f2f4f7'] },
     info: {
       diameter: '12.742 km',
-      suhu: '15°C rata rata',
+      suhu: '15°C rata-rata',
       bulan: 1,
-      fakta: 'Satu satunya planet yang diketahui punya kehidupan.'
+      fakta: 'Satu-satunya planet yang diketahui punya kehidupan.'
     },
     // radius relatif ke Bumi (sama kayak planet, nanti lewat scaleRadius)
     // orbitRadius dalam kelipatan radius planet induk yang SUDAH di-scale (mode Enak Dilihat).
@@ -128,7 +131,7 @@ const PLANETS = [
     look: { type: 'rocky', colors: ['#5c2410', '#a8461f', '#d97a48'] },
     info: {
       diameter: '6.779 km',
-      suhu: '-65°C rata rata',
+      suhu: '-65°C rata-rata',
       bulan: 2,
       fakta: 'Punya gunung tertinggi di tata surya, Olympus Mons, tingginya hampir 3 kali Everest.'
     },
@@ -166,7 +169,7 @@ const PLANETS = [
         info: {
           diameter: '12,4 km',
           jarak: '23.463 km dari Mars',
-          suhu: '-40°C rata rata',
+          suhu: '-40°C rata-rata',
           fakta: 'Gravitasinya lemah banget, lompatan kecil di sana bisa bikin kamu melayang ke luar angkasa.'
         }
       }
@@ -188,6 +191,7 @@ const PLANETS = [
       diameter: '139.820 km',
       suhu: '-110°C di atas awan',
       bulan: 115,
+      bulanPer: '2026-04',
       fakta: 'Badai Bintik Merah Raksasa di Jupiter lebih gede dari Bumi dan udah ada ratusan tahun.'
     },
     // 4 bulan Galilean, ditemukan Galileo Galilei tahun 1610
@@ -205,7 +209,7 @@ const PLANETS = [
         info: {
           diameter: '3.643 km',
           jarak: '421.700 km dari Jupiter',
-          suhu: '-143°C rata rata',
+          suhu: '-143°C rata-rata',
           fakta: 'Benda paling aktif secara vulkanik di tata surya, punya lebih dari 400 gunung berapi aktif.'
         }
       },
@@ -222,7 +226,7 @@ const PLANETS = [
         info: {
           diameter: '3.122 km',
           jarak: '671.034 km dari Jupiter',
-          suhu: '-160°C rata rata',
+          suhu: '-160°C rata-rata',
           fakta: 'Di bawah kerak esnya diduga ada lautan air asin, isinya lebih banyak dari semua lautan di Bumi.'
         }
       },
@@ -240,7 +244,7 @@ const PLANETS = [
         info: {
           diameter: '5.268 km',
           jarak: '1.070.412 km dari Jupiter',
-          suhu: '-163°C rata rata',
+          suhu: '-163°C rata-rata',
           fakta: 'Bulan terbesar di tata surya, bahkan lebih besar dari planet Merkurius.'
         }
       },
@@ -258,7 +262,7 @@ const PLANETS = [
         info: {
           diameter: '4.821 km',
           jarak: '1.882.709 km dari Jupiter',
-          suhu: '-139°C rata rata',
+          suhu: '-139°C rata-rata',
           fakta: 'Permukaannya paling penuh kawah di tata surya dan hampir gak berubah selama miliaran tahun.'
         }
       }
@@ -282,6 +286,7 @@ const PLANETS = [
       diameter: '116.460 km',
       suhu: '-140°C di atas awan',
       bulan: 293,
+      bulanPer: '2026-06',
       fakta: 'Massa jenisnya lebih kecil dari air, jadi secara teori Saturnus bisa ngambang.'
     },
     // Bulan Saturnus mengorbit di bidang ekuatornya, sebidang dengan cincin (plane: 'equator',
@@ -301,7 +306,7 @@ const PLANETS = [
         info: {
           diameter: '504 km',
           jarak: '238.042 km dari Saturnus',
-          suhu: '-198°C rata rata',
+          suhu: '-198°C rata-rata',
           fakta: 'Semburan air dari kutub selatannya menyembur ke luar angkasa dan ikut membentuk salah satu cincin Saturnus.'
         }
       },
@@ -338,7 +343,7 @@ const PLANETS = [
           diameter: '5.150 km',
           jarak: '1.221.870 km dari Saturnus',
           suhu: '-179°C',
-          fakta: 'Satu satunya bulan dengan atmosfer tebal. Di permukaannya ada danau dan sungai metana cair.'
+          fakta: 'Satu-satunya bulan dengan atmosfer tebal. Di permukaannya ada danau dan sungai metana cair.'
         }
       }
     ]
@@ -380,6 +385,7 @@ const PLANETS = [
       diameter: '50.724 km',
       suhu: '-195°C',
       bulan: 29,
+      bulanPer: '2025-08',
       fakta: 'Muternya miring hampir 98 derajat, jadi kayak bola yang menggelinding di orbitnya.'
     },
     // Bulan Uranus mengorbit di bidang ekuatornya, jadi ikut miring 98 derajat bareng cincinnya.
@@ -435,7 +441,7 @@ const PLANETS = [
         info: {
           diameter: '1.523 km',
           jarak: '583.520 km dari Uranus',
-          suhu: '-198°C rata rata',
+          suhu: '-198°C rata-rata',
           fakta: 'Permukaannya penuh kawah, dan foto Voyager 2 menangkap gunung setinggi sekitar 11 km di tepinya.'
         }
       }
@@ -471,6 +477,7 @@ const PLANETS = [
       diameter: '49.244 km',
       suhu: '-200°C',
       bulan: 16,
+      bulanPer: '2024-02',
       fakta: 'Anginnya paling kencang di tata surya, bisa tembus 2.000 km per jam.'
     },
     moons: [
@@ -535,7 +542,7 @@ const DWARF_PLANETS = [
     look: { type: 'rocky', colors: ['#5e4c3e', '#b89d82', '#efe1cf'] },
     info: {
       diameter: '2.377 km',
-      suhu: '-229°C rata rata',
+      suhu: '-229°C rata-rata',
       bulan: 5,
       fakta:
         'Sejak 2006 statusnya diturunkan jadi planet katai, tapi Pluto tetap punya 5 bulan dan gunung es setinggi 3.500 meter.'
@@ -648,7 +655,7 @@ const COMETS = [
     look: { type: 'rocky', colors: ['#1c1a18', '#33302c', '#4d4842'] },
     info: {
       diameter: 'Inti 15 x 8 km',
-      fakta: 'Satu satunya komet periode pendek yang bisa dilihat mata telanjang dan kembali dalam satu umur manusia. Lewat lagi dekat Matahari sekitar Juli 2061.'
+      fakta: 'Satu-satunya komet periode pendek yang bisa dilihat mata telanjang dan kembali dalam satu umur manusia. Lewat lagi dekat Matahari sekitar Juli 2061.'
     }
   },
   {

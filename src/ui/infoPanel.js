@@ -1,5 +1,5 @@
 import gsap from 'gsap';
-import { START_DAYS_SINCE_J2000, simDate } from '../utils/time.js';
+import { START_DAYS_SINCE_J2000, simDate, simMoment, isoDate } from '../utils/time.js';
 import { moonPhase } from '../utils/moon.js';
 import { createKeplerOrbit } from '../utils/kepler.js';
 import { solarEclipses, lunarEclipses, nextEclipse, eclipseRegion } from '../data/eclipses.js';
@@ -7,6 +7,7 @@ import { t, LOCALE } from '../i18n/index.js';
 import { motion, shift } from '../utils/motion.js';
 import { bodyFigures, bodyColor } from './bodyFigure.js';
 import { planets as planetData } from '../data/planets.js';
+import { nextPerihelion } from '../data/events.js';
 
 // Panel info benda langit
 // Desktop muncul dari kanan, mobile (lebar < 768px) jadi bottom sheet dari bawah.
@@ -20,6 +21,8 @@ const SHEET_VIEW_SHIFT = 0.2;
 const PANEL_FADE = 56;
 // Jumlah baris data yang langsung kelihatan di HP
 const KEY_ROWS = 4;
+// Isi yang bergantung tanggal simulasi diperbarui paling sering segini (ms), lihat refresh()
+const REFRESH_MS = 250;
 // Bottom sheet ditutup kalau ditarik turun sejauh ini (px) atau dilepas dengan kecepatan segini (px/ms)
 const SWIPE_CLOSE_DISTANCE = 90;
 const SWIPE_CLOSE_VELOCITY = 0.6;
@@ -56,12 +59,17 @@ function formatLightYears(ly) {
 
 const monthYear = new Intl.DateTimeFormat(LOCALE, { month: 'long', year: 'numeric' });
 
-// Tanggal perihelion (titik terdekat ke Matahari) berikutnya dari hari ini, dari elemen orbit komet
-function nextPerihelion(data) {
-  const { perihelion, meanLongitude } = data.orbit;
-  const anomaly = meanLongitude - perihelion + (360 / data.orbitPeriod) * START_DAYS_SINCE_J2000;
-  const remaining = (360 - (((anomaly % 360) + 360) % 360)) / 360;
-  return monthYear.format(simDate(remaining * data.orbitPeriod));
+// Perihelion (titik terdekat ke Matahari) berikutnya setelah tanggal simulasi, dari elemen orbit komet
+function formatNextPerihelion(data, simDays) {
+  return monthYear.format(new Date(nextPerihelion(data, simMoment(simDays).getTime())));
+}
+
+// Jumlah bulan planet raksasa terus bertambah dari pengamatan, jadi ditulis bareng kapan angkanya
+// dihitung (info.bulanPer di data/planets.js, "YYYY-MM")
+function formatMoons(info) {
+  if (info.bulan == null || !info.bulanPer) return info.bulan;
+  const [year, month] = info.bulanPer.split('-').map(Number);
+  return t('unit.moonsAsOf', { count: number0.format(info.bulan), date: monthYear.format(new Date(year, month - 1, 1)) });
 }
 
 // Nama fase Bulan (phase.0 sampai phase.7 di kamus), delapan bagian siklus yang berpusat di tiap fase utama
@@ -75,9 +83,7 @@ const fullDate = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'long'
 
 // Gerhana berikutnya setelah tanggal simulasi, null di luar rentang daftar (data/eclipses.js)
 function formatNextEclipse(list, simDays) {
-  const date = simDate(simDays);
-  const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  const eclipse = nextEclipse(list, iso);
+  const eclipse = nextEclipse(list, isoDate(simDate(simDays)));
   if (!eclipse) return null;
   const text = `${fullDate.format(new Date(`${eclipse.date}T00:00:00Z`))}, ${t(`eclipse.${eclipse.type}`)}`;
   const region = eclipseRegion(eclipse);
@@ -143,7 +149,7 @@ function getStats(body, simDays) {
       [t('row.orbitPeriod'), formatYear(data.orbitPeriod)],
       [t('row.perihelion'), formatDistance(data.distance * (1 - eccentricity))],
       [t('row.aphelion'), formatDistance(data.distance * (1 + eccentricity))],
-      [t('row.nextPerihelion'), nextPerihelion(data)]
+      [t('row.nextPerihelion'), formatNextPerihelion(data, simDays)]
     ];
   }
   // Asteroid: jarak ke Bumi di tanggal simulasi dulu, karena itu yang menarik dari asteroid dekat Bumi
@@ -170,13 +176,45 @@ function getStats(body, simDays) {
     kind === 'moon' && [t('row.orbitTime'), formatYear(data.orbitPeriod)],
     data.rotationPeriod != null && [t(isPlanet ? 'row.day' : 'row.rotation'), formatDay(data.rotationPeriod)],
     [t('row.temperature'), info.suhu],
-    isPlanet && [t('row.moons'), info.bulan],
+    isPlanet && [t('row.moons'), formatMoons(info)],
     data.tilt != null && [t('row.tilt'), `${number2.format(data.tilt)}°`],
-    // Fase dan gerhana dihitung dari tanggal simulasi waktu panel dibuka
+    // Fase dan gerhana dihitung dari tanggal simulasi, ikut diperbarui selama waktu jalan (refresh)
     data.id === 'moon' && [t('row.moonPhase'), formatPhase(simDays)],
     eclipses && [t('row.nextSolarEclipse'), formatNextEclipse(solarEclipses, simDays)],
     eclipses && [t('row.nextLunarEclipse'), formatNextEclipse(lunarEclipses, simDays)]
   ].filter((row) => row && row[1] != null && row[1] !== '');
+}
+
+// Dua pohon DOM bentuknya sama: jenis node, nama elemen, dan jumlah anak di tiap tingkat
+function sameShape(a, b) {
+  if (a.childNodes.length !== b.childNodes.length) return false;
+  for (let i = 0; i < a.childNodes.length; i++) {
+    const x = a.childNodes[i];
+    const y = b.childNodes[i];
+    if (x.nodeType !== y.nodeType || x.nodeName !== y.nodeName) return false;
+    if (x.nodeType === Node.ELEMENT_NODE && !sameShape(x, y)) return false;
+  }
+  return true;
+}
+
+// Salin atribut dan teks yang beda dari pohon `from` ke pohon `to` (bentuknya sudah dicek sama)
+function copyChanges(to, from) {
+  for (let i = 0; i < to.childNodes.length; i++) {
+    const target = to.childNodes[i];
+    const source = from.childNodes[i];
+    if (target.nodeType === Node.TEXT_NODE) {
+      if (target.nodeValue !== source.nodeValue) target.nodeValue = source.nodeValue;
+      continue;
+    }
+    if (target.nodeType !== Node.ELEMENT_NODE) continue;
+    for (const { name, value } of source.attributes) {
+      if (target.getAttribute(name) !== value) target.setAttribute(name, value);
+    }
+    for (const { name } of [...target.attributes]) {
+      if (!source.hasAttribute(name)) target.removeAttribute(name);
+    }
+    copyChanges(target, source);
+  }
 }
 
 function getSubtitle(body) {
@@ -196,6 +234,9 @@ export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, onFlyby,
   const flybyButton = document.getElementById('info-flyby');
   let current = null;
   let expanded = false;
+  // Hari simulasi yang lagi ditampilkan dan kapan terakhir diperbarui, lihat refresh()
+  let shownDay = null;
+  let refreshedAt = 0;
   const prevButton = document.getElementById('info-prev');
   const nextButton = document.getElementById('info-next');
 
@@ -265,26 +306,19 @@ export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, onFlyby,
     button.title = t('panel.navTitle', { word, name: body.name, side: t(direction === 'prev' ? 'panel.left' : 'panel.right') });
   }
 
-  // Isi pakai textContent (bukan innerHTML) biar aman walaupun datanya nanti datang dari luar
-  function fill(body, { prev, next }) {
-    const simDays = getSimDays();
-    current = body;
-    title.textContent = body.name;
-    // Nama panjang (Awan Magellan Besar, Large Magellanic Cloud) diperkecil biar gak pecah jadi tiga baris
-    title.classList.toggle('is-long', body.name.length > 12);
-    subtitle.textContent = getSubtitle(body);
-    fact.textContent = body.data.info?.fakta ?? '';
-    // Warna aksen benda (pendar panel, keterangan, gambar), lihat ui/bodyFigure.js
-    panel.style.setProperty('--body-color', bodyColor(body));
+  const drawFigures = (body, simDays) => {
     const parent = body.parentId ? planetData.find((p) => p.id === body.parentId) : null;
-    const drawing = bodyFigures(body, simDays, { parent });
-    figures.hidden = !drawing;
-    figures.innerHTML = drawing ?? '';
+    return bodyFigures(body, simDays, { parent });
+  };
 
+  // Baris data, isinya pakai textContent (bukan innerHTML) biar aman walaupun datanya nanti datang dari luar.
+  // Di HP baris setelah KEY_ROWS disembunyikan (CSS .is-extra) sampai tombol Data lengkap ditekan
+  function buildStats(rows) {
     stats.replaceChildren(
-      ...getStats(body, simDays).map(([label, value]) => {
+      ...rows.map(([label, value], index) => {
         const row = document.createElement('div');
         row.className = 'info-row';
+        row.classList.toggle('is-extra', index >= KEY_ROWS);
         row.dataset.animate = '';
         const dt = document.createElement('dt');
         dt.textContent = label;
@@ -294,6 +328,56 @@ export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, onFlyby,
         return row;
       })
     );
+    moreButton.hidden = rows.length <= KEY_ROWS;
+  }
+
+  // Waktu jalan: barisnya sama, cuma nilainya yang diganti. Kalau ada baris yang muncul / hilang
+  // (gerhana berikutnya di luar rentang daftar) baru disusun ulang
+  function updateStats(rows) {
+    const shown = stats.children;
+    const sameRows = shown.length === rows.length && rows.every(([label], i) => shown[i].firstChild.textContent === label);
+    if (!sameRows) {
+      buildStats(rows);
+      return;
+    }
+    rows.forEach(([, value], i) => {
+      const dd = shown[i].lastChild;
+      const text = String(value);
+      if (dd.textContent !== text) dd.textContent = text;
+    });
+  }
+
+  // Gambar yang dirakit ulang (innerHTML) bakal mengulang animasi gambarnya (garis orbit digambar,
+  // titik muncul), jadi kalau bentuknya sama cuma atribut dan teks yang berubah yang disalin
+  function updateFigures(markup) {
+    if (!markup) {
+      figures.hidden = true;
+      figures.innerHTML = '';
+      return;
+    }
+    figures.hidden = false;
+    const template = document.createElement('template');
+    template.innerHTML = markup;
+    if (sameShape(figures, template.content)) copyChanges(figures, template.content);
+    else figures.innerHTML = markup;
+  }
+
+  function fill(body, { prev, next }) {
+    const simDays = getSimDays();
+    current = body;
+    shownDay = Math.floor(simDays);
+    title.textContent = body.name;
+    // Nama panjang (Awan Magellan Besar, Large Magellanic Cloud) diperkecil biar gak pecah jadi tiga baris
+    title.classList.toggle('is-long', body.name.length > 12);
+    subtitle.textContent = getSubtitle(body);
+    fact.textContent = body.data.info?.fakta ?? '';
+    // Warna aksen benda (pendar panel, keterangan, gambar), lihat ui/bodyFigure.js
+    panel.style.setProperty('--body-color', bodyColor(body));
+    const drawing = drawFigures(body, simDays);
+    figures.hidden = !drawing;
+    figures.innerHTML = drawing ?? '';
+
+    buildStats(getStats(body, simDays));
 
     flybyButton.hidden = !body.data.closeApproach;
     if (body.data.closeApproach) {
@@ -303,12 +387,24 @@ export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, onFlyby,
     setNavButton(prevButton, prev, 'prev');
     setNavButton(nextButton, next, 'next');
 
-    // Di HP baris data setelah KEY_ROWS disembunyikan (CSS .is-extra) sampai tombol Data lengkap ditekan.
-    // Tiap ganti benda kembali ringkas
-    const rows = stats.children;
-    for (let i = 0; i < rows.length; i++) rows[i].classList.toggle('is-extra', i >= KEY_ROWS);
-    moreButton.hidden = rows.length <= KEY_ROWS;
+    // Tiap ganti benda, data di HP kembali ringkas
     setExpanded(false);
+  }
+
+  // Dipanggil tiap frame (main.js). Fase Bulan, gerhana berikutnya, jarak ke Bumi, perihelion komet,
+  // dan posisi di peta ikut tanggal simulasi, jadi panel yang dibiarkan terbuka selama waktu jalan
+  // gak nampilin data basi. Cuma kalau harinya ganti, dan paling sering tiap REFRESH_MS.
+  // force: langsung, tanpa nunggu (tanggal baru saja dipilih)
+  function refresh({ force = false } = {}) {
+    if (!open || !current) return;
+    const simDays = getSimDays();
+    const day = Math.floor(simDays);
+    const now = performance.now();
+    if (!force && (day === shownDay || now - refreshedAt < REFRESH_MS)) return;
+    shownDay = day;
+    refreshedAt = now;
+    updateStats(getStats(current, simDays));
+    updateFigures(drawFigures(current, simDays));
   }
 
   function setExpanded(value) {
@@ -379,6 +475,7 @@ export function createInfoPanel({ onBack, onPrev, onNext, onSwipeClose, onFlyby,
   return {
     show,
     hide,
+    refresh,
     // Seberapa jauh framing kamera perlu digeser biar benda yang difokus gak ketutup panel.
     // HP: naik ke atas bottom sheet. Desktop: geser ke kiri setengah lebar panel (plus jarak tepinya),
     // jadi benda ada di tengah area yang masih kelihatan. Kerasa banget di laptop layar sempit

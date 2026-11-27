@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { upcomingEvents } from '../src/data/events.js';
+import { upcomingEvents, nextPerihelion } from '../src/data/events.js';
+import { comets } from '../src/data/planets.js';
 
 const DAY = 86_400_000;
 const at = (iso) => Date.parse(`${iso}T00:00:00Z`);
@@ -44,5 +45,61 @@ describe('kalender peristiwa', () => {
   it('dibatasi limit dan horizon', () => {
     expect(upcomingEvents(at('2026-01-01'), { limit: 5 })).toHaveLength(5);
     expect(upcomingEvents(at('2026-01-01'), { limit: 100, horizonYears: 0.01 })).toHaveLength(0);
+  });
+});
+
+// Periode sinodis (hari) dan simpangan yang wajar. Orbit Mars cukup lonjong, jadi jarak antar oposisinya
+// bervariasi sekitar dua bulan
+const SYNODIC = { mars: [780, 50], jupiter: [399, 6], saturn: [378, 4], uranus: [370, 3], neptune: [367.5, 3] };
+
+describe('kalender peristiwa jangka jauh', () => {
+  it('daftar yang dibuka dialog selalu urut, unik, dan setelah tanggal awal (tiap bulan 2026 sampai 2050)', () => {
+    for (let ms = at('2026-01-01'); ms < at('2050-01-01'); ms += 30 * DAY) {
+      const list = upcomingEvents(ms);
+      for (let i = 1; i < list.length; i++) expect(list[i].time).toBeGreaterThanOrEqual(list[i - 1].time);
+      expect(new Set(list.map((e) => e.id)).size).toBe(list.length);
+      expect(list.every((e) => e.time >= ms)).toBe(true);
+    }
+  });
+
+  it.each(Object.entries(SYNODIC))('oposisi %s berjarak satu periode sinodis selama 30 tahun', (id, [period, tolerance]) => {
+    const list = upcomingEvents(at('2026-01-01'), { limit: 5000, horizonYears: 30 }).filter(
+      (e) => e.type === 'opposition' && e.bodyId === id
+    );
+    expect(list.length).toBeGreaterThan(10);
+    for (let i = 1; i < list.length; i++) expect(Math.abs((list[i].time - list[i - 1].time) / DAY - period)).toBeLessThan(tolerance);
+  });
+
+  it('oposisi Jupiter 2032 jatuh di bulan Juli', () => {
+    const jupiter = upcomingEvents(at('2032-01-01'), { limit: 50, horizonYears: 1 }).filter(
+      (e) => e.type === 'opposition' && e.bodyId === 'jupiter'
+    );
+    expect(jupiter).toHaveLength(1);
+    expect(new Date(jupiter[0].time).getUTCMonth()).toBe(6);
+  });
+});
+
+describe('perihelion komet berikutnya', () => {
+  const halley = comets.find((c) => c.id === 'halley');
+  const encke = comets.find((c) => c.id === 'encke');
+
+  it('Halley balik sekitar Juli 2061, dihitung dari tanggal mana pun sebelumnya', () => {
+    for (const from of ['2026-11-28', '1990-01-01', '2061-01-01']) {
+      const time = nextPerihelion(halley, at(from));
+      expect(new Date(time).getUTCFullYear()).toBe(2061);
+    }
+  });
+
+  it('selalu setelah tanggal awal dan kurang dari satu periode sesudahnya', () => {
+    for (const from of ['2026-11-28', '2035-06-15', '2048-02-01']) {
+      const time = nextPerihelion(encke, at(from));
+      expect(time).toBeGreaterThanOrEqual(at(from));
+      expect(time - at(from)).toBeLessThanOrEqual(encke.orbitPeriod * DAY);
+    }
+  });
+
+  it('sama dengan perihelion di kalender peristiwa', () => {
+    const fromCalendar = upcomingEvents(at('2030-01-01'), { limit: 100 }).find((e) => e.type === 'perihelion' && e.bodyId === 'encke');
+    expect(nextPerihelion(encke, at('2030-01-01'))).toBe(fromCalendar.time);
   });
 });

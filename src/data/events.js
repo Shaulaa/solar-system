@@ -76,16 +76,25 @@ function oppositions(fromDays, toDays) {
   return events;
 }
 
-// Saat anomali rata rata = 0 (perihelion) di rentang ini. Elemen orbitnya sama dengan createKeplerOrbit
+// Perihelion (anomali rata rata = 0) pertama pada atau setelah fromDays, dalam hari sejak J2000.
+// Elemen orbitnya sama dengan createKeplerOrbit. Dipakai juga panel info komet
+function firstPerihelion(comet, fromDays) {
+  const { perihelion, meanLongitude } = comet.orbit;
+  const meanAnomalyAtJ2000 = (((meanLongitude - perihelion) % 360) + 360) % 360;
+  // Hari sejak J2000 waktu anomali rata rata 360 derajat (perihelion pertama setelah J2000)
+  const first = ((360 - meanAnomalyAtJ2000) / 360) * comet.orbitPeriod;
+  return first + Math.ceil((fromDays - first) / comet.orbitPeriod) * comet.orbitPeriod;
+}
+
+// Saat perihelion berikutnya (milidetik UTC) setelah saat fromMs. comet = data komet ({ orbit, orbitPeriod })
+export function nextPerihelion(comet, fromMs) {
+  return toMs(firstPerihelion(comet, days(fromMs)));
+}
+
 function perihelia(fromDays, toDays) {
   const events = [];
   for (const comet of comets) {
-    const { perihelion, meanLongitude } = comet.orbit;
-    const meanAnomalyAtJ2000 = (((meanLongitude - perihelion) % 360) + 360) % 360;
-    // Hari sejak J2000 waktu anomali rata rata 360 derajat (perihelion pertama setelah J2000)
-    const first = ((360 - meanAnomalyAtJ2000) / 360) * comet.orbitPeriod;
-    const k = Math.ceil((fromDays - first) / comet.orbitPeriod);
-    for (let d = first + k * comet.orbitPeriod; d <= toDays; d += comet.orbitPeriod) {
+    for (let d = firstPerihelion(comet, fromDays); d <= toDays; d += comet.orbitPeriod) {
       events.push({ type: 'perihelion', bodyId: comet.id, time: toMs(d) });
     }
   }

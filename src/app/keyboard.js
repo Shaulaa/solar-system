@@ -24,6 +24,7 @@ const LETTERS = {
   d: 'openDate',
   e: 'openEvents',
   t: 'toggleTour',
+  c: 'resetView',
   '?': 'openAbout'
 };
 

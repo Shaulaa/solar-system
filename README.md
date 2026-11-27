@@ -61,30 +61,31 @@ Production build
 ```bash
 npm run build     # output goes to dist/
 npm run preview   # serve the build locally
-npm test          # unit tests (Vitest): orbits, zoom levels, Moon and eclipses, sky coordinates, workers, translations
+npm test          # unit tests (Vitest): orbits, zoom levels, Moon and eclipses, sky calendar, dates, sky coordinates, workers, translations, language switch state
 ```
 
 ## Controls
 
 | Action | Mouse / touch | Keyboard |
 |---|---|---|
-| Select a body | Click / tap | |
+| Select a body | Click / tap the body or its name label | |
 | Orbit the camera | Drag / one finger | |
 | Zoom (all the way out to the galaxy) | Scroll / pinch | |
 | Pan | Right click + drag | |
 | Back to overview | Click empty space, Back button, swipe the panel down (mobile) | `Esc` |
-| Back to the solar system | "Back to the solar system" button (appears once you zoom out) | |
+| Back to the solar system | "Back to the solar system" button (appears once you zoom out) | `C` |
+| Reset the camera | "Reset camera" button (appears once you drag, zoom, or pan away from the starting view) | `C` |
 | Previous / next planet | Buttons under the info panel | `←` `→` |
 | Pause / resume | Play button | `Space` |
 | Time speed | Slider | `1` to `4` |
 | Run time backward / forward | Rewind button | `R` |
-| Jump to a date | Click the date | `D` |
-| Upcoming events | Click the calendar next to the date | `E` |
-| Orbit lines / labels | Toolbar buttons | `O` / `L` |
-| True scale | Toolbar button | `S` |
-| Guided tour | Toolbar button | `T` |
+| Jump to a date (time stops there) | Click the date, then type or pick a date, or press Today | `D` |
+| Upcoming events (time stops while the list is open) | Click the calendar next to the date | `E` |
+| Orbit lines / labels | Toolbar buttons (on phones: the ⋯ menu) | `O` / `L` |
+| True scale | Toolbar button (on phones: the ⋯ menu) | `S` |
+| Guided tour | Toolbar button (on phones: the ⋯ menu) | `T` |
 | Search | Toolbar button | `/` or `Ctrl+K` |
-| About | Toolbar button | `?` |
+| About | Toolbar button (on phones: the ⋯ menu) | `?` |
 | Skip intro | Click anywhere | Any key |
 
 ## Technical notes
@@ -95,7 +96,7 @@ The parts most worth reading in the code
 - **Earth's day and night** ([earth.frag](src/shaders/earth.frag)). One shader blends the day map and night map with a `smoothstep` across the terminator. Sun direction and normals are both in world space, so the terminator stays put when the camera rotates. Relief comes from a normal map (tangents are derived in the shader, no `computeTangents`), and a Blinn-Phong sun glint appears only on water via the specular map
 - **Kepler orbits** ([kepler.js](src/utils/kepler.js)). J2000 orbital elements are rotated into the ecliptic plane and Kepler's equation is solved with Newton's method. In the pretty scale only the distance from the Sun is compressed while the direction is kept, so orbital inclination and perihelion direction stay correct
 - **Two scale modes without new geometry** ([scaleMode.js](src/scene/scaleMode.js), [scale.js](src/utils/scale.js)). Geometry is created once, and the transition only changes scale and position using geometric interpolation (the two modes differ by up to 76x). The camera near plane is dynamic, because in true scale the camera can be just 0.1 units from Earth
-- **Precise picking** ([picker.js](src/controls/picker.js)). Raycasts hit the real meshes first, then enlarged hit areas. Hit areas are at least 9 px on screen so a planet smaller than a pixel is still clickable, and they are only used when the body looks small
+- **Precise picking** ([picker.js](src/controls/picker.js)). Raycasts hit the real meshes first, then a small hit area around each body, then the name labels, then a wide hit area (24 px across for a mouse, 44 px for a finger), so a planet smaller than a pixel is still easy to tap. Hit areas are only used when the body looks small, overlapping ones resolve to the body whose center is closest, and a moon still sitting on top of its planet on screen counts as the planet
 - **Overlap-free labels** ([labels.js](src/ui/labels.js)). Labels that collide on screen are hidden by priority, without reading DOM sizes every frame
 - **One zoom from AU to light years** ([zoomLevels.js](src/galaxy/zoomLevels.js), [galaxyScene.js](src/galaxy/galaxyScene.js)). Zoom is tracked as `zoomLevel`, the base-10 log of the camera distance in AU. Past the solar system's zoom limit the camera stops moving and a virtual offset keeps increasing instead, so the solar camera returns to exactly where it was when you zoom back in. The galaxy lives in its own scene (1 unit = 100 light years) rendered underneath the solar system, which avoids floating-point precision trouble across 10 orders of magnitude. Stage names and the back button use hysteresis so they don't flicker at the boundaries
 - **Galaxy particles off the main thread** ([galaxyWorker.js](src/workers/galaxyWorker.js), [galaxyParticles.js](src/galaxy/galaxyParticles.js)). Particles are generated only when you start zooming out, in a Web Worker, and handed back as transferable buffers (500,000 on desktop, 100,000 on mobile). Each component is warmed up on the GPU one per frame, shaders are precompiled one object per frame, and the NASA illustration underneath is decoded in a worker and uploaded in 512 px tiles. The result is no long tasks during the zoom on a 4x throttled mobile CPU
@@ -144,6 +145,7 @@ src/
 │   ├── keyboard.js      keyboard shortcuts
 │   ├── skySelection.js  clicking nearby stars and Local Group galaxies
 │   ├── deepLink.js      #id links that follow the selection
+│   ├── session.js       keeps date, speed, view, and camera across the language switch reload
 │   ├── stageBloom.js    bloom settings per zoom stage
 │   └── gpuWarmup.js     shader precompile and texture upload after the intro
 ├── style.css
@@ -168,9 +170,11 @@ src/
 │   ├── bodyFigure.js    info panel drawings: orbit map, true size, Moon phase, star temperature, accent color
 │   ├── search.js        search (ARIA combobox)
 │   ├── events.js        sky calendar dialog
+│   ├── dateDialog.js    "Jump to a date" dialog
+│   ├── dialog.js        close a <dialog> by clicking its backdrop
 │   ├── scaleBar.js      scale bar (AU, then light years)
 │   ├── stageName.js     stage title when the zoom enters a new stage
-│   └── zoomBack.js      "Back to the solar system" button
+│   └── zoomBack.js      "Back to the solar system" / "Reset camera" button
 ├── galaxy/
 │   ├── zoomLevels.js    zoomLevel, stage boundaries, unit conversions
 │   ├── galaxyScene.js   galaxy scene drawn under the solar system, framing per zoomLevel

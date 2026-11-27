@@ -36,7 +36,7 @@ const STARS = [
   { id: 'ross-154', name: 'Ross 154', ra: 18.83, dec: -23.836, distanceLy: 9.69, spectral: 'M3.5V', temperature: 3240, constellation: 'Sagittarius' },
   { id: 'ross-248', name: 'Ross 248', ra: 23.698, dec: 44.175, distanceLy: 10.3, spectral: 'M5.5V', temperature: 2800, constellation: 'Andromeda' },
   { id: 'epsilon-eridani', name: 'Epsilon Eridani', ra: 3.549, dec: -9.458, distanceLy: 10.47, spectral: 'K2V', temperature: 5080, constellation: 'Eridanus', labeled: true,
-    fakta: 'Bintang muda yang dikelilingi sabuk debu, gambaran kira kira seperti apa tata surya waktu masih muda.' },
+    fakta: 'Bintang muda yang dikelilingi sabuk debu, gambaran kira-kira seperti apa tata surya waktu masih muda.' },
   { id: 'lacaille-9352', name: 'Lacaille 9352', ra: 23.099, dec: -35.853, distanceLy: 10.72, spectral: 'M0.5V', temperature: 3690, constellation: 'Piscis Austrinus' },
   { id: 'ross-128', name: 'Ross 128', ra: 11.795, dec: 0.8, distanceLy: 11.01, spectral: 'M4V', temperature: 3190, constellation: 'Virgo' },
   { id: 'ez-aquarii', name: 'EZ Aquarii', ra: 22.644, dec: -15.3, distanceLy: 11.11, spectral: 'M5V', temperature: 3000, constellation: 'Aquarius' },

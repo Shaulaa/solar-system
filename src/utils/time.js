@@ -37,3 +37,25 @@ export function simMoment(simDays) {
 export function daysFromStart(year, month, date) {
   return Math.round((Date.UTC(year, month - 1, date) - Date.UTC(start.year, start.month, start.date)) / MS_PER_DAY);
 }
+
+// Rentang pemilih tanggal. Elemen orbit J2000 di data/planets.js cuma dimaksudkan buat sekitar
+// 1800 sampai 2050 (JPL), di luar 1900 sampai 2100 posisi planetnya makin meleset
+export const DATE_RANGE = { min: '1900-01-01', max: '2100-12-31' };
+
+// Tanggal kalender lokal sebagai "YYYY-MM-DD" (format nilai input type="date" dan atribut datetime)
+export function isoDate(date) {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${String(date.getFullYear()).padStart(4, '0')}-${month}-${day}`;
+}
+
+// "YYYY-MM-DD" ke { year, month (1 sampai 12), date }. null kalau formatnya salah, tanggalnya
+// gak ada di kalender (31 Februari), atau di luar DATE_RANGE
+export function parseIsoDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(typeof value === 'string' ? value : '');
+  if (!match || value < DATE_RANGE.min || value > DATE_RANGE.max) return null;
+  const [year, month, date] = match.slice(1).map(Number);
+  const check = new Date(Date.UTC(year, month - 1, date));
+  if (check.getUTCMonth() !== month - 1 || check.getUTCDate() !== date) return null;
+  return { year, month, date };
+}

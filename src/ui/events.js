@@ -1,13 +1,16 @@
 // Dialog kalender peristiwa (tombol di sebelah tanggal, atau tekan E)
 //
 // Daftarnya dihitung ulang tiap kali dibuka, mulai dari tanggal simulasi saat itu (data/events.js).
+// Selama dialog terbuka main.js menahan waktu (onOpen / onClose), kalau nggak simulasi terus jalan di
+// belakangnya dan daftar yang lagi dibaca langsung basi (di kecepatan tertinggi setahun per detik).
 // Memilih satu peristiwa dioper ke onSelect(event), main.js yang lompat waktu dan fokus kameranya.
 // Pakai <dialog> bawaan browser seperti dialog Tentang: fokus terkunci di dalam dan Esc langsung nutup
 
 import { upcomingEvents } from '../data/events.js';
-import { eclipseRegion } from '../data/eclipses.js';
+import { eclipseRegion, ECLIPSE_RANGE } from '../data/eclipses.js';
 import { t, LOCALE } from '../i18n/index.js';
 import { bodyColor } from './bodyFigure.js';
+import { closeOnBackdrop } from './dialog.js';
 
 const dayMonth = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short' });
 const dayMonthUtc = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -17,6 +20,8 @@ const kmFormat = new Intl.NumberFormat(LOCALE);
 const relative = new Intl.RelativeTimeFormat(LOCALE, { numeric: 'auto' });
 
 const MS_PER_DAY = 86_400_000;
+// Akhir daftar gerhana (data/eclipses.js). Daftar yang lewat dari sini dikasih catatan
+const ECLIPSES_UNTIL = Date.parse(`${ECLIPSE_RANGE.to}T23:59:59Z`);
 
 const capitalize = (text) => text.charAt(0).toLocaleUpperCase(LOCALE) + text.slice(1);
 
@@ -58,37 +63,39 @@ function describe(event, body) {
 //   getNow()      saat simulasi sekarang (Date)
 //   getBody(id)   benda dari registry (nama terjemahan dan warna aksen), boleh null
 //   onSelect      dipanggil dengan peristiwa yang dipilih, setelah dialog ditutup
-export function createEventsDialog({ getNow, getBody, onSelect }) {
+//   onOpen        sebelum dialog tampil
+//   onClose       setelah dialog tertutup, dengan true kalau tadi ada peristiwa yang dipilih
+export function createEventsDialog({ getNow, getBody, onSelect, onOpen, onClose }) {
   const dialog = document.getElementById('events');
   const lead = document.getElementById('events-lead');
   const list = document.getElementById('events-list');
+  const limit = document.getElementById('events-limit');
   let events = [];
+  let picked = false;
 
   dialog.querySelector('[data-action="close-events"]').addEventListener('click', () => dialog.close());
 
-  // Item dicek duluan: Enter / spasi di tombol juga memicu click, tapi koordinatnya (0, 0) dan
-  // bakal dikira klik di luar kotak. Klik backdrop selalu ber-target elemen dialog itu sendiri
   dialog.addEventListener('click', (event) => {
     const index = event.target.closest('[data-index]')?.dataset.index;
-    if (index !== undefined) {
-      const chosen = events[Number(index)];
-      dialog.close();
-      onSelect?.(chosen);
-      return;
-    }
-    if (event.target !== dialog) return;
-    const rect = dialog.getBoundingClientRect();
-    const inside =
-      event.clientX >= rect.left &&
-      event.clientX <= rect.right &&
-      event.clientY >= rect.top &&
-      event.clientY <= rect.bottom;
-    if (!inside) dialog.close();
+    if (index === undefined) return;
+    const chosen = events[Number(index)];
+    picked = true;
+    dialog.close();
+    onSelect?.(chosen);
   });
+  closeOnBackdrop(dialog);
+  dialog.addEventListener('close', () => onClose?.(picked));
 
   function render(now) {
     lead.textContent = t('events.lead', { date: fullDate.format(now) });
     events = upcomingEvents(now.getTime());
+
+    // Gerhana cuma tercatat sampai ECLIPSE_RANGE.to, oposisi dan komet dihitung tanpa batas.
+    // Daftar yang lewat dari situ (atau kosong karena tanggalnya sudah jauh) dikasih tahu biar
+    // gak dikira memang gak ada gerhana
+    const lastTime = events.length ? events[events.length - 1].time : now.getTime();
+    limit.hidden = lastTime <= ECLIPSES_UNTIL;
+    if (!limit.hidden) limit.textContent = t('events.eclipseLimit', { year: ECLIPSE_RANGE.to.slice(0, 4) });
 
     if (events.length === 0) {
       const empty = document.createElement('li');
@@ -157,6 +164,8 @@ export function createEventsDialog({ getNow, getBody, onSelect }) {
     },
     show() {
       if (dialog.open) return;
+      picked = false;
+      onOpen?.();
       render(getNow());
       dialog.showModal();
       list.scrollTop = 0;

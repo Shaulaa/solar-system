@@ -418,6 +418,96 @@ body.hud-ready .credit {
   font-variant-numeric: tabular-nums;
 }
 
+/* Menu lainnya cuma dipakai di HP (media query 640px), di layar lebar semua toggle sudah jadi ikon */
+.tb-more,
+.tb-menu {
+  display: none;
+}
+
+/* Satu baris menu: ikon, nama, dan sakelar kalau itu toggle. 44 px biar enak disentuh */
+.tb-menu-item {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 10px 0 12px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+.tb-menu-item .icon {
+  opacity: 0.6;
+}
+
+.tb-menu-item[aria-pressed='true'] .icon {
+  opacity: 1;
+  color: var(--accent-cool);
+}
+
+.tb-menu-item:active,
+.tb-menu-item:focus-visible {
+  background: rgba(255, 255, 255, 0.07);
+  outline: none;
+}
+
+.tb-menu-item:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Sakelar kecil: kenop geser ke kanan dan berwarna aksen waktu nyala (aria-pressed) */
+.tb-switch {
+  position: relative;
+  width: 30px;
+  height: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.tb-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(232, 232, 240, 0.55);
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.tb-menu-item[aria-pressed='true'] .tb-switch {
+  background: color-mix(in oklab, var(--accent-cool) 22%, transparent);
+  border-color: color-mix(in oklab, var(--accent-cool) 60%, transparent);
+}
+
+.tb-menu-item[aria-pressed='true'] .tb-switch::after {
+  transform: translateX(12px);
+  background: var(--accent-cool);
+}
+
+.tb-menu-sep {
+  height: 1px;
+  margin: 4px 10px;
+  background: var(--panel-border);
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
 .tb-date-wrap {
   position: relative;
   display: flex;
@@ -455,18 +545,6 @@ body.hud-ready .credit {
 
 .tb-date:disabled {
   cursor: not-allowed;
-}
-
-/* Input tanggal asli cuma jadi jangkar pemilih tanggal browser (showPicker), gak kelihatan
-   dan gak bisa diklik. Gak boleh display: none, kalau gitu showPicker gak jalan */
-.tb-date-input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  pointer-events: none;
-  color-scheme: dark;
 }
 
 .tb-sep {
@@ -800,6 +878,12 @@ body.is-touring .scale-note {
 .zoom-back:focus-visible {
   outline: 1px solid var(--accent-cool);
   outline-offset: 2px;
+}
+
+/* Catatan skala nyata juga nempel di atas toolbar. Kalau tombol Atur ulang kamera muncul bareng,
+   tombolnya naik di atas catatan, jangan numpuk */
+body:has(.scale-note:not([hidden])) .zoom-back {
+  bottom: 132px;
 }
 
 /* Selama tur tombolnya minggir, narasi tur punya tombol Hentikan sendiri */
@@ -1164,6 +1248,113 @@ body.is-touring .zoom-back {
     grid-column: 2;
     margin-top: -6px;
   }
+}
+
+/* Catatan di bawah daftar peristiwa kalau daftarnya lewat dari rentang data gerhana */
+.events-limit {
+  margin-top: 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  opacity: 0.55;
+}
+
+.events-limit[hidden] {
+  display: none;
+}
+
+/* Dialog Lompat ke tanggal. Kerangkanya (kotak, tombol tutup, judul) dari .about */
+.date-dialog {
+  width: min(380px, calc(100vw - 32px));
+}
+
+.date-form {
+  margin-top: 20px;
+}
+
+.date-label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-cool);
+}
+
+/* Input tanggal bawaan browser, cuma diserasikan: font, warna gelap (ikon kalender ikut color-scheme) */
+.date-input {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  color-scheme: dark;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+}
+
+.date-input:focus-visible {
+  outline: 1px solid var(--accent-cool);
+  outline-offset: 2px;
+}
+
+.date-input[aria-invalid='true'] {
+  border-color: color-mix(in oklab, var(--accent-warm) 70%, transparent);
+}
+
+.date-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  opacity: 0.6;
+}
+
+.date-hint.is-error {
+  color: var(--accent-warm);
+  opacity: 1;
+}
+
+.date-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.date-today,
+.date-go {
+  padding: 9px 18px;
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  background: none;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Lompat = aksi utama, garisnya pakai aksen biru seperti tombol Lihat saat lewat di panel info */
+.date-go {
+  border-color: color-mix(in oklab, var(--accent-cool) 60%, transparent);
+}
+
+.date-today:hover,
+.date-today:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.25);
+  outline: none;
+}
+
+.date-go:hover,
+.date-go:focus-visible {
+  background: color-mix(in oklab, var(--accent-cool) 16%, transparent);
+  outline: none;
 }
 
 /* Pegangan bottom sheet, cuma muncul di HP */
@@ -1585,78 +1776,168 @@ body.is-touring .zoom-back {
 
 /* Layar sempit: toolbar dibikin dua baris (kontrol waktu di atas, toggle di bawah) */
 @media (max-width: 640px) {
-  /* Toolbar ringkas: ikon saja dalam satu baris, tanggal jadi keterangan kecil di atasnya */
+  /* Toolbar HP: dua baris di grid, semua target sentuh 44 px (--tb-touch).
+       baris atas    waktu: mundur, tanggal (ketuk buat lompat), kalender peristiwa
+       baris bawah   putar / jeda, kecepatan plus labelnya, cari, menu lainnya
+     Toggle tampilan (orbit, label, skala), tur, dan Tentang pindah ke menu lainnya (#tb-menu).
+     Tinggi toolbar disimpan di --toolbar-top (jarak tepi atasnya dari bawah layar), dipakai elemen
+     yang nempel di atasnya: tombol kembali, catatan skala, penggaris */
+  :root {
+    --toolbar-top: calc(12px + 102px + env(safe-area-inset-bottom));
+  }
+
   .toolbar {
+    --tb-touch: 44px;
     left: 12px;
     right: 12px;
     bottom: calc(12px + env(safe-area-inset-bottom));
     transform: none;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 0;
-    padding: 4px 6px 6px;
-  }
-
-  .tb-date-wrap {
-    order: -1;
-    flex-basis: 100%;
-    justify-content: center;
-  }
-
-  .tb-date-wrap .tb-events {
-    width: 26px;
-    height: 20px;
-  }
-
-  .tb-date-wrap .tb-events .icon {
-    width: 14px;
-    height: 14px;
-  }
-
-  .tb-date {
-    min-width: 0;
-    height: auto;
-    padding: 2px 8px 0;
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    opacity: 0.5;
+    display: grid;
+    grid-template-columns: var(--tb-touch) minmax(0, 1fr) var(--tb-touch) var(--tb-touch);
+    grid-template-areas:
+      'reverse date date events'
+      'play speed search more';
+    gap: 2px 4px;
+    padding: 4px 6px;
   }
 
   .tb-btn {
-    width: 34px;
-    height: 34px;
+    width: var(--tb-touch);
+    height: var(--tb-touch);
+  }
+
+  .tb-btn .icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .toolbar [data-action='play'] {
+    grid-area: play;
+  }
+
+  .toolbar [data-action='reverse'] {
+    grid-area: reverse;
+  }
+
+  .toolbar [data-action='search'] {
+    grid-area: search;
+  }
+
+  .tb-more {
+    grid-area: more;
+  }
+
+  /* Tanggal dan tombol kalender jadi anggota grid langsung */
+  .tb-date-wrap {
+    display: contents;
+  }
+
+  .tb-date {
+    grid-area: date;
+    min-width: 0;
+    width: 100%;
+    height: var(--tb-touch);
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    opacity: 0.85;
+  }
+
+  .tb-events {
+    grid-area: events;
   }
 
   .tb-speed {
-    padding: 0 2px;
+    grid-area: speed;
+    gap: 8px;
+    min-width: 0;
+    padding: 0 4px 0 2px;
   }
 
+  /* Slider mengisi sisa baris (sekitar 90 sampai 150 px), jempolnya dibesarkan buat jari.
+     Tinggi input 44 px jadi area sentuhnya, track-nya tetap garis tipis */
   .tb-speed input {
-    width: 64px;
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    height: var(--tb-touch);
   }
 
-  .tb-speed-label,
+  .tb-speed input::-webkit-slider-thumb {
+    width: 18px;
+    height: 18px;
+    margin-top: -8.5px;
+  }
+
+  .tb-speed input::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+  }
+
+  .tb-speed-label {
+    min-width: 0;
+    font-size: 11px;
+    opacity: 0.8;
+  }
+
+  .toolbar .tb-btn[data-action='orbits'],
+  .toolbar .tb-btn[data-action='labels'],
+  .toolbar .tb-btn[data-action='scale'],
+  .toolbar .tb-btn[data-action='tour'],
+  .toolbar .tb-btn[data-action='about'],
   .tb-sep {
     display: none;
   }
 
-  .scale-note {
-    bottom: 104px;
+  .tb-more {
+    display: grid;
   }
 
-  /* Tombol kembali di atas toolbar dua baris, penggaris skala di atasnya lagi (kiri) */
+  .tb-more[aria-expanded='true'] {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  /* Menu lainnya, muncul di atas toolbar rata kanan. Lebih pekat dari toolbar: backdrop-filter di dalam
+     elemen yang juga pakai backdrop-filter gak ngeblur apa apa, jadi latarnya harus nutup sendiri */
+  .tb-menu:not([hidden]) {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 8px);
+    display: grid;
+    min-width: 236px;
+    padding: 6px;
+    background: rgba(10, 12, 20, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    animation: menu-in 0.18s cubic-bezier(0.215, 0.61, 0.355, 1);
+  }
+
+  .scale-note {
+    bottom: calc(var(--toolbar-top) + 10px);
+  }
+
+  /* Tombol kembali di atas toolbar, penggaris skala di atasnya lagi (kiri) */
   .zoom-back {
-    bottom: calc(96px + env(safe-area-inset-bottom));
+    bottom: calc(var(--toolbar-top) + 10px);
   }
 
   .scale-bar {
     left: 16px;
-    bottom: calc(144px + env(safe-area-inset-bottom));
+    bottom: calc(var(--toolbar-top) + 62px);
   }
 
-  /* Catatan skala nyata (dua baris di HP) mepet di atas toolbar, penggaris naik di atasnya */
-  body:has(.scale-note:not([hidden])) .scale-bar {
-    bottom: calc(170px + env(safe-area-inset-bottom));
+  /* Catatan skala nyata (dua sampai tiga baris di HP, tergantung bahasa) mepet di atas toolbar,
+     penggaris naik di atasnya. Begitu tombol Atur ulang kamera muncul (berarti kameranya sudah digeser,
+     catatannya sudah sempat terbaca) catatan minggir dan tombol yang ambil tempatnya: tinggi catatan
+     berubah ubah, jadi menumpuk keduanya dengan jarak tetap gak bisa diandalkan. display, bukan
+     opacity, karena opacity / visibility catatan diatur inline oleh GSAP (main.js setScaleNote) */
+  body:has(.zoom-back.is-visible) .scale-note {
+    display: none;
+  }
+
+  body:has(.scale-note:not([hidden])):not(:has(.zoom-back.is-visible)) .scale-bar {
+    bottom: calc(var(--toolbar-top) + 124px);
   }
 
   .stage-name-title {
@@ -1709,11 +1990,39 @@ body.is-touring .zoom-back {
     text-overflow: ellipsis;
   }
 
-  /* Layar sempit dibikin bersih: kredit dan ganti bahasa pindah ke dialog Tentang (tombol i di toolbar,
-     kreditnya lengkap di sana), petunjuk gestur hilang setelah sentuhan pertama */
-  .credit,
-  .lang-switch {
+  /* Layar sempit dibikin bersih: kredit pindah ke dialog Tentang (kreditnya lengkap di sana),
+     petunjuk gestur hilang setelah sentuhan pertama */
+  .credit {
     display: none;
+  }
+
+  /* Ganti bahasa tetap kelihatan, sebaris dengan judul (subjudul turun ke baris berikutnya). Kalau
+     judul dan tombolnya gak muat satu baris (judul Inggris), tombolnya turun ke bawah judul */
+  .hud {
+    right: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 14px;
+  }
+
+  .hud .sub {
+    order: 2;
+    flex-basis: 100%;
+  }
+
+  .lang-switch {
+    position: relative;
+    order: 1;
+    margin-top: 0;
+    opacity: 0.7;
+  }
+
+  /* Pil-nya cuma sekitar 22 px, area sentuhnya diperluas jadi 44 px tanpa mengubah tampilan */
+  .lang-switch::before {
+    content: '';
+    position: absolute;
+    inset: -11px -6px;
   }
 
   body.has-interacted .hud .sub {
@@ -1772,14 +2081,37 @@ body.is-touring .zoom-back {
     margin-top: 14px;
   }
 
-  /* Kembali jadi ikon tutup di pojok kanan atas */
+  /* Kembali jadi ikon tutup di pojok kanan atas. Sticky (bukan absolute) biar tetap di tempat waktu
+     isi sheet di-scroll. Margin negatif menariknya ke sebelah pegangan dan menghapus tempatnya di alur
+     isi: posisi alaminya 42 px dari atas sheet (padding 16 + pegangan 26), naik 36 jadi 6 px, dan judul
+     di bawahnya tetap mulai di 42 px. Lingkaran gelapnya biar ikon tetap kebaca di atas teks yang lewat */
   .info-panel .info-back {
-    position: absolute;
-    top: 14px;
-    right: 14px;
+    position: sticky;
+    top: 6px;
+    z-index: 2;
+    align-self: flex-end;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    margin: -36px -8px -8px 0;
+    padding: 0;
+    border-radius: 50%;
+    background: rgba(2, 3, 8, 0.82);
+  }
+
+  .info-panel .info-back .icon {
+    opacity: 0.75;
+  }
+
+  /* Data lengkap nempel di tepi bawah sheet selama posisi aslinya masih di bawah layar, jadi gak
+     pernah kepotong setengah waktu sheet baru dibuka. Gradasi di atasnya menutup baris yang lewat */
+  .info-panel .info-more {
+    position: sticky;
+    bottom: 0;
     z-index: 1;
-    padding: 8px;
-    opacity: 0.7;
+    padding: 18px 0 12px;
+    background: linear-gradient(to bottom, rgba(2, 3, 8, 0), rgba(2, 3, 8, 0.97) 40%);
   }
 
   .info-back span,
@@ -1837,9 +2169,12 @@ body.is-touring .zoom-back {
     padding: 9px 0;
   }
 
-  /* Bottom sheet nutupin bagian bawah layar, tombol kembali dan penggaris minggir dulu */
+  /* Bottom sheet nutupin bagian bawah layar, tombol kembali, penggaris, dan toolbar minggir dulu.
+     Toolbar-nya ketutup penuh, tapi teksnya masih tembus samar lewat latar sheet yang 97% pekat,
+     dan tombol yang ketutup jangan sampai bisa dicapai lewat Tab */
   body:has(.info-panel:not([hidden])) .zoom-back,
-  body:has(.info-panel:not([hidden])) .scale-bar {
+  body:has(.info-panel:not([hidden])) .scale-bar,
+  body:has(.info-panel:not([hidden])) .toolbar {
     opacity: 0;
     visibility: hidden;
   }
@@ -1856,17 +2191,5 @@ body.is-touring .zoom-back {
   .credit {
     right: 16px;
     font-size: 10px;
-  }
-}
-
-/* HP sempit (375 px ke bawah, iPhone SE / mini): 8 ikon 34 px plus slider gak muat satu baris
-   dan tombol Tentang jatuh ke baris ketiga. Ikon dan slider dirampingkan sedikit */
-@media (max-width: 380px) {
-  .tb-btn {
-    width: 32px;
-  }
-
-  .tb-speed input {
-    width: 52px;
   }
 }

@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
 // Label nama di atas tiap benda langit, pakai CSS2DRenderer (elemen HTML biasa yang
-// posisinya ngikutin titik 3D). Layer-nya pointer-events: none, jadi gak ngalangin drag kamera
+// posisinya ngikutin titik 3D). Layer-nya pointer-events: none, jadi gak ngalangin drag kamera.
+// Label tetap bisa diklik / diketuk: controls/picker.js mencocokkan titik klik dengan bodyAt()
 //
 // Aturan tampil
 //   normal         redup (opacity 0.4)
@@ -219,6 +220,22 @@ export function createLabels({ bodies }) {
     },
     render(scene, camera) {
       renderer.render(scene, camera);
+    },
+    // id benda yang labelnya (yang lagi tampil) ada di titik layar x, y (piksel CSS), atau null.
+    // padding melebarkan kotaknya ke segala arah. Dipakai controls/picker.js biar label bisa diklik /
+    // diketuk walaupun layernya pointer-events: none (drag kamera yang mulai di atas label tetap jalan).
+    // Kotaknya dari posisi hasil update() terakhir, gak baca DOM
+    bodyAt(x, y, padding = 0) {
+      for (const item of items) {
+        if (!item.visible) continue;
+        const half = item.width / 2 + padding;
+        const inside =
+          Math.abs(x - item.screen.x) <= half &&
+          y >= item.screen.y - item.height - padding &&
+          y <= item.screen.y + padding;
+        if (inside) return item.body.id;
+      }
+      return null;
     }
   };
 }

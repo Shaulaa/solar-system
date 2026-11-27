@@ -46,21 +46,27 @@ import { createScaleBar } from './ui/scaleBar.js';
 import { createStageName } from './ui/stageName.js';
 import { createZoomBack } from './ui/zoomBack.js';
 import { createEventsDialog } from './ui/events.js';
+import { createDateDialog } from './ui/dateDialog.js';
+import { closeOnBackdrop } from './ui/dialog.js';
 import { loadingManager } from './utils/loader.js';
 import { isMobile } from './utils/device.js';
 import { createPerformanceMonitor } from './utils/performance.js';
-import { daysFromStart, simDaysAt, simMoment } from './utils/time.js';
+import { daysFromStart, simDate, simDaysAt, simMoment } from './utils/time.js';
 import { motion, shift } from './utils/motion.js';
 import { warmUpGpu, GPU_WARMUP_DELAY } from './app/gpuWarmup.js';
 import { createStageBloom } from './app/stageBloom.js';
 import { createDeepLinks } from './app/deepLink.js';
 import { createSkySelection } from './app/skySelection.js';
 import { bindKeyboardShortcuts } from './app/keyboard.js';
+import { saveSession, takeSession } from './app/session.js';
 import { t, lang, switchLanguage, applyDocumentText, localize } from './i18n/index.js';
 import { entries as entriesEn } from './i18n/content.en.js';
 
 // Teks statis di index.html diganti sesuai bahasa (i18n/index.js) sebelum apa pun tampil
 applyDocumentText();
+
+// Keadaan dari sebelum ganti bahasa (app/session.js), null kalau halaman dibuka biasa
+const restored = takeSession();
 
 // Loading screen dipasang paling awal, sebelum modul scene mulai memuat tekstur
 const loadingScreen = createLoadingScreen({ manager: loadingManager });
@@ -211,7 +217,9 @@ const picker = createPicker({
   bodies,
   onSelect: focusBody,
   onEmptyClick: goOverview,
-  onHoverChange: (id) => labels.setHovered(id)
+  onHoverChange: (id) => labels.setHovered(id),
+  // Label nama juga bisa diklik / diketuk, sasaran paling gampang di HP (planet cuma beberapa piksel)
+  pickLabel: (x, y, padding) => labels.bodyAt(x, y, padding)
 });
 picker.setEnabled(false);
 
@@ -257,21 +265,26 @@ function stepFocus(direction) {
   focusBody(bodies.neighbor(rig.focusedId, direction).id);
 }
 
-// Simulasi waktu
+// Simulasi waktu. Setelah ganti bahasa, tanggal dan kecepatannya diteruskan dari sebelum reload
 const time = {
   daysPerSecond: SPEED_PRESETS[1].days,
-  simDays: 0,
-  paused: false
+  simDays: restored ? simDaysAt(restored.moment) : 0,
+  paused: restored?.paused ?? false
 };
 
 // State tampilan. Tombol toolbar dan shortcut keyboard dua duanya lewat fungsi di bawah ini,
 // jadi tampilan tombol selalu sinkron dengan state aslinya
-const view = { orbits: true, labels: true, speedIndex: 1, reversed: false };
+const view = {
+  orbits: restored?.orbits ?? true,
+  labels: restored?.labels ?? true,
+  speedIndex: THREE.MathUtils.clamp(restored?.speedIndex ?? 1, 0, SPEED_PRESETS.length - 1),
+  reversed: restored?.reversed ?? false
+};
 
 const toolbar = createToolbar({
   onTogglePlay: () => setPaused(!time.paused),
   onToggleReverse: () => setReversed(!view.reversed),
-  onDateChange: setDate,
+  onOpenDate: openDate,
   onSpeedChange: setSpeed,
   onToggleOrbits: () => setOrbitsVisible(!view.orbits),
   onToggleLabels: () => setLabelsVisible(!view.labels),
@@ -307,15 +320,60 @@ function setReversed(reversed) {
   setSpeed(view.speedIndex);
 }
 
-// Lompat ke tanggal tertentu (pemilih tanggal di toolbar). Posisi semua benda langsung dihitung ulang
-// dari tanggal itu, kamera yang lagi fokus ikut pindah bareng bendanya. Panel info yang terbuka
-// diisi ulang biar fase Bulan / gerhana berikutnya ikut tanggal baru
+// Dialog yang memilih waktu (Lompat ke tanggal, Peristiwa) menahan simulasi selama terbuka. Tanpa ini
+// waktu terus jalan di belakang dialog (sampai setahun per detik), jadi daftar peristiwa yang lagi dibaca
+// langsung basi dibanding tanggal di toolbar. Ditutup tanpa memilih = putar / jeda sebelumnya dikembalikan,
+// kalau tadi memilih tanggal / peristiwa simulasinya tetap dijeda di saat itu
+let heldPaused = null;
+
+function holdTime() {
+  if (heldPaused !== null) return;
+  heldPaused = time.paused;
+  setPaused(true);
+}
+
+function releaseTime(picked) {
+  if (heldPaused === null) return;
+  const wasPaused = heldPaused;
+  heldPaused = null;
+  if (!picked) setPaused(wasPaused);
+}
+
+// Lompat ke tanggal tertentu (dialog Lompat ke tanggal). Posisi semua benda langsung dihitung ulang
+// dari tanggal itu, kamera yang lagi fokus ikut pindah bareng bendanya
 function setDate(year, month, date) {
   if (!canInteract() || !toolbar.solarControlsEnabled) return;
   // Jam 12 siang, bukan tengah malam: rata rata paling dekat ke kejadian apa pun di tanggal itu
   time.simDays = daysFromStart(year, month, date) + 0.5;
-  const focused = rig.focusedId && bodies.get(rig.focusedId);
-  if (focused) infoPanel.show(focused, { prev: bodies.neighbor(focused.id, -1), next: bodies.neighbor(focused.id, 1) });
+  afterTimeJump();
+}
+
+// Tombol Hari ini: balik ke saat sekarang (termasuk jamnya), bukan cuma tanggalnya
+function goToNow() {
+  if (!canInteract() || !toolbar.solarControlsEnabled) return;
+  time.simDays = simDaysAt(Date.now());
+  afterTimeJump();
+}
+
+// Setelah lompat tanggal simulasi dijeda, biar tanggal yang dipilih beneran kelihatan. Dengan kecepatan
+// bawaan 10 hari per detik, tanpa jeda tanggalnya sudah lewat dua minggu dalam satu setengah detik.
+// Panel info yang terbuka langsung diperbarui (fase Bulan, gerhana berikutnya, posisi di peta)
+function afterTimeJump() {
+  setPaused(true);
+  infoPanel.refresh({ force: true });
+}
+
+const dateDialog = createDateDialog({
+  getDate: () => simDate(time.simDays),
+  onJump: ({ year, month, date }) => setDate(year, month, date),
+  onToday: goToNow,
+  onOpen: holdTime,
+  onClose: releaseTime
+});
+
+function openDate() {
+  if (phase !== 'ready' || !toolbar.solarControlsEnabled || about.open || eventsDialog.open) return;
+  dateDialog.show();
 }
 
 // Tombol Lihat saat lewat (Apophis, closeApproach di data/planets.js): waktu lompat ke saat terdekatnya
@@ -335,11 +393,13 @@ function flyBy(body) {
 const eventsDialog = createEventsDialog({
   getNow: () => simMoment(time.simDays),
   getBody: (id) => bodies.get(id) ?? null,
-  onSelect: jumpToEvent
+  onSelect: jumpToEvent,
+  onOpen: holdTime,
+  onClose: releaseTime
 });
 
 function openEvents() {
-  if (phase !== 'ready' || !toolbar.solarControlsEnabled || about.open) return;
+  if (phase !== 'ready' || !toolbar.solarControlsEnabled || about.open || dateDialog.open) return;
   eventsDialog.show();
 }
 
@@ -429,6 +489,22 @@ function toggleScaleMode({ onComplete } = {}) {
     }
   });
 
+  toolbar.setScaleMode(next);
+  setScaleNote(next === 'real');
+}
+
+// Pindah mode skala tanpa transisi, kamera langsung di posisi overview mode itu. Dipakai waktu
+// memulihkan keadaan setelah ganti bahasa (restoreSession), sebelum tautan langsung dibuka
+function applyScaleModeNow(next) {
+  const settings = cameraSettings(next, fit);
+  scaleMode.set(next, { instant: true });
+  rig.setOverview({ minDistance: settings.minDistance, position: overviewPositionAt(scaleMode.k, fit, overviewTarget) });
+  controls.minDistance = settings.minDistance;
+  controls.maxDistance = settings.maxDistance;
+  camera.far = settings.far;
+  camera.updateProjectionMatrix();
+  camera.position.copy(overviewTarget);
+  controls.target.set(0, 0, 0);
   toolbar.setScaleMode(next);
   setScaleNote(next === 'real');
 }
@@ -670,17 +746,48 @@ function returnToSolar() {
   rig.overview({ duration: RETURN_SECONDS, force: true });
 }
 
+// Tombol Kembali ke Tata Surya / Atur ulang kamera (ui/zoomBack.js), juga shortcut C.
+// Dari zoom keluar balik ke tata surya, dari fokus balik ke overview, dan dari overview yang sudah
+// di-drag / di-zoom / di-pan terbang balik ke posisi awal
+function resetView() {
+  if (!canInteract()) return;
+  if (virtualZoom.active) {
+    returnToSolar();
+    return;
+  }
+  tour.stop();
+  if (rig.focusedId) goOverview();
+  else rig.overview({ force: true });
+}
+
+// Kamera overview dianggap sudah digeser kalau posisi kamera plus titik tujuannya menjauh segini
+// dari posisi awal (relatif ke jarak overview). Batas munculnya lebih besar dari batas hilangnya,
+// biar tombolnya gak kedip waktu kamera direm damping di sekitar batas
+const CAMERA_MOVED_SHOW = 0.06;
+const CAMERA_MOVED_HIDE = 0.02;
+let cameraMoved = false;
+
+function updateCameraMoved() {
+  if (phase !== 'ready' || rig.mode !== 'overview' || virtualZoom.active || scaleMode.transitioning) {
+    cameraMoved = false;
+    return;
+  }
+  const drift = (camera.position.distanceTo(overviewTarget) + controls.target.length()) / overviewTarget.length();
+  cameraMoved = drift > (cameraMoved ? CAMERA_MOVED_HIDE : CAMERA_MOVED_SHOW);
+}
+
 // UI pendukung zoom keluar (G6): penggaris skala, nama tahap, tombol kembali
 const scaleBar = createScaleBar();
 const stageName = createStageName();
-const zoomBack = createZoomBack({ onClick: returnToSolar });
+const zoomBack = createZoomBack({ onClick: resetView });
 // Kontrol khusus tata surya di toolbar dimatikan di atas SOLAR_CONTROLS_UNTIL (pakai hysteresis)
 const solarControlsTracker = createStageTracker([SOLAR_CONTROLS_UNTIL], 0.1);
 
 function updateZoomUi() {
   const ready = phase === 'ready';
   stageName.update(zoomLevel, { enabled: ready });
-  zoomBack.update(zoomLevel, { enabled: ready });
+  updateCameraMoved();
+  zoomBack.update(zoomLevel, { enabled: ready, cameraMoved });
 
   const solarControls = solarControlsTracker.update(zoomLevel) === 0;
   if (solarControls !== toolbar.solarControlsEnabled) {
@@ -706,9 +813,41 @@ function openSearch() {
   search.open();
 }
 
-// Ganti bahasa (tombol di bawah judul). Halaman dimuat ulang, hash tautan ikut terbawa
+// Ganti bahasa (tombol di bawah judul). Halaman dimuat ulang, hash tautan ikut terbawa, dan keadaan
+// simulasinya disimpan dulu biar diteruskan setelah reload (app/session.js, restoreSession)
+function saveSessionState() {
+  // Posisi kamera cuma berarti di tampilan overview. Benda yang difokus sudah ikut lewat hash
+  const freeCamera = rig.mode === 'overview' && !rig.focusedId;
+  saveSession({
+    moment: simMoment(time.simDays).getTime(),
+    paused: heldPaused ?? time.paused,
+    speedIndex: view.speedIndex,
+    reversed: view.reversed,
+    orbits: view.orbits,
+    labels: view.labels,
+    scale: scaleMode.mode,
+    camera: freeCamera ? { position: camera.position.toArray(), target: controls.target.toArray() } : null,
+    zoomOffset: freeCamera ? virtualZoom.offset : 0
+  });
+}
+
 for (const button of document.querySelectorAll('#lang-switch, [data-action="switch-language"]')) {
-  button.addEventListener('click', () => switchLanguage(lang === 'en' ? 'id' : 'en'));
+  button.addEventListener('click', () => {
+    saveSessionState();
+    switchLanguage(lang === 'en' ? 'id' : 'en');
+  });
+}
+
+// Dipanggil sekali setelah intro (yang dilewati) selesai, sebelum tautan langsung dibuka: mode skala
+// dulu, baru posisi kamera dan zoom keluar kalau gak ada tautan yang bakal mindahin kameranya
+function restoreSession(saved) {
+  if (saved.scale === 'real') applyScaleModeNow('real');
+  if (deepLinks.requested) return;
+  if (saved.camera) {
+    camera.position.fromArray(saved.camera.position);
+    controls.target.fromArray(saved.camera.target);
+  }
+  if (saved.zoomOffset > 0) virtualZoom.setOffset(Math.min(saved.zoomOffset, MAX_ZOOM_LEVEL - solarZoomLevel()));
 }
 
 // Petunjuk gestur di bawah judul cukup dibaca sekali: di layar sempit hilang setelah sentuhan pertama
@@ -717,22 +856,10 @@ canvas.addEventListener('pointerdown', () => document.body.classList.add('has-in
 // Halaman Tentang (dialog bawaan browser)
 const about = document.getElementById('about');
 about.querySelector('[data-action="close-about"]').addEventListener('click', () => about.close());
-// Klik di backdrop (di luar kotak dialog) = tutup
-// Klik backdrop selalu ber-target dialog itu sendiri. Tombol di dalam yang ditekan lewat keyboard
-// juga memicu click dengan koordinat (0, 0), jangan sampai itu dikira klik di luar
-about.addEventListener('click', (event) => {
-  if (event.target !== about) return;
-  const rect = about.getBoundingClientRect();
-  const inside =
-    event.clientX >= rect.left &&
-    event.clientX <= rect.right &&
-    event.clientY >= rect.top &&
-    event.clientY <= rect.bottom;
-  if (!inside) about.close();
-});
+closeOnBackdrop(about);
 
 function openAbout() {
-  if (phase !== 'ready' || about.open) return;
+  if (phase !== 'ready' || about.open || eventsDialog.open || dateDialog.open) return;
   about.showModal();
 }
 
@@ -753,12 +880,13 @@ loadingScreen.ready.then(() => {
     onReveal: revealHud,
     onDone: () => {
       phase = 'ready';
+      if (restored) restoreSession(restored);
       deepLinks.open();
       setTimeout(() => warmUpGpu({ renderer, composer, galaxy, sun, scene, camera }), GPU_WARMUP_DELAY);
     }
   });
-  // Dibuka lewat tautan langsung: intro dilewati biar langsung terbang ke tujuannya
-  if (deepLinks.requested) rig.skipIntro();
+  // Dibuka lewat tautan langsung atau baru ganti bahasa: intro dilewati, langsung ke tujuannya
+  if (deepLinks.requested || restored) rig.skipIntro();
 });
 
 // Klik di mana aja selama intro = skip. Pakai capture biar jalan duluan sebelum handler lain
@@ -773,7 +901,7 @@ window.addEventListener(
 // Shortcut keyboard (app/keyboard.js). Kontrol khusus tata surya mati di skala galaksi, shortcut-nya juga
 bindKeyboardShortcuts({
   getPhase: () => phase,
-  isDialogOpen: () => about.open || eventsDialog.open,
+  isDialogOpen: () => about.open || eventsDialog.open || dateDialog.open,
   speedCount: SPEED_PRESETS.length,
   actions: {
     skipIntro: () => rig.skipIntro(),
@@ -790,9 +918,10 @@ bindKeyboardShortcuts({
     toggleLabels: () => setLabelsVisible(!view.labels),
     toggleScale: () => toggleScaleMode(),
     toggleReverse: () => setReversed(!view.reversed),
-    openDate: () => toolbar.solarControlsEnabled && toolbar.openDatePicker(),
+    openDate,
     openEvents,
-    toggleTour
+    toggleTour,
+    resetView
   }
 });
 
@@ -994,6 +1123,7 @@ function tick(now) {
   picker.update();
   labels.update(camera);
   toolbar.setDays(time.simDays);
+  infoPanel.refresh();
 
   composer.render();
   labels.render(scene, camera);
@@ -1004,10 +1134,11 @@ function tick(now) {
   frameId = requestAnimationFrame(tick);
 }
 
-setPaused(false);
+setPaused(time.paused);
+toolbar.setReversed(view.reversed);
 setSpeed(view.speedIndex);
-setOrbitsVisible(true);
-setLabelsVisible(true);
+setOrbitsVisible(view.orbits);
+setLabelsVisible(view.labels);
 toolbar.setScaleMode(scaleMode.mode);
 toolbar.setTourActive(false);
 frameId = requestAnimationFrame(tick);
