@@ -1160,76 +1160,193 @@ body.is-touring .zoom-back {
   padding-bottom: 16px;
 }
 
+/* Warna tanda gerhana. Matahari pakai aksen hangat, Bulan saat gerhana total merah tembaga,
+   bayangan (piringan Bulan di depan Matahari, umbra Bumi) hampir sewarna latar dialog */
+.events {
+  --eclipse-sun: var(--accent-warm);
+  --eclipse-blood: #c4694d;
+  --eclipse-shadow: #06070c;
+  --earth: #5b8fd6;
+}
+
 .events-list {
-  margin: 18px -12px 0;
+  margin: 20px -12px 0;
   list-style: none;
 }
 
+/* Pemisah tahun: angkanya lalu garis rambut sampai tepi kanan */
 .events-year {
-  margin: 16px 12px 4px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 12px 4px;
   font-size: 11px;
   letter-spacing: 0.18em;
   color: var(--accent-cool);
   font-variant-numeric: tabular-nums;
 }
 
+.events-year::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--panel-border);
+}
+
 .events-year:first-child {
   margin-top: 0;
 }
 
-/* Satu baris: tanggal, judul dan keterangan, lalu "dalam 3 bulan". Garis tipis di kiri pakai warna
-   aksen bendanya (sama dengan panel info), biar Mars, Bulan, dan komet kebedain sekilas */
+/* Satu baris: blok tanggal, tanda peristiwa, judul dengan "dalam 3 bulan" di kanannya, lalu keterangan
+   selebar sisa baris (gak dipersempit kolom waktu relatif). Warna benda (Mars, Bulan, komet) cuma di
+   tandanya, gak jadi garis di pinggir baris */
 .events-item {
   display: grid;
-  grid-template-columns: 64px 1fr auto;
-  align-items: baseline;
-  gap: 12px;
+  grid-template-columns: 40px 20px minmax(0, 1fr) auto;
+  grid-template-areas:
+    'date mark title when'
+    'date mark note note';
+  align-items: start;
+  gap: 3px 14px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 11px 12px;
   font: inherit;
   color: var(--text);
   text-align: left;
   background: none;
   border: 0;
-  border-radius: 10px;
-  box-shadow: inset 2px 0 0 color-mix(in oklab, var(--body-color, var(--text)) 70%, transparent);
+  border-radius: 12px;
   cursor: pointer;
   transition: background-color 0.2s ease;
 }
 
-.events-item:hover,
+@media (hover: hover) {
+  .events-item:hover {
+    background: rgba(255, 255, 255, 0.045);
+  }
+}
+
+.events-item:active {
+  background: rgba(255, 255, 255, 0.07);
+}
+
 .events-item:focus-visible {
-  background: color-mix(in oklab, var(--body-color, var(--text)) 12%, transparent);
-  outline: none;
+  background: rgba(255, 255, 255, 0.045);
+  outline: 1px solid var(--accent-cool);
+  outline-offset: -1px;
 }
 
+/* Blok tanggal ala kalender: angka hari besar dan tipis, nama bulan kecil di bawahnya */
 .events-date {
-  font-size: 13px;
-  letter-spacing: 0.04em;
-  font-variant-numeric: tabular-nums;
-  color: var(--body-color, var(--text));
-}
-
-.events-text {
+  grid-area: date;
   display: grid;
-  gap: 2px;
-  min-width: 0;
+  justify-items: center;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
-.events-title {
-  font-size: 14px;
+.events-day {
+  font-size: 22px;
+  font-weight: 300;
 }
 
-.events-note {
-  font-size: 12px;
-  line-height: 1.45;
+.events-month {
+  margin-top: 5px;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
   opacity: 0.6;
 }
 
+/* Tanda peristiwa (ui/events.js MARKS), sejajar dengan baris judul */
+.events-mark {
+  grid-area: mark;
+  width: 20px;
+  height: 20px;
+  color: var(--body-color, var(--text));
+}
+
+.events-mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.events-mark .mark-body {
+  fill: currentColor;
+}
+
+.events-mark .mark-sun {
+  fill: var(--eclipse-sun);
+}
+
+.events-mark .mark-corona {
+  fill: none;
+  stroke: var(--eclipse-sun);
+  stroke-width: 1.4;
+}
+
+/* Korona luar gerhana total, pembeda dari cincin gerhana cincin */
+.events-mark .mark-corona.is-outer {
+  stroke-width: 1.2;
+  opacity: 0.35;
+}
+
+.events-mark .mark-shadow {
+  fill: var(--eclipse-shadow);
+}
+
+.events-mark .mark-blood {
+  fill: var(--eclipse-blood);
+}
+
+.events-mark .mark-umbra {
+  fill: var(--eclipse-shadow);
+  opacity: 0.82;
+}
+
+.events-mark .mark-tail {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  opacity: 0.6;
+}
+
+.events-mark .mark-tail.is-faint {
+  opacity: 0.3;
+}
+
+.events-mark .mark-earth {
+  fill: var(--earth);
+}
+
+/* Judul dan keterangan jadi anggota grid baris langsung, biar bisa ditaruh di area masing masing */
+.events-text {
+  display: contents;
+}
+
+.events-title {
+  grid-area: title;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.events-note {
+  grid-area: note;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  opacity: 0.62;
+}
+
 .events-relative {
+  grid-area: when;
+  padding-top: 3px;
   font-size: 11px;
   white-space: nowrap;
-  opacity: 0.5;
+  opacity: 0.6;
 }
 
 .events-empty {
@@ -1239,14 +1356,18 @@ body.is-touring .zoom-back {
 }
 
 @media (max-width: 640px) {
+  /* Di HP "dalam 3 bulan" pindah ke bawah keterangan, kolom kanannya kesempitan */
   .events-item {
-    grid-template-columns: 52px 1fr;
+    grid-template-columns: 36px 20px minmax(0, 1fr);
+    grid-template-areas:
+      'date mark title'
+      'date mark note'
+      'date mark when';
+    column-gap: 12px;
   }
 
-  /* Di HP "dalam 3 bulan" pindah ke bawah keterangan, kolom kanannya kesempitan */
   .events-relative {
-    grid-column: 2;
-    margin-top: -6px;
+    padding-top: 4px;
   }
 }
 
