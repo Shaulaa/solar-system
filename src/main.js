@@ -93,7 +93,8 @@ const scene = new THREE.Scene();
 const galaxy = createGalaxyScene({
   renderer,
   pixelRatio: renderer.getPixelRatio(),
-  anisotropy: Math.min(renderer.capabilities.getMaxAnisotropy(), 8)
+  anisotropy: Math.min(renderer.capabilities.getMaxAnisotropy(), 8),
+  mobile: isMobile
 });
 
 // Seberapa jauh kamera overview mundur di layar sempit (1 di layar lebar), lihat scene/scaleMode.js

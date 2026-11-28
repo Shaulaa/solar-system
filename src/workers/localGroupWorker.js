@@ -7,8 +7,7 @@
 // Galaksi ini cuma dilihat dari jauh (ribuan sampai puluhan ribu unit), jadi bentuknya disederhanakan:
 //   spiral      bulge, lengan spiral logaritmik, piringan yang memadat di sekitar lengan, halo tipis
 //   irregular   batang yang bergeser dari pusat, gumpalan bintang muda, nebula, piringan bergelombang
-//   dwarfs      semua galaksi kerdil dalam satu komponen, masing masing bola bintang tua yang redup.
-//               Posisinya sudah di koordinat grup `galaxy`, bukan koordinat lokal
+// Galaksi kerdil gak dibuat di sini, mereka digambar galaxy/dwarfGalaxies.js
 //
 // Kecerahan total tiap galaksi diatur lewat ukuran partikel. Dari jauh cahaya satu partikel
 // sebanding ukuran kuadratnya (energi dijaga di shader, lihat galaxy/galaxyShaders.js), jadi semua
@@ -16,7 +15,7 @@
 // referenceFlux = angka yang sama untuk Bima Sakti, jadi perbandingan kecerahannya benar
 // berapa pun jumlah partikelnya
 //
-// Pesan masuk   { galaxies: [{ id, shape }], dwarfs: [{ position, radius }], scale, seed, referenceFlux }
+// Pesan masuk   { galaxies: [{ id, shape }], scale, seed, referenceFlux }
 // Pesan keluar  { components: [{ name, count, position, color, size, seed }], ms }
 
 import { createParticleKit, createBuffers } from './particleKit.js';
@@ -33,13 +32,6 @@ const COLORS = {
 
 // Jumlah partikel minimal per galaksi, biar galaksi kecil di HP gak jadi beberapa titik doang
 const MIN_COUNT = 1500;
-// Galaksi kerdil: partikel per unit jari jari (dibatasi), dan kecerahannya. Kecerahan asli galaksi
-// kerdil cuma sepersepuluh ribu sampai seperseribu Bima Sakti, terlalu redup buat kelihatan. Di sini
-// kecerahan permukaannya sama dengan Awan Magellan Besar, dan minimal DWARF_MIN_LUMINOSITY
-// biar yang kecil tetap jadi bercak samar
-const DWARF_PARTICLES = { perRadius: 10, min: 80, max: 500 };
-const DWARF_SURFACE = 8e-6;
-const DWARF_MIN_LUMINOSITY = 0.004;
 
 function makeSpiral(kit, b, shape) {
   const { random, gaussian, write, sizeOf, pickStar, sampleRadius } = kit;
@@ -176,28 +168,7 @@ function normalizeFlux(b, target, from = 0, to = b.count) {
   for (let i = from; i < to; i++) b.size[i] *= factor;
 }
 
-// Galaksi kerdil: bola gaussian bintang tua, sedikit pepat, di posisinya masing masing
-function makeDwarfs(kit, dwarfs, scale, referenceFlux) {
-  const { gaussian, write, sizeOf, pickStar } = kit;
-  const { perRadius, min, max } = DWARF_PARTICLES;
-  const counts = dwarfs.map((d) => Math.max(min, Math.round(Math.min(d.radius * perRadius, max) * scale)));
-  const b = createBuffers('dwarfs', counts.reduce((sum, n) => sum + n, 0));
-  let i = 0;
-  dwarfs.forEach((dwarf, index) => {
-    const from = i;
-    const sigma = dwarf.radius * 0.45;
-    const [x, y, z] = dwarf.position;
-    for (const end = i + counts[index]; i < end; i++) {
-      const star = pickStar('old');
-      write(b, i, x + gaussian() * sigma, y + gaussian() * sigma * 0.7, z + gaussian() * sigma, star.color, star.brightness, sizeOf(1));
-    }
-    const luminosity = Math.max(DWARF_SURFACE * dwarf.radius * dwarf.radius, DWARF_MIN_LUMINOSITY);
-    normalizeFlux(b, luminosity * referenceFlux, from, i);
-  });
-  return b;
-}
-
-export function generateLocalGroup({ galaxies, dwarfs = [], scale = 1, seed = 1, referenceFlux }) {
+export function generateLocalGroup({ galaxies, scale = 1, seed = 1, referenceFlux }) {
   const kit = createParticleKit(seed);
   const components = galaxies.map(({ id, shape }) => {
     const count = Math.max(MIN_COUNT, Math.round(shape.count * scale));
@@ -208,7 +179,6 @@ export function generateLocalGroup({ galaxies, dwarfs = [], scale = 1, seed = 1,
     normalizeFlux(buffers, shape.luminosity * referenceFlux);
     return buffers;
   });
-  if (dwarfs.length > 0) components.push(makeDwarfs(kit, dwarfs, scale, referenceFlux));
   return components;
 }
 

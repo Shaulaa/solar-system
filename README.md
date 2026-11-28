@@ -17,7 +17,7 @@ Built with Three.js, GSAP, and Vite, no UI framework.
 - **Camera flights.** Click a planet, the Sun, or a moon and the camera flies there and locks onto the moving body without jitter, while you can still orbit around it freely
 - **Info panel.** Diameter, distance, length of year and day, temperature, number of moons, axial tilt, and a fun fact. Everything comes from a single data file
 - **Zoom out to the Milky Way and beyond.** Keep scrolling or pinching past Neptune and the view continues in one smooth zoom, from a few AU to about 3 million light years. The galaxy is built from up to 500,000 particles (bulge, bar, spiral arms, disk, halo, gas, and dust) generated in a Web Worker, with the Sun at its real position about 26,000 light years from the center and a "you are here" marker
-- **Local Group.** The last stage shows the Milky Way with its neighbors: Andromeda, Triangulum, and the Large and Small Magellanic Clouds, built from particles in a second Web Worker and placed at their real sky positions and distances, with Andromeda's disk tilted as we actually see it. 25 real dwarf galaxies (M32, M110, NGC 6822, Leo I, and more) show as faint smudges, so the two clusters around the Milky Way and Andromeda are visible. Every large galaxy is clickable and opens an info panel
+- **Local Group.** The last stage shows the Milky Way with its neighbors: Andromeda, Triangulum, and the Large and Small Magellanic Clouds, built from particles in a second Web Worker and placed at their real sky positions and distances, with Andromeda's disk tilted as we actually see it. 84 real dwarf galaxies from McConnachie's Nearby Galaxies catalogue (M32, M110, NGC 6822, Fornax, Leo I, and more) show as soft smudges sized and lit from their catalogue radius and magnitude, yellowish for old spheroidal dwarfs and bluish for gas-rich irregulars, so the two crowds around the Milky Way and Andromeda are visible. Behind them, a backdrop of distant galaxies thickens along the supergalactic plane and toward the Virgo Cluster, the way the nearby universe is actually arranged (the positions themselves are procedural). Every large galaxy is clickable and opens an info panel
 - **Nearest stars.** Between the solar system and the galaxy there is a stage with the 33 nearest and best-known stars (Alpha Centauri, Sirius, Vega, Arcturus, and more), colored by spectral class. Each one is clickable and opens an info panel
 - **Scale bar and stage names.** A scale bar with round numbers that switches from AU to light years, a short title whenever you enter a new stage (solar system, nearest stars, Milky Way), and a "Back to the solar system" button that zooms you home
 - **Guided tour.** From the Sun out to Neptune, then out to the whole galaxy and the Local Group, with a short narration at each stop. It stops on its own as soon as you take over the camera
@@ -151,7 +151,8 @@ src/
 ├── style.css
 ├── data/planets.js      planet, moon, and tour narration data (single source for all content)
 ├── data/nearbyStars.js  nearby star data (position, distance, spectral class, fun fact)
-├── data/localGroup.js   Local Group galaxies and dwarf galaxies (sky position, distance, disk tilt, shape)
+├── data/localGroup.js   Local Group galaxies (sky position, distance, disk tilt, shape)
+├── data/dwarfGalaxies.js  84 dwarf galaxies of the Local Group (McConnachie 2012 catalogue, January 2021 version)
 ├── data/eclipses.js     solar and lunar eclipses 2026 to 2030
 ├── data/events.js       sky calendar: oppositions, eclipses, comet perihelia, flybys
 ├── i18n/
@@ -184,6 +185,8 @@ src/
 │   ├── nearbyStars.js   clickable nearby stars
 │   ├── localGroup.js    Local Group galaxies (particles from the worker, labels, clicks, enlargement)
 │   ├── galaxyArt.js     procedural shader illustration of each Local Group galaxy (disk and core)
+│   ├── dwarfGalaxies.js dwarf galaxies as soft points, faded inside the enlarged Milky Way and Andromeda
+│   ├── deepField.js     backdrop of distant galaxies at infinity, denser along the supergalactic plane and toward Virgo
 │   └── youAreHere.js    "you are here" marker at the Sun
 ├── workers/
 │   ├── galaxyWorker.js  generates the galaxy particles

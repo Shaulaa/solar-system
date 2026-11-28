@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { localGroup, localGroupPosition, dwarfGalaxies } from '../data/localGroup.js';
+import { localGroup, localGroupPosition } from '../data/localGroup.js';
 import { createParticleMaterial, setMaterialPixelRatio } from './galaxyShaders.js';
 import { createGalaxyArt } from './galaxyArt.js';
+import { createDwarfGalaxies } from './dwarfGalaxies.js';
 import { GALAXY_ENLARGE } from './zoomLevels.js';
 
 // Galaksi Grup Lokal di galaxyScene (data di data/localGroup.js)
@@ -24,8 +25,8 @@ import { GALAXY_ENLARGE } from './zoomLevels.js';
 //   ilustrasi  gambar shader per galaksi (galaxy/galaxyArt.js), muncul bareng tahap Grup Lokal
 //   besar      anchor tiap galaksi dibesarkan bertahap (enlarge, dari galaxyEnlargeAt di zoomLevels.js).
 //              Partikel dan ilustrasinya ikut, posisinya tetap. Bima Sakti dibesarkan galaxyScene.js
-//   kerdil     25 galaksi kerdil asli sebagai bercak redup (partikel dari worker yang sama, satu komponen),
-//              ukurannya tetap
+//   kerdil     84 galaksi kerdil asli dari katalog McConnachie sebagai bercak lembut (galaxy/dwarfGalaxies.js),
+//              muncul bareng ilustrasi
 
 // Kecerahan dasar dan fluks acuan Bima Sakti: jumlah (kecerahan x ukuran^2) semua partikel bintang
 // Bima Sakti, dinormalkan ke 500 ribu partikel dengan kecerahan BRIGHTNESS galaxyParticles.js.
@@ -100,7 +101,18 @@ export function createLocalGroup({ pixelRatio = 1, sunLocal }) {
   // Bingkai dihitung dengan ukuran galaksi di zoom maksimal (GALAXY_ENLARGE), biar yang di tepi gak kepotong
   const frame = boundingSphere(members.map(({ position, radius }) => ({ position, radius: radius * GALAXY_ENLARGE })));
   const frameRadius = frame.radius * FRAME_MARGIN;
-  const dwarfs = dwarfGalaxies(sunLocal.toArray());
+
+  // Satelit di dalam Bima Sakti atau Andromeda yang sudah dibesarkan dipudarkan (lihat dwarfGalaxies.js)
+  const andromeda = members.find((m) => m.data.id === 'andromeda');
+  const dwarfs = createDwarfGalaxies({
+    sunLocal: sunLocal.toArray(),
+    pixelRatio,
+    hosts: [
+      { position: [0, 0, 0], radius: MILKY_WAY_RADIUS },
+      { position: andromeda.position.toArray(), radius: andromeda.radius }
+    ]
+  });
+  group.add(dwarfs.points);
 
   // Ilustrasi tiap galaksi yang punya shape (Bima Sakti sudah punya ilustrasi NASA di galaxyScene).
   // Seed beda per galaksi biar pola noise lengan dan gumpalannya gak kembar
@@ -122,8 +134,7 @@ export function createLocalGroup({ pixelRatio = 1, sunLocal }) {
 
   function build(components) {
     for (const c of components) {
-      // Galaksi kerdil posisinya sudah di koordinat grup, sisanya di koordinat lokal galaksinya
-      const parent = c.name === 'dwarfs' ? group : members.find((m) => m.data.id === c.name)?.anchor;
+      const parent = members.find((m) => m.data.id === c.name)?.anchor;
       if (!parent) continue;
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(c.position, 3));
@@ -160,7 +171,6 @@ export function createLocalGroup({ pixelRatio = 1, sunLocal }) {
     };
     worker.postMessage({
       galaxies: localGroup.filter((g) => g.shape).map((g) => ({ id: g.id, shape: g.shape })),
-      dwarfs: dwarfs.map(({ position, radius }) => ({ position, radius })),
       scale,
       seed: SEED,
       referenceFlux: REFERENCE_FLUX
@@ -248,6 +258,7 @@ export function createLocalGroup({ pixelRatio = 1, sunLocal }) {
     },
     setPixelRatio(ratio) {
       setMaterialPixelRatio(material, ratio);
+      dwarfs.setPixelRatio(ratio);
     },
     setLabelEnabled(value) {
       labelEnabled = value;
@@ -299,6 +310,7 @@ export function createLocalGroup({ pixelRatio = 1, sunLocal }) {
       const pixelScale = viewportHeight / (2 * tanHalfFov);
       material.uniforms.uOpacity.value = alpha;
       material.uniforms.uPixelScale.value = pixelScale;
+      dwarfs.update({ opacity: art, enlarge, pixelScale });
 
       if (labelOpacity <= 0) {
         if (!layer.hidden) layer.hidden = true;
@@ -322,6 +334,7 @@ export function createLocalGroup({ pixelRatio = 1, sunLocal }) {
     dispose() {
       for (const geometry of geometries) geometry.dispose();
       for (const item of arts) item.dispose();
+      dwarfs.dispose();
       material.dispose();
       layer.remove();
     }

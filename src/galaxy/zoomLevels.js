@@ -85,6 +85,9 @@ export const STAGES = {
   // Ilustrasi shader tiap galaksi Grup Lokal (galaxy/galaxyArt.js), biar galaksi yang tinggal puluhan
   // piksel tetap terbaca sebagai galaksi
   localGroupArt: { start: 10.2, end: 10.8 },
+  // Latar galaksi jauh (galaxy/deepField.js), mengisi ruang kosong di sekitar Grup Lokal. Mulai setelah
+  // tampilan Bima Sakti utuh biar tahap galaksi tetap seperti sebelumnya
+  deepField: { start: 10.1, end: 10.9 },
   // Label dan klik galaksi Grup Lokal. Cincin dan label "Kamu di sini" memudar lebih dulu, digantikan
   // label "Bima Sakti" (keduanya nunjuk ke tempat yang sama dan bakal tabrakan)
   localGroupLabels: { start: 10.4, end: 10.9 },

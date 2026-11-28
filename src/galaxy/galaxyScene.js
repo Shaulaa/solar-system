@@ -16,6 +16,7 @@ import { createGalaxyTexture } from './galaxyTexture.js';
 import { createYouAreHere } from './youAreHere.js';
 import { createNearbyStars } from './nearbyStars.js';
 import { createLocalGroup } from './localGroup.js';
+import { createDeepField } from './deepField.js';
 import { OVERVIEW_POSITION } from '../controls/cameraRig.js';
 import { alignRoll, blendRoll, stabilizeRoll } from './viewRoll.js';
 
@@ -70,13 +71,16 @@ const CENTER_FOLLOW = 0.25;
 // normal (paling besar sekitar 3 derajat per frame), jadi cuma menahan sentakan di dekat kutub galaksi
 const ROLL_RATE = (270 * Math.PI) / 180;
 
+// Jumlah galaksi latar (galaxy/deepField.js). Di HP layarnya lebih kecil, segini sudah sama padatnya
+const DEEP_FIELD_COUNT = { desktop: 6000, mobile: 3000 };
+
 // Kecerahan partikel galaksi selama tahap bintang tetangga (lihat STAGES.neighborhoodOut)
 const NEIGHBORHOOD_DIM = 0.3;
 
 // Kotak cadangan levelForStar (NDC), dipakai kalau kotak yang diminta gak ketemu
 const LOOSE_STAR_BOX = { xMin: -0.88, xMax: 0.88, yMin: -0.85, yMax: 0.85 };
 
-export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) {
+export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1, mobile = false }) {
   const youAreHere = createYouAreHere({ pixelRatio });
   const scene = new THREE.Scene();
   scene.name = 'galaxy-scene';
@@ -130,6 +134,9 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
   // grup `galaxy` gak pernah bergerak
   const localGroup = createLocalGroup({ pixelRatio, sunLocal });
   galaxy.add(localGroup.group);
+  // Latar galaksi jauh di tak hingga, ikut orientasi grup `galaxy` biar bidang supergalaksinya di arah yang benar
+  const deepField = createDeepField({ count: mobile ? DEEP_FIELD_COUNT.mobile : DEEP_FIELD_COUNT.desktop, pixelRatio });
+  galaxy.add(deepField.points);
   galaxy.updateMatrixWorld(true);
   const localGroupCenter = galaxy.localToWorld(localGroup.center.clone());
   // Sumbu panjang Grup Lokal (dari pusat Bima Sakti ke pusat bingkainya, kira kira ke arah Triangulum)
@@ -204,6 +211,7 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
       youAreHere.setPixelRatio(ratio);
       nearbyStars.setPixelRatio(ratio);
       localGroup.setPixelRatio(ratio);
+      deepField.setPixelRatio(ratio);
     },
     get viewDistance() {
       return viewDistance;
@@ -389,6 +397,7 @@ export function createGalaxyScene({ renderer, pixelRatio = 1, anisotropy = 1 }) 
         width: cssWidth,
         height: cssHeight
       });
+      deepField.setOpacity(fadeBetween(zoomLevel, STAGES.deepField.start, STAGES.deepField.end));
       // Galaksi Grup Lokal muncul bareng partikel Bima Sakti (Awan Magellan dan Andromeda kelihatan juga
       // dari dalam piringan), label dan kliknya baru di tahap Grup Lokal
       localGroup.update({

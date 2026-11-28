@@ -26,31 +26,15 @@ describe('partikel Bima Sakti', () => {
 
 describe('partikel Grup Lokal', () => {
   const galaxies = localGroup.filter((g) => g.shape).map((g) => ({ id: g.id, shape: g.shape }));
-  const dwarfs = [
-    { position: [100, 0, 0], radius: 10 },
-    { position: [0, 200, 0], radius: 50 }
-  ];
 
   it('kecerahan total tiap galaksi = luminosity x fluks acuan, berapa pun jumlah partikelnya', () => {
     for (const scale of [1, 0.35]) {
-      const components = generateLocalGroup({ galaxies, dwarfs, scale, seed: 7, referenceFlux: 1000 });
+      const components = generateLocalGroup({ galaxies, scale, seed: 7, referenceFlux: 1000 });
       for (const galaxy of galaxies) {
         const component = components.find((c) => c.name === galaxy.id);
         expect(fluxOf(component) / (galaxy.shape.luminosity * 1000)).toBeCloseTo(1, 4);
       }
     }
-  });
-
-  it('galaksi kerdil digabung jadi satu komponen di posisinya masing masing', () => {
-    const components = generateLocalGroup({ galaxies: [], dwarfs, scale: 1, seed: 7, referenceFlux: 1000 });
-    expect(components).toHaveLength(1);
-    const [c] = components;
-    expect(c.name).toBe('dwarfs');
-    let nearFirst = 0;
-    for (let i = 0; i < c.count; i++) {
-      if (Math.hypot(c.position[i * 3] - 100, c.position[i * 3 + 1], c.position[i * 3 + 2]) < 20) nearFirst++;
-    }
-    expect(nearFirst).toBeGreaterThan(50);
   });
 
   it('gak ada NaN dan jumlah minimal tetap terpenuhi di skala HP', () => {
